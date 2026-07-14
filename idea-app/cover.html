@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  @page { size: 794px 1123px; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 794px; height: 1123px; background: #f4f4f3; font-family: 'Noto Sans SC', sans-serif; }
+  .cover { position: relative; width: 794px; height: 1123px; overflow: hidden; }
+  .layer-1 { position: absolute; inset: 0; overflow: hidden; z-index: 1; }
+  .grid-bg { position: absolute; inset: 0; opacity: 0.03; background-image: linear-gradient(#28718a 1px, transparent 1px), linear-gradient(90deg, #28718a 1px, transparent 1px); background-size: 50px 50px; }
+  .layer-2 { position: absolute; inset: 0; z-index: 2; }
+  .vline { position: absolute; left: 95px; top: 112px; width: 6px; height: 899px; background: #28718a; }
+  .hline { position: absolute; left: 125px; top: 760px; width: 320px; height: 1px; background: #28718a; opacity: 0.4; }
+  .layer-3 { position: absolute; inset: 0; z-index: 3; padding-left: 125px; padding-right: 80px; }
+  .kicker { position: absolute; top: 168px; left: 125px; font-size: 16px; letter-spacing: 4px; opacity: 0.6; color: #171614; text-transform: uppercase; }
+  .hero { position: absolute; top: 280px; left: 125px; font-size: 68px; font-weight: 900; line-height: 1.15; color: #171614; letter-spacing: -1px; }
+  .hero2 { position: absolute; top: 420px; left: 125px; font-size: 22px; font-weight: 400; color: #7d7b73; line-height: 1.5; max-width: 480px; }
+  .summary { position: absolute; top: 520px; left: 125px; font-size: 17px; line-height: 1.7; color: #171614; opacity: 0.85; max-width: 460px; }
+  .meta { position: absolute; top: 790px; left: 125px; font-size: 18px; line-height: 2; color: #171614; }
+  .meta .label { color: #7d7b73; font-size: 14px; }
+  .footer { position: absolute; bottom: 60px; left: 125px; right: 80px; display: flex; justify-content: space-between; font-size: 14px; color: #7d7b73; opacity: 0.6; }
+</style>
+</head>
+<body>
+<div class="cover">
+  <div class="layer-1"><div class="grid-bg"></div></div>
+  <div class="layer-2">
+    <div class="vline"></div>
+    <div class="hline"></div>
+  </div>
+  <div class="layer-3">
+    <div class="kicker">PRODUCT REQUIREMENTS DOCUMENT &nbsp;&nbsp;V1.0</div>
+    <div class="hero">点子<br>创意激发社区</div>
+    <div class="hero2">Product Requirements Document V1.0</div>
+    <div class="summary">一款基于创造力科学研究的手机App，通过圆圈随机分布的视觉语言、点子谱系图（GitHub for Ideas）的开源精神、以及碰撞与演化的AI辅助机制，激发用户产生新思路与新点子。面向"创意、分享和实现"的开源创意社群。</div>
+    <div class="meta">
+      <span class="label">技术栈</span><br>Flutter + FastAPI + PostgreSQL + DeepSeek
+    </div>
+    <div class="footer">
+      <span>2026.07.08</span>
+      <span>SAM / DIANZI APP PRD</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

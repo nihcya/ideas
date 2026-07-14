@@ -1,0 +1,86 @@
+name: Deploy Flutter Web
+
+on:
+  push:
+    tags:
+      - 'v*'    # 仅 tag 触发自动部署
+  workflow_dispatch:    # 支持手动触发
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: idea-app/frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze code
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build Web
+        run: |
+          flutter build web --release \
+            --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }} \
+            --base-href "/"
+
+      - name: Package build
+        run: |
+          cd build/web
+          tar -czf ../../dianzi-web-build.tar.gz .
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dianzi-web-build
+          path: idea-app/frontend/dianzi-web-build.tar.gz
+          retention-days: 7
+
+      - name: Upload to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "idea-app/frontend/dianzi-web-build.tar.gz"
+          target: "/tmp"
+
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            VERSION="v$(date +%Y%m%d%H%M%S)"
+            RELEASE_DIR="/opt/dianzi/frontend/releases/$VERSION"
+            mkdir -p $RELEASE_DIR
+            tar -xzf /tmp/idea-app/frontend/dianzi-web-build.tar.gz -C $RELEASE_DIR
+            ln -sfn $RELEASE_DIR /opt/dianzi/frontend/web
+            chmod -R 755 /opt/dianzi/frontend/
+            find /opt/dianzi/frontend/ -type f -exec chmod 644 {} \;
+            sudo nginx -s reload
+            rm -rf /tmp/idea-app
+            # 清理旧版本（保留最近 5 个）
+            ls -dt /opt/dianzi/frontend/releases/*/ | tail -n +6 | xargs rm -rf
+            # 健康检查
+            if curl -sf http://127.0.0.1/ | grep -q "flutter_bootstrap.js"; then
+              echo "✅ Deploy success: $VERSION"
+            else
+              echo "❌ Deploy failed"
+              exit 1
+            fi

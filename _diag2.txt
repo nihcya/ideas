@@ -1,0 +1,7 @@
+start
+pydantic: 2.10.4
+pydantic_core: 2.27.2
+BaseModel ok
+fastapi: 0.115.6
+all imports ok
+SUCCESS

@@ -1,0 +1,9 @@
+pydantic: 2.10.4
+pydantic_core: 2.27.2
+BaseModel ok
+fastapi: 0.115.6
+ERROR: No module named 'aiosqlite'
+Traceback (most recent call last):
+  File "f:\treaFiles\Ideas\ideas\idea-app\backend\_diag.py", line 12, in <module>
+    import sqlalchemy, asyncpg, redis, openai, jose, passlib, apscheduler, aiosqlite, bcrypt, httpx
+ModuleNotFoundError: No module named 'aiosqlite'

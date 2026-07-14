@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>点子 App — Beta 测试邀请</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --gold: #FFD700;
+  --teal: #4ECDC4;
+  --coral: #FF6B6B;
+  --yellow: #FFE66D;
+  --blue: #83A6ED;
+  --bg: #0f172a;
+  --bg2: #1e293b;
+  --text: #f8fafc;
+  --text2: #94a3b8;
+  --border: #334155;
+  --green: #22c55e;
+}
+body {
+  font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+.deck { width: 100vw; height: 100vh; position: relative; }
+.slide {
+  position: absolute; inset: 0;
+  display: none; flex-direction: column;
+  padding: 50px 70px;
+  opacity: 0; transition: opacity 0.5s;
+}
+.slide.active {
+  display: flex; opacity: 1;
+  animation: fadeIn 0.6s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Navigation */
+.nav-controls {
+  position: fixed; bottom: 24px; right: 36px;
+  display: flex; gap: 14px; align-items: center; z-index: 1000;
+}
+.nav-btn {
+  width: 42px; height: 42px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--bg2);
+  color: var(--text); font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.3s;
+}
+.nav-btn:hover { border-color: var(--gold); color: var(--gold); }
+.slide-counter {
+  font-size: 13px; color: var(--text2); min-width: 50px; text-align: center;
+}
+
+/* Decorative */
+.deco-circles {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0;
+}
+.deco-circle {
+  position: absolute; border-radius: 50%; opacity: 0.07;
+  animation: float 8s ease-in-out infinite;
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+}
+
+/* Slide layout */
+.slide-num {
+  position: absolute; top: 30px; right: 50px;
+  font-size: 13px; color: var(--text2); z-index: 10;
+}
+.slide-tag {
+  position: absolute; top: 30px; left: 70px;
+  font-size: 12px; letter-spacing: 3px;
+  color: var(--gold); text-transform: uppercase; z-index: 10;
+}
+.slide-content {
+  flex: 1; display: flex; flex-direction: column;
+  justify-content: center; position: relative; z-index: 1;
+}
+.slide h2 {
+  font-size: 36px; font-weight: 800; margin-bottom: 30px;
+  display: flex; align-items: center; gap: 14px;
+}
+.slide h2::before {
+  content: ''; width: 5px; height: 34px;
+  background: var(--gold); border-radius: 3px;
+}
+
+/* ===== Cover ===== */
+.cover { justify-content: center; align-items: center; text-align: center; }
+.cover .kicker {
+  font-size: 14px; letter-spacing: 5px;
+  color: var(--gold); margin-bottom: 24px;
+}
+.cover h1 {
+  font-size: 72px; font-weight: 900; margin-bottom: 16px;
+  background: linear-gradient(135deg, #f8fafc 0%, #4ECDC4 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.cover .tagline {
+  font-size: 20px; color: var(--text2); margin-bottom: 36px; font-weight: 300;
+}
+.cover .beta-badge {
+  display: inline-block; padding: 8px 28px;
+  background: linear-gradient(135deg, var(--coral), var(--yellow));
+  border-radius: 30px; font-size: 18px; font-weight: 700;
+  color: var(--bg); margin-bottom: 30px;
+}
+.cover .url-box {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px 40px; display: inline-block;
+}
+.cover .url-box .label { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+.cover .url-box .url {
+  font-size: 24px; font-weight: 700; color: var(--teal);
+  font-family: 'Courier New', monospace;
+}
+.cover .duration {
+  margin-top: 24px; font-size: 16px; color: var(--text2);
+}
+.cover .duration strong { color: var(--gold); }
+
+/* ===== Cards ===== */
+.card-row { display: grid; gap: 20px; margin-bottom: 24px; }
+.card-row.cols-2 { grid-template-columns: 1fr 1fr; }
+.card-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.card-row.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.info-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 14px; padding: 24px;
+  transition: transform 0.3s, border-color 0.3s;
+}
+.info-card:hover { transform: translateY(-3px); border-color: var(--teal); }
+.info-card .icon { font-size: 32px; margin-bottom: 12px; }
+.info-card h3 { font-size: 17px; margin-bottom: 8px; }
+.info-card p { font-size: 13px; color: var(--text2); line-height: 1.7; }
+
+/* ===== Feature flow ===== */
+.feature-flow {
+  display: flex; gap: 14px; align-items: stretch; flex-wrap: wrap;
+}
+.feature-step {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 14px; padding: 22px; flex: 1; min-width: 130px;
+  text-align: center; position: relative;
+}
+.feature-step .step-icon { font-size: 30px; margin-bottom: 10px; }
+.feature-step h4 { font-size: 15px; margin-bottom: 6px; }
+.feature-step p { font-size: 12px; color: var(--text2); line-height: 1.6; }
+.feature-step .step-num {
+  position: absolute; top: -10px; left: -10px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--gold); color: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800;
+}
+.feature-arrow {
+  display: flex; align-items: center; color: var(--gold); font-size: 22px;
+}
+
+/* ===== Test checklist ===== */
+.checklist { display: grid; gap: 12px; }
+.check-item {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px 20px;
+  display: flex; align-items: flex-start; gap: 14px;
+}
+.check-item .check-num {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(78, 205, 196, 0.15); color: var(--teal);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; flex-shrink: 0;
+}
+.check-item .check-body { flex: 1; }
+.check-item h4 { font-size: 15px; margin-bottom: 4px; }
+.check-item p { font-size: 13px; color: var(--text2); line-height: 1.5; }
+.check-item .check-tag {
+  font-size: 11px; padding: 3px 10px; border-radius: 4px;
+  flex-shrink: 0; align-self: center;
+}
+.check-item .check-tag.core { background: rgba(255, 107, 107, 0.15); color: var(--coral); }
+.check-item .check-tag.ai { background: rgba(255, 215, 0, 0.15); color: var(--gold); }
+.check-item .check-tag.fun { background: rgba(78, 205, 196, 0.15); color: var(--teal); }
+.check-item .check-tag.social { background: rgba(131, 166, 237, 0.15); color: var(--blue); }
+
+/* ===== URL banner ===== */
+.url-banner {
+  background: linear-gradient(135deg, var(--bg2), rgba(40, 113, 138, 0.2));
+  border: 2px dashed var(--teal);
+  border-radius: 16px; padding: 28px 40px;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 24px;
+}
+.url-banner .url-left .url-label { font-size: 13px; color: var(--text2); margin-bottom: 6px; }
+.url-banner .url-left .url-value {
+  font-size: 28px; font-weight: 800; color: var(--teal);
+  font-family: 'Courier New', monospace;
+}
+.url-banner .url-right {
+  font-size: 40px;
+}
+
+/* ===== Feedback ===== */
+.feedback-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.feedback-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 14px; padding: 28px; text-align: center;
+}
+.feedback-card .fb-icon { font-size: 36px; margin-bottom: 14px; }
+.feedback-card h3 { font-size: 18px; margin-bottom: 8px; }
+.feedback-card p { font-size: 14px; color: var(--text2); margin-bottom: 10px; }
+.feedback-card .fb-value {
+  font-size: 16px; font-weight: 700; color: var(--gold);
+  font-family: 'Courier New', monospace;
+}
+
+/* ===== Timeline ===== */
+.beta-timeline {
+  display: flex; gap: 0; justify-content: center; margin: 30px 0;
+}
+.tl-segment {
+  flex: 1; text-align: center; padding: 20px 12px;
+  border-right: 1px solid var(--border); position: relative;
+}
+.tl-segment:last-child { border-right: none; }
+.tl-segment .tl-day { font-size: 13px; color: var(--text2); margin-bottom: 6px; }
+.tl-segment .tl-title { font-size: 15px; font-weight: 700; }
+.tl-segment .tl-desc { font-size: 12px; color: var(--text2); margin-top: 4px; }
+.tl-segment.active { background: rgba(255, 215, 0, 0.05); border-radius: 10px; }
+
+/* ===== Stats ===== */
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.stat-box {
+  text-align: center; background: var(--bg2);
+  border-radius: 14px; padding: 26px 16px; border: 1px solid var(--border);
+}
+.stat-box .num { font-size: 44px; font-weight: 900; color: var(--gold); margin-bottom: 6px; }
+.stat-box .label { font-size: 13px; color: var(--text2); }
+
+/* ===== Closing ===== */
+.closing { justify-content: center; align-items: center; text-align: center; }
+.closing h1 {
+  font-size: 52px; font-weight: 900; margin-bottom: 24px;
+  background: linear-gradient(135deg, #f8fafc 0%, var(--gold) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.closing .quote {
+  font-size: 20px; color: var(--text2); max-width: 560px;
+  line-height: 1.8; margin-bottom: 36px; font-style: italic;
+}
+.closing .url-big {
+  background: var(--bg2); border: 2px solid var(--teal);
+  border-radius: 16px; padding: 24px 50px; margin-bottom: 30px;
+}
+.closing .url-big .label { font-size: 13px; color: var(--text2); margin-bottom: 6px; }
+.closing .url-big .url {
+  font-size: 32px; font-weight: 800; color: var(--teal);
+  font-family: 'Courier New', monospace;
+}
+
+/* ===== Reward ===== */
+.reward-box {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.08), rgba(78, 205, 196, 0.08));
+  border: 1px solid var(--gold); border-radius: 16px;
+  padding: 28px; margin-bottom: 20px;
+}
+.reward-box h3 {
+  font-size: 20px; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.reward-list { list-style: none; }
+.reward-list li {
+  padding: 10px 0; font-size: 14px; color: var(--text2);
+  display: flex; align-items: flex-start; gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.reward-list li:last-child { border: none; }
+.reward-list li .dot { color: var(--gold); flex-shrink: 0; }
+.reward-list li strong { color: var(--text); }
+
+/* ===== Highlight box ===== */
+.highlight-box {
+  background: rgba(255, 107, 107, 0.08); border: 1px solid var(--coral);
+  border-radius: 12px; padding: 20px 28px; margin-top: 16px;
+}
+.highlight-box p {
+  font-size: 14px; color: var(--text2); line-height: 1.7;
+}
+.highlight-box p strong { color: var(--coral); }
+</style>
+</head>
+<body>
+
+<div class="deck">
+
+<!-- ========== Slide 1: Cover ========== -->
+<div class="slide cover active" data-slide="1">
+  <div class="deco-circles">
+    <div class="deco-circle" style="width:280px;height:280px;background:var(--coral);left:-80px;top:8%;animation-delay:0s;"></div>
+    <div class="deco-circle" style="width:180px;height:180px;background:var(--teal);right:-40px;top:18%;animation-delay:1s;"></div>
+    <div class="deco-circle" style="width:220px;height:220px;background:var(--yellow);left:28%;bottom:-60px;animation-delay:2s;"></div>
+    <div class="deco-circle" style="width:130px;height:130px;background:var(--blue);right:18%;bottom:8%;animation-delay:3s;"></div>
+  </div>
+  <div class="kicker">BETA TEST · 内测体验邀请</div>
+  <h1>点子 App</h1>
+  <p class="tagline">基于创造力科学的开源创意社区</p>
+  <div class="beta-badge">Beta 测试邀请</div>
+  <div class="url-box">
+    <div class="label">立即体验</div>
+    <div class="url">http://124.221.108.59</div>
+  </div>
+  <div class="duration">测试周期：<strong>7 天</strong> · 诚邀你的参与</div>
+</div>
+
+<!-- ========== Slide 2: What is it ========== -->
+<div class="slide" data-slide="2">
+  <div class="slide-tag">WHAT</div>
+  <div class="slide-num">02 / 08</div>
+  <div class="slide-content">
+    <h2>这是什么？</h2>
+    <div class="card-row cols-2">
+      <div class="info-card">
+        <div class="icon">🌊</div>
+        <h3>一个让点子自由漂浮的海洋</h3>
+        <p>圆圈随机分布在画布上，没有分类、没有搜索框。你通过偶然性发现别人的点子，就像在海边捡贝壳——你永远不知道下一个是什么颜色。</p>
+      </div>
+      <div class="info-card">
+        <div class="icon">🌳</div>
+        <h3>一个让创意有谱系的社区</h3>
+        <p>借鉴 GitHub Fork 理念，每个点子可被 Fork、碰撞、演化。点子有父有子，形成可视化的创意家族树，让灵感溯源成为可能。</p>
+      </div>
+    </div>
+    <div class="highlight-box">
+      <p><strong>一句话总结：</strong>这不是又一个笔记 App，而是一个让创意通过「随机发现 → AI 碰撞 → 谱系生长」有机进化的社区。每个点子都有生命——7 天不碰它会淡出，8 天后消失，让创意空间始终新鲜。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Slide 3: Why Beta ========== -->
+<div class="slide" data-slide="3">
+  <div class="slide-tag">WHY</div>
+  <div class="slide-num">03 / 08</div>
+  <div class="slide-content">
+    <h2>为什么需要你来测？</h2>
+    <div class="stats-row" style="margin-bottom:28px;">
+      <div class="stat-box">
+        <div class="num">21</div>
+        <div class="label">API 端点</div>
+      </div>
+      <div class="stat-box">
+        <div class="num">9</div>
+        <div class="label">核心页面</div>
+      </div>
+      <div class="stat-box">
+        <div class="num">5</div>
+        <div class="label">Critical 修复</div>
+      </div>
+      <div class="stat-box">
+        <div class="num">0</div>
+        <div class="label">真实用户反馈</div>
+      </div>
+    </div>
+    <div class="card-row cols-3">
+      <div class="info-card">
+        <div class="icon">🐛</div>
+        <h3>找 Bug</h3>
+        <p>开发者自己测有盲区。你的一通乱点，可能发现我们想不到的问题——圆圈重叠、AI 返回异常、页面白屏……每个 Bug 都有价值。</p>
+      </div>
+      <div class="info-card">
+        <div class="icon">💡</div>
+        <h3>提建议</h3>
+        <p>功能好不好用，只有用了才知道。你觉得哪里别扭、哪里惊喜、哪里多余——直接告诉我们，这周改。</p>
+      </div>
+      <div class="info-card">
+        <div class="icon">🎨</div>
+        <h3>体验 AI 创意</h3>
+        <p>碰撞两个点子让 AI 生成融合方案，选一个 SAMPER 角度让 AI 演化新变体。来感受 AI 辅助创意的乐趣。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Slide 4: How to play ========== -->
+<div class="slide" data-slide="4">
+  <div class="slide-tag">HOW</div>
+  <div class="slide-num">04 / 08</div>
+  <div class="slide-content">
+    <h2>怎么玩？5 步上手</h2>
+    <div class="feature-flow" style="margin-bottom:24px;">
+      <div class="feature-step">
+        <div class="step-num">1</div>
+        <div class="step-icon">📝</div>
+        <h4>注册账号</h4>
+        <p>用户名+密码，3 秒搞定</p>
+      </div>
+      <div class="feature-arrow">→</div>
+      <div class="feature-step">
+        <div class="step-num">2</div>
+        <div class="step-icon">🌊</div>
+        <h4>探索海洋</h4>
+        <p>圆圈随机分布，点击探索</p>
+      </div>
+      <div class="feature-arrow">→</div>
+      <div class="feature-step">
+        <div class="step-num">3</div>
+        <div class="step-icon">📄</div>
+        <h4>查看详情</h4>
+        <p>看内容+谱系图，Fork 一个</p>
+      </div>
+      <div class="feature-arrow">→</div>
+      <div class="feature-step">
+        <div class="step-num">4</div>
+        <div class="step-icon">💥</div>
+        <h4>碰撞 / 演化</h4>
+        <p>AI 生成新方案，选一个入库</p>
+      </div>
+      <div class="feature-arrow">→</div>
+      <div class="feature-step">
+        <div class="step-num">5</div>
+        <div class="step-icon">⚡</div>
+        <h4>今日一点</h4>
+        <p>3 分钟限时创意题，每日一练</p>
+      </div>
+    </div>
+    <div style="background:var(--bg2);border-radius:12px;padding:20px;border:1px solid var(--border);">
+      <p style="font-size:14px;color:var(--text2);line-height:1.7;">
+        <strong style="color:var(--gold);">小提示：</strong>
+        圆圈不带文字，颜色是随机的。金边圆圈=你自己产的，无边圆圈=你收集的。7 天不碰的点子会变淡，8 天后消失——所以记得常来看看。
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Slide 5: Test checklist ========== -->
+<div class="slide" data-slide="5">
+  <div class="slide-tag">TEST</div>
+  <div class="slide-num">05 / 08</div>
+  <div class="slide-content">
+    <h2>重点测试清单</h2>
+    <div class="checklist">
+      <div class="check-item">
+        <div class="check-num">1</div>
+        <div class="check-body">
+          <h4>注册 + 登录</h4>
+          <p>注册一个账号，退出再登录。密码少于 8 位应该被拒绝。连续错误登录 10 次后应该被限流（返回 429）。</p>
+        </div>
+        <span class="check-tag core">核心</span>
+      </div>
+      <div class="check-item">
+        <div class="check-num">2</div>
+        <div class="check-body">
+          <h4>发布点子 + Fork</h4>
+          <p>发布一条自己的点子（1-300字），然后 Fork 别人的点子。查看谱系图是否正确显示父子关系。</p>
+        </div>
+        <span class="check-tag core">核心</span>
+      </div>
+      <div class="check-item">
+        <div class="check-num">3</div>
+        <div class="check-body">
+          <h4>碰撞引擎（AI）</h4>
+          <p>选两个点子发起碰撞，等 3-5 秒看 AI 返回 3 个融合方案。选一个确认入库，检查谱系图是否有两个父节点。</p>
+        </div>
+        <span class="check-tag ai">AI</span>
+      </div>
+      <div class="check-item">
+        <div class="check-num">4</div>
+        <div class="check-body">
+          <h4>演化引擎（AI）</h4>
+          <p>选一个点子，选一个 SAMPER 角度（替换/适应/修改/改用/消除/反转），看 AI 生成 3 个变体。选一个确认入库。</p>
+        </div>
+        <span class="check-tag ai">AI</span>
+      </div>
+      <div class="check-item">
+        <div class="check-num">5</div>
+        <div class="check-body">
+          <h4>今日一点</h4>
+          <p>进入「一点」页面，3 分钟倒计时中写创意。提交后跳转详情页，返回后仍应能看到提交内容。倒计时归零草稿应自动保存。</p>
+        </div>
+        <span class="check-tag fun">趣味</span>
+      </div>
+      <div class="check-item">
+        <div class="check-num">6</div>
+        <div class="check-body">
+          <h4>仓库 + 设置</h4>
+          <p>查看仓库中的点子列表。进入设置页配置大模型 API（可选）。退出登录功能正常。</p>
+        </div>
+        <span class="check-tag social">日常</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Slide 6: Timeline ========== -->
+<div class="slide" data-slide="6">
+  <div class="slide-tag">SCHEDULE</div>
+  <div class="slide-num">06 / 08</div>
+  <div class="slide-content">
+    <h2>一周测试节奏</h2>
+    <div class="beta-timeline">
+      <div class="tl-segment active">
+        <div class="tl-day">Day 1-2</div>
+        <div class="tl-title">自由探索</div>
+        <div class="tl-desc">注册、探索、Fork<br>熟悉基本功能</div>
+      </div>
+      <div class="tl-segment active">
+        <div class="tl-day">Day 3-4</div>
+        <div class="tl-title">AI 体验</div>
+        <div class="tl-desc">碰撞 + 演化<br>感受 AI 创意辅助</div>
+      </div>
+      <div class="tl-segment active">
+        <div class="tl-day">Day 5-6</div>
+        <div class="tl-title">深度测试</div>
+        <div class="tl-desc">今日一点 + 仓库<br>找 Bug 提建议</div>
+      </div>
+      <div class="tl-segment">
+        <div class="tl-day">Day 7</div>
+        <div class="tl-title">反馈收集</div>
+        <div class="tl-desc">提交反馈表<br>总结改进项</div>
+      </div>
+    </div>
+    <div class="card-row cols-2">
+      <div class="info-card">
+        <div class="icon">📋</div>
+        <h3>不强制按节奏走</h3>
+        <p>以上只是建议节奏。你可以随时测任何功能，随时反馈。哪怕只注册一个账号逛 5 分钟，也很有价值。</p>
+      </div>
+      <div class="info-card">
+        <div class="icon">⏰</div>
+        <h3>每日一点不要错过</h3>
+        <p>「今日一点」每天 0 点更新，过期不可补做。7 天测试期可以收集 7 个创意练习，看看你的思维变化。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Slide 7: Feedback + Reward ========== -->
+<div class="slide" data-slide="7">
+  <div class="slide-tag">FEEDBACK</div>
+  <div class="slide-num">07 / 08</div>
+  <div class="slide-content">
+    <h2>反馈与奖励</h2>
+    <div class="feedback-grid" style="margin-bottom:20px;">
+      <div class="feedback-card">
+        <div class="fb-icon">💬</div>
+        <h3>微信 / 飞书群反馈</h3>
+        <p>直接在群里说就行，截图+描述最有效</p>
+      </div>
+      <div class="feedback-card">
+        <div class="fb-icon">📝</div>
+        <h3>反馈表单</h3>
+        <p>扫二维码或点击链接填写</p>
+      </div>
+    </div>
+    <div class="reward-box">
+      <h3>🎁 Beta 测试贡献者福利</h3>
+      <ul class="reward-list">
+        <li><span class="dot">★</span> <strong>首批注册用户徽章</strong> — 正式上线后账号保留，展示「Beta Pioneer」标识</li>
+        <li><span class="dot">★</span> <strong>高价值 Bug 悬赏</strong> — 发现 Critical Bug 的同学，定制感谢礼一份</li>
+        <li><span class="dot">★</span> <strong>功能建议署名</strong> — 被采纳的建议，在更新日志中署名感谢</li>
+        <li><span class="dot">★</span> <strong>创意种子点子</strong> — 测试期间你发布的优质点子，正式版会保留为 PGC 精选</li>
+      </ul>
+    </div>
+    <div class="highlight-box">
+      <p><strong>反馈格式建议：</strong>「页面 + 操作步骤 + 预期结果 + 实际结果 + 截图」。<br>例如：「探索页 → 滚动到底部 → 应该加载更多圆圈 → 实际白屏了 → [截图]」</p>
+    </div>
+  </div>
+</div>
+
+<!-- ========== Slide 8: Closing ========== -->
+<div class="slide closing" data-slide="8">
+  <div class="deco-circles">
+    <div class="deco-circle" style="width:350px;height:350px;background:var(--coral);left:-120px;bottom:-80px;animation-delay:0s;"></div>
+    <div class="deco-circle" style="width:260px;height:260px;background:var(--teal);right:-60px;top:5%;animation-delay:1.5s;"></div>
+    <div class="deco-circle" style="width:180px;height:180px;background:var(--yellow);left:55%;top:45%;animation-delay:2.5s;"></div>
+  </div>
+  <h1>来吧，<br>让你的点子自由生长</h1>
+  <p class="quote">"创意不是发明，而是发现已有事物之间的联结。"<br>这个周末，花 10 分钟来试试？</p>
+  <div class="url-big">
+    <div class="label">浏览器直接打开</div>
+    <div class="url">http://124.221.108.59</div>
+  </div>
+  <p style="font-size:14px;color:var(--text2);">Beta 测试周期：7 天 · 你的每一次点击都在让这个产品更好</p>
+</div>
+
+</div>
+
+<!-- Navigation -->
+<div class="nav-controls">
+  <button class="nav-btn" onclick="prevSlide()">‹</button>
+  <span class="slide-counter" id="counter">1 / 8</span>
+  <button class="nav-btn" onclick="nextSlide()">›</button>
+</div>
+
+<script>
+let currentSlide = 1;
+const totalSlides = 8;
+
+function showSlide(n) {
+  document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+  const slide = document.querySelector(`[data-slide="${n}"]`);
+  if (slide) slide.classList.add('active');
+  document.getElementById('counter').textContent = `${n} / ${totalSlides}`;
+  currentSlide = n;
+}
+
+function nextSlide() {
+  if (currentSlide < totalSlides) showSlide(currentSlide + 1);
+}
+
+function prevSlide() {
+  if (currentSlide > 1) showSlide(currentSlide - 1);
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+    e.preventDefault(); nextSlide();
+  } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+    e.preventDefault(); prevSlide();
+  } else if (e.key === 'Home') {
+    showSlide(1);
+  } else if (e.key === 'End') {
+    showSlide(totalSlides);
+  }
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>点子 App - 低保真原型 V1</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, 'PingFang SC', 'Noto Sans SC', sans-serif;
+    background: #1a1a2e;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 20px;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .phone-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .phone-label {
+    color: #888;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .phone {
+    width: 375px;
+    height: 760px;
+    border: 6px solid #333;
+    border-radius: 36px;
+    overflow: hidden;
+    position: relative;
+    background: #fafafa;
+    flex-shrink: 0;
+  }
+
+  .page {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: none;
+    flex-direction: column;
+  }
+  .page.active { display: flex; }
+
+  /* 顶部栏 */
+  .topbar {
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    border-bottom: 1px solid #eee;
+    background: white;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .topbar .title { font-size: 17px; font-weight: 600; }
+  .topbar .btn { font-size: 22px; cursor: pointer; color: #333; user-select: none; }
+
+  /* 内容区 */
+  .content {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* 底部Tab */
+  .tabbar {
+    height: 56px;
+    display: flex;
+    border-top: 1px solid #eee;
+    background: white;
+    flex-shrink: 0;
+  }
+  .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #999;
+    font-size: 11px;
+    gap: 2px;
+    user-select: none;
+  }
+  .tab.active { color: #333; }
+  .tab .icon { font-size: 18px; }
+
+  /* 圆圈 */
+  .circle {
+    position: absolute;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    animation: float 3s ease-in-out infinite;
+  }
+  .circle:hover {
+    transform: scale(1.12);
+    box-shadow: 0 0 16px rgba(0,0,0,0.2);
+    z-index: 5;
+  }
+  .circle.gold {
+    border: 3px solid #FFD700;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
+  /* 统计条 */
+  .stats {
+    display: flex;
+    justify-content: space-around;
+    padding: 10px 0;
+    background: white;
+    border-bottom: 1px solid #eee;
+    flex-shrink: 0;
+  }
+  .stats .item { text-align: center; }
+  .stats .num { font-size: 17px; font-weight: 700; color: #333; }
+  .stats .label { font-size: 11px; color: #999; margin-top: 2px; }
+
+  /* 今日一点 */
+  .spark-card {
+    margin: 24px 18px;
+    padding: 28px 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    color: white;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .spark-card .date { font-size: 11px; opacity: 0.7; margin-bottom: 10px; }
+  .spark-card .question { font-size: 19px; font-weight: 600; line-height: 1.5; }
+  .spark-card .timer {
+    font-size: 30px; font-weight: 700; margin-top: 18px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .input-area {
+    margin: 0 18px 16px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .input-area textarea {
+    flex: 1;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 15px;
+    resize: none;
+    font-family: inherit;
+    outline: none;
+  }
+  .input-area .footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+  }
+  .count { font-size: 12px; color: #999; }
+  .submit-btn {
+    background: #333;
+    color: white;
+    border: none;
+    padding: 9px 22px;
+    border-radius: 18px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  /* 详情页 */
+  .detail-scroll { flex: 1; overflow-y: auto; }
+  .detail-color-row {
+    padding: 20px 18px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .detail-color-block {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .detail-source { font-size: 12px; color: #999; }
+
+  .detail-text {
+    padding: 0 18px;
+    font-size: 15px;
+    line-height: 1.65;
+    color: #333;
+  }
+
+  .detail-meta {
+    padding: 16px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f0f0f0;
+    margin-top: 12px;
+  }
+  .author-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  .avatar-sm {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+  }
+
+  .detail-actions {
+    display: flex;
+    gap: 10px;
+    padding: 16px 18px;
+  }
+  .detail-actions button {
+    flex: 1;
+    padding: 13px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .btn-fork { background: #333; color: white; }
+  .btn-collect { background: white; border: 2px solid #333; color: #333; }
+
+  /* 谱系图 */
+  .lineage-section {
+    padding: 18px;
+    border-top: 1px solid #f0f0f0;
+  }
+  .lineage-title { font-size: 13px; color: #999; margin-bottom: 14px; }
+  .lineage-tree {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .lineage-node {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .lineage-node .dot {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .lineage-node .info { font-size: 12px; color: #666; }
+  .lineage-node .info strong { color: #333; }
+  .lineage-connector {
+    width: 2px; height: 16px;
+    background: #ddd;
+  }
+  .lineage-children {
+    display: flex;
+    gap: 24px;
+  }
+  .lineage-more {
+    text-align: center;
+    margin-top: 14px;
+    font-size: 12px;
+    color: #999;
+    cursor: pointer;
+  }
+
+  /* 个人主页 */
+  .profile-header {
+    padding: 24px 18px 16px;
+    text-align: center;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .avatar-lg {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    margin: 0 auto 10px;
+  }
+  .profile-name { font-size: 18px; font-weight: 600; }
+  .profile-bio { font-size: 13px; color: #999; margin-top: 3px; }
+
+  .forest-hint {
+    padding: 10px 18px;
+    font-size: 12px;
+    color: #999;
+    background: #f9f9f9;
+    text-align: center;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  /* 发布/Fork表单页 */
+  .form-page {
+    padding: 18px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .form-hint {
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+  .form-page textarea {
+    flex: 1;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 15px;
+    resize: none;
+    font-family: inherit;
+    outline: none;
+  }
+  .form-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+  }
+
+  .fork-source {
+    background: #f5f5f5;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    color: #555;
+    line-height: 1.5;
+  }
+  .fork-source .label {
+    font-size: 11px;
+    color: #999;
+    margin-bottom: 6px;
+  }
+  .fork-prompt {
+    text-align: center;
+    font-size: 15px;
+    color: #333;
+    margin-bottom: 14px;
+    font-weight: 500;
+  }
+
+  /* 通知 */
+  .notice-list { flex: 1; overflow-y: auto; }
+  .notice-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border-bottom: 1px solid #f5f5f5;
+  }
+  .notice-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .notice-text { font-size: 13px; color: #333; flex: 1; }
+  .notice-time { font-size: 11px; color: #bbb; }
+
+  /* 设置 */
+  .settings-list { flex: 1; background: white; }
+  .settings-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    border-bottom: 1px solid #f5f5f5;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .settings-item .arrow { color: #ccc; }
+  .settings-item .val { font-size: 12px; color: #999; }
+  .settings-item.danger { color: #FF6B6B; }
+
+  /* 弹窗 */
+  .modal-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    width: 280px;
+    text-align: center;
+  }
+  .modal h3 { font-size: 16px; margin-bottom: 10px; }
+  .modal p { font-size: 13px; color: #666; line-height: 1.6; margin-bottom: 18px; }
+  .modal button {
+    background: #333;
+    color: white;
+    border: none;
+    padding: 9px 24px;
+    border-radius: 18px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  /* 演化菜单（漫游路径式） */
+  .evolve-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.3);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+  }
+  .evolve-overlay.show { display: flex; }
+  .evolve-menu {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    width: 260px;
+  }
+  .evolve-menu h4 { font-size: 14px; margin-bottom: 14px; text-align: center; color: #666; }
+  .evolve-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .evolve-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid #eee;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.2s;
+  }
+  .evolve-option:hover { background: #f9f9f9; }
+  .evolve-option .emoji { font-size: 18px; }
+  .evolve-option .desc { font-size: 11px; color: #999; }
+
+  /* 标注 */
+  .annotation {
+    position: absolute;
+    bottom: 6px;
+    right: 10px;
+    font-size: 9px;
+    color: #ccc;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== 手机1：主页 + 仓库 + 今日一点 ========== -->
+<div class="phone-wrap">
+  <div class="phone-label">📱 主页 / 仓库 / 今日一点<br><span style="font-size:11px">（点击底部Tab切换，点击圆圈进详情）</span></div>
+  <div class="phone">
+
+    <!-- 1. 主页 -->
+    <div class="page active" id="p-home">
+      <div class="topbar">
+        <span class="title">◐ 点子</span>
+        <span class="btn" onclick="go('p-create')">＋</span>
+      </div>
+      <div class="content" id="canvas-home"></div>
+      <div class="tabbar">
+        <div class="tab active" onclick="go('p-home')"><span class="icon">◎</span>探索</div>
+        <div class="tab" onclick="go('p-vault')"><span class="icon">◉</span>仓库</div>
+        <div class="tab" onclick="go('p-spark')"><span class="icon">✦</span>一点</div>
+        <div class="tab" onclick="go('p-profile')"><span class="icon">◐</span>我</div>
+      </div>
+    </div>
+
+    <!-- 2. 仓库 -->
+    <div class="page" id="p-vault">
+      <div class="topbar">
+        <span class="title">我的仓库</span>
+        <span class="btn" onclick="go('p-settings')">⚙</span>
+      </div>
+      <div class="stats">
+        <div class="item"><div class="num">12</div><div class="label">产生</div></div>
+        <div class="item"><div class="num">28</div><div class="label">收集</div></div>
+        <div class="item"><div class="num">47</div><div class="label">被fork</div></div>
+      </div>
+      <div class="content" id="canvas-vault"></div>
+      <div class="tabbar">
+        <div class="tab" onclick="go('p-home')"><span class="icon">◎</span>探索</div>
+        <div class="tab active" onclick="go('p-vault')"><span class="icon">◉</span>仓库</div>
+        <div class="tab" onclick="go('p-spark')"><span class="icon">✦</span>一点</div>
+        <div class="tab" onclick="go('p-profile')"><span class="icon">◐</span>我</div>
+      </div>
+    </div>
+
+    <!-- 3. 今日一点 -->
+    <div class="page" id="p-spark">
+      <div class="topbar">
+        <span class="btn" onclick="go('p-home')">←</span>
+        <span class="title">今日一点</span>
+        <span style="width:22px"></span>
+      </div>
+      <div class="spark-card">
+        <div class="date">2026.07.07 · 周二</div>
+        <div class="question">如果手机没有屏幕，<br>会怎样？</div>
+        <div class="timer" id="timer">03:00</div>
+      </div>
+      <div class="input-area">
+        <textarea placeholder="写下你的想法..." maxlength="300" oninput="updateCount(this,'cc-spark')"></textarea>
+        <div class="footer">
+          <span class="count"><span id="cc-spark">0</span>/300</span>
+          <button class="submit-btn" onclick="showDraftModal()">提交入仓库</button>
+        </div>
+      </div>
+      <div class="annotation">过期不补 · 当日23:59清空</div>
+    </div>
+
+    <!-- 5. 个人主页（我） -->
+    <div class="page" id="p-profile">
+      <div class="topbar">
+        <span class="title">我</span>
+        <span class="btn" onclick="go('p-settings')">⚙</span>
+      </div>
+      <div style="overflow-y:auto;flex:1;display:flex;flex-direction:column">
+        <div class="profile-header">
+          <div class="avatar-lg"></div>
+          <div class="profile-name">用户A</div>
+          <div class="profile-bio">"在混乱中找规律的人"</div>
+        </div>
+        <div class="stats">
+          <div class="item"><div class="num">12</div><div class="label">产生</div></div>
+          <div class="item"><div class="num">47</div><div class="label">被fork</div></div>
+          <div class="item"><div class="num">8</div><div class="label">fork别人</div></div>
+        </div>
+        <div class="forest-hint">🌲 进入这片森林，看看我吃了什么、拉了什么</div>
+        <div class="content" id="canvas-profile" style="height:380px"></div>
+      </div>
+      <div class="tabbar">
+        <div class="tab" onclick="go('p-home')"><span class="icon">◎</span>探索</div>
+        <div class="tab" onclick="go('p-vault')"><span class="icon">◉</span>仓库</div>
+        <div class="tab" onclick="go('p-spark')"><span class="icon">✦</span>一点</div>
+        <div class="tab active" onclick="go('p-profile')"><span class="icon">◐</span>我</div>
+      </div>
+    </div>
+
+    <!-- 草稿弹窗 -->
+    <div class="modal-overlay" id="draft-modal">
+      <div class="modal">
+        <h3>📝 草稿已保存</h3>
+        <p>你的草稿会保留到今晚 23:59。<br>明天就清空啦，记得回来完成！</p>
+        <button onclick="closeModal('draft-modal')">知道啦</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ========== 手机2：详情页 + Fork + 发布 ========== -->
+<div class="phone-wrap">
+  <div class="phone-label">📱 详情页 / Fork引导 / 发布点子<br><span style="font-size:11px">（点击Fork按钮进入联想引导）</span></div>
+  <div class="phone">
+
+    <!-- 4. 详情页 -->
+    <div class="page active" id="p-detail">
+      <div class="topbar">
+        <span class="btn" onclick="go('p-home')">←</span>
+        <span style="width:22px"></span>
+      </div>
+      <div class="detail-scroll">
+        <div class="detail-color-row">
+          <div class="detail-color-block" style="background:#FF6B6B"></div>
+          <div class="detail-source">来自探索 · 被23人fork</div>
+        </div>
+        <div class="detail-text">
+          用蚁群算法优化城市配送，可以让快递员像蚂蚁一样自组织路径，避开拥堵时段和区域，整体效率提升30%以上。每个快递员只需要遵循简单的局部规则，系统就会涌现出全局最优。
+        </div>
+        <div class="detail-meta">
+          <div class="author-row" onclick="go('p-userprofile')">
+            <div class="avatar-sm"></div>
+            <div>
+              <div style="font-size:13px;font-weight:500">用户A</div>
+              <div style="font-size:11px;color:#999">2天前</div>
+            </div>
+          </div>
+        </div>
+        <div class="detail-actions">
+          <button class="btn-fork" onclick="go('p-fork')">Fork这个点子</button>
+          <button class="btn-collect" onclick="go('p-vault')">收集</button>
+        </div>
+        <div class="lineage-section">
+          <div class="lineage-title">谱系</div>
+          <div class="lineage-tree">
+            <div class="lineage-node">
+              <div class="dot" style="background:#4ECDC4"></div>
+              <div class="info">用户Z · <strong>蚂蚁觅食行为</strong></div>
+            </div>
+            <div class="lineage-connector"></div>
+            <div class="lineage-node">
+              <div class="dot" style="background:#FF6B6B;border:2px solid #FFD700"></div>
+              <div class="info"><strong>当前 · 蚁群配送</strong></div>
+            </div>
+            <div class="lineage-connector"></div>
+            <div class="lineage-children">
+              <div class="lineage-node">
+                <div class="dot" style="background:#FFE66D"></div>
+                <div class="info">用户B</div>
+              </div>
+              <div class="lineage-node">
+                <div class="dot" style="background:#C9B1FF"></div>
+                <div class="info">用户C</div>
+              </div>
+              <div class="lineage-node">
+                <div class="dot" style="background:#7FD6A1"></div>
+                <div class="info">用户D</div>
+              </div>
+            </div>
+          </div>
+          <div class="lineage-more">查看完整谱系 →</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. 发布点子 -->
+    <div class="page" id="p-create">
+      <div class="topbar">
+        <span class="btn" onclick="go('p-home')">←</span>
+        <span class="title">发布点子</span>
+        <span style="width:22px"></span>
+      </div>
+      <div class="form-page">
+        <div class="form-hint">💡 点子≤300字。颜色将随机分配，不分类不贴标。</div>
+        <textarea placeholder="把你的点子写在这里..." maxlength="300" oninput="updateCount(this,'cc-create')"></textarea>
+        <div class="form-footer">
+          <span class="count"><span id="cc-create">0</span>/300</span>
+          <button class="submit-btn" onclick="go('p-vault')">发布</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. Fork联想引导 -->
+    <div class="page" id="p-fork">
+      <div class="topbar">
+        <span class="btn" onclick="go('p-detail')">←</span>
+        <span class="title">Fork</span>
+        <span style="width:22px"></span>
+      </div>
+      <div class="form-page">
+        <div class="fork-source">
+          <div class="label">原点子 · 用户A</div>
+          用蚁群算法优化城市配送，可以让快递员像蚂蚁一样自组织路径，避开拥堵时段和区域，整体效率提升30%以上...
+        </div>
+        <div class="fork-prompt">这条点子让你想到什么？</div>
+        <textarea placeholder="写下你的联想..." maxlength="300" oninput="updateCount(this,'cc-fork')"></textarea>
+        <div class="form-footer">
+          <span class="count"><span id="cc-fork">0</span>/300</span>
+          <button class="submit-btn" onclick="go('p-vault')">Fork入仓库</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ========== 手机3：他人主页 + 通知 + 设置 + 演化菜单 ========== -->
+<div class="phone-wrap">
+  <div class="phone-label">📱 他人主页 / 通知 / 设置 / 演化菜单<br><span style="font-size:11px">（点击仓库圆圈长按模拟→演化菜单）</span></div>
+  <div class="phone">
+
+    <!-- 8. 他人个人主页 -->
+    <div class="page active" id="p-userprofile">
+      <div class="topbar">
+        <span class="btn" onclick="go('p-detail')">←</span>
+        <span style="width:22px"></span>
+      </div>
+      <div style="overflow-y:auto;flex:1;display:flex;flex-direction:column">
+        <div class="profile-header">
+          <div class="avatar-lg" style="background:linear-gradient(135deg,#FF6B6B,#FFB347)"></div>
+          <div class="profile-name">用户A</div>
+          <div class="profile-bio">"在混乱中找规律的人"</div>
+        </div>
+        <div class="stats">
+          <div class="item"><div class="num">12</div><div class="label">产生</div></div>
+          <div class="item"><div class="num">47</div><div class="label">被fork</div></div>
+          <div class="item"><div class="num">8</div><div class="label">fork别人</div></div>
+        </div>
+        <div class="forest-hint">🌲 进入TA的森林，看看TA吃了什么、拉了什么</div>
+        <div class="content" id="canvas-user" style="height:380px"></div>
+      </div>
+    </div>
+
+    <!-- 9. 通知 -->
+    <div class="page" id="p-notice">
+      <div class="topbar">
+        <span class="btn" onclick="go('p-settings')">←</span>
+        <span class="title">通知</span>
+        <span style="width:22px"></span>
+      </div>
+      <div class="notice-list">
+        <div class="notice-item">
+          <div class="notice-dot" style="background:#FF6B6B"></div>
+          <div class="notice-text">用户B fork了你的"社区养老互助"</div>
+          <div class="notice-time">3分钟前</div>
+        </div>
+        <div class="notice-item">
+          <div class="notice-dot" style="background:#4ECDC4"></div>
+          <div class="notice-text">用户C 收集了你的"蚁群配送"</div>
+          <div class="notice-time">1小时前</div>
+        </div>
+        <div class="notice-item">
+          <div class="notice-dot" style="background:#FFE66D"></div>
+          <div class="notice-text">今日一点已更新："如果手机没有屏幕会怎样？"</div>
+          <div class="notice-time">今天 00:00</div>
+        </div>
+        <div class="notice-item">
+          <div class="notice-dot" style="background:#C9B1FF"></div>
+          <div class="notice-text">你的"时间银行"被5人fork了 🎉</div>
+          <div class="notice-time">昨天</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10. 设置 -->
+    <div class="page" id="p-settings">
+      <div class="topbar">
+        <span class="btn" onclick="go('p-profile')">←</span>
+        <span class="title">设置</span>
+        <span style="width:22px"></span>
+      </div>
+      <div class="settings-list">
+        <div class="settings-item">账号与安全 <span class="arrow">›</span></div>
+        <div class="settings-item">暗色模式 <span class="val">关闭</span></div>
+        <div class="settings-item">允许他人fork我的点子 <span class="val" style="color:#4ECDC4">开启</span></div>
+        <div class="settings-item" onclick="go('p-notice')">通知 <span class="arrow">›</span></div>
+        <div class="settings-item">关于点子 <span class="arrow">›</span></div>
+        <div class="settings-item danger">退出登录</div>
+      </div>
+    </div>
+
+    <!-- 演化菜单（漫游路径式） -->
+    <div class="evolve-overlay" id="evolve-modal">
+      <div class="evolve-menu">
+        <h4>🚶 漫游到此点子 · 演化路径</h4>
+        <div class="evolve-options">
+          <div class="evolve-option" onclick="closeModal('evolve-modal')">
+            <span class="emoji">💥</span>
+            <div>
+              <div>碰撞</div>
+              <div class="desc">选另一个点子，AI结合两者</div>
+            </div>
+          </div>
+          <div class="evolve-option" onclick="closeModal('evolve-modal')">
+            <span class="emoji">🔄</span>
+            <div>
+              <div>演化（SCAMPER）</div>
+              <div class="desc">7个角度生成变体</div>
+            </div>
+          </div>
+          <div class="evolve-option" onclick="closeModal('evolve-modal')">
+            <span class="emoji">🔗</span>
+            <div>
+              <div>连线</div>
+              <div class="desc">与另一个点子建立关联</div>
+            </div>
+          </div>
+          <div class="evolve-option" onclick="closeModal('evolve-modal')">
+            <span class="emoji">🌱</span>
+            <div>
+              <div>种子（淡出）</div>
+              <div class="desc">放任不管，慢慢变小淡出</div>
+            </div>
+          </div>
+          <div class="evolve-option" onclick="closeModal('evolve-modal')" style="justify-content:center;color:#999">
+            取消
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// 颜色池（15色，明度饱和度都有变化）
+const COLORS = [
+  '#FF6B6B', '#FF8E72', '#FFB347', '#FFE66D', '#C5E8A0',
+  '#7FD6A1', '#4ECDC4', '#6EC5E9', '#83A6ED', '#B5A8E8',
+  '#C9B1FF', '#FFB6C1', '#FF9EBB', '#D4A5A5', '#A8D8D8'
+];
+
+// 生成圆圈
+function generateCircles(containerId, count, goldRatio) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  const w = container.offsetWidth || 375;
+  const h = container.offsetHeight || 600;
+
+  for (let i = 0; i < count; i++) {
+    const circle = document.createElement('div');
+    circle.className = 'circle';
+    if (goldRatio > 0 && Math.random() < goldRatio) {
+      circle.classList.add('gold');
+    }
+    const size = 28 + Math.random() * 48;
+    circle.style.width = size + 'px';
+    circle.style.height = size + 'px';
+    circle.style.left = Math.random() * (w - size) + 'px';
+    circle.style.top = Math.random() * (h - size) + 'px';
+    circle.style.backgroundColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+    circle.style.animationDelay = Math.random() * 3 + 's';
+    circle.onclick = function() {
+      // 在仓库中点击圆圈 → 显示演化菜单
+      if (containerId === 'canvas-vault') {
+        showEvolveMenu();
+      } else {
+        // 其他页面点击圆圈 → 跳详情
+        go('p-detail');
+      }
+    };
+    container.appendChild(circle);
+  }
+}
+
+// 页面切换
+function go(id) {
+  // 在所有phone中切换
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const target = document.getElementById(id);
+  if (target) target.classList.add('active');
+
+  // 按需生成圆圈
+  if (id === 'p-home') generateCircles('canvas-home', 22, 0);
+  if (id === 'p-vault') generateCircles('canvas-vault', 18, 0.4);
+  if (id === 'p-profile') generateCircles('canvas-profile', 16, 0.35);
+  if (id === 'p-userprofile') generateCircles('canvas-user', 16, 0.35);
+}
+
+// 字数计数
+function updateCount(textarea, counterId) {
+  document.getElementById(counterId).textContent = textarea.value.length;
+}
+
+// 倒计时
+let timerSec = 180;
+function tickTimer() {
+  timerSec--;
+  if (timerSec <= 0) {
+    showDraftModal();
+    timerSec = 180;
+  }
+  const m = Math.floor(timerSec / 60);
+  const s = timerSec % 60;
+  const el = document.getElementById('timer');
+  if (el) el.textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+setInterval(tickTimer, 1000);
+
+// 弹窗
+function showDraftModal() {
+  const m = document.getElementById('draft-modal');
+  if (m) m.classList.add('show');
+}
+function showEvolveMenu() {
+  const m = document.getElementById('evolve-modal');
+  if (m) m.classList.add('show');
+}
+function closeModal(id) {
+  const m = document.getElementById(id);
+  if (m) m.classList.remove('show');
+}
+
+// 初始化
+window.addEventListener('load', function() {
+  generateCircles('canvas-home', 22, 0);
+});
+</script>
+
+</body>
+</html>

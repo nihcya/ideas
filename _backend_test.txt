@@ -1,0 +1,25 @@
+=== Backend import test ===
+config ok: env=dev, deepseek_mock=True
+database ok: dialect=postgresql
+models ok
+schemas ok
+color_pool ok: 15 colors
+deepseek_client ok
+jwt_service ok
+cache ok
+audit_service ok
+fade_service ok
+spark_service ok
+deps ok
+routers ok: 8 routers
+  - /auth (2 routes)
+  - /ideas (4 routes)
+  - /ideas (4 routes)
+  - /vault (3 routes)
+  - /spark (3 routes)
+  - /users (2 routes)
+  - /notifications (2 routes)
+  - /settings (2 routes)
+main app ok: 28 total routes
+
+=== ALL OK ===

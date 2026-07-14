@@ -1,0 +1,11 @@
+=== init_engine test ===
+before init: dialect=postgresql, url=postgresql+asyncpg://dianzi:dianzi_dev_pwd@localhost:5432/dianzi_app
+[database] PostgreSQL connect failed: [WinError 1225] 远程计算机拒绝网络连接。
+[database] PostgreSQL unavailable, falling back to SQLite.
+[database] SQLite schema created via SQLAlchemy create_all
+after init: dialect=sqlite, url=sqlite+aiosqlite:///./dianzi_dev.db
+ideas count: 30
+spark_questions count: 30
+banned_words count: 14
+
+=== DB INIT OK ===

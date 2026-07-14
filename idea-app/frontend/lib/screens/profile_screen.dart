@@ -1,0 +1,194 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../models/user.dart';
+import '../providers/auth_provider.dart';
+import '../providers/vault_provider.dart';
+
+/// 个人主页：思维森林
+class ProfileScreen extends ConsumerWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authStateProvider);
+    final user = authState.maybeWhen(
+      authenticated: (u) => u,
+      orElse: () => null,
+    );
+
+    if (user == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('我')),
+        body: const Center(child: Text('请先登录')),
+      );
+    }
+
+    final asyncVault = ref.watch(vaultProvider);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('我'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () => context.push('/notifications'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => context.push('/settings'),
+          ),
+        ],
+      ),
+      body: asyncVault.when(
+        data: (vault) => _ProfileBody(
+          user: user,
+          produced: vault.stats.produced,
+          collected: vault.stats.collected,
+          forkedByOthers: vault.stats.forkedByOthers,
+          onLogout: () => _logout(context, ref),
+        ),
+        loading: () => _ProfileBody(
+          user: user,
+          produced: 0,
+          collected: 0,
+          forkedByOthers: 0,
+          onLogout: () => _logout(context, ref),
+        ),
+        error: (e, st) => _ProfileBody(
+          user: user,
+          produced: 0,
+          collected: 0,
+          forkedByOthers: 0,
+          onLogout: () => _logout(context, ref),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _logout(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(logoutActionProvider)();
+    } catch (_) {
+      // 即使登出失败也跳转登录
+    }
+    if (context.mounted) context.go('/auth');
+  }
+}
+
+class _ProfileBody extends StatelessWidget {
+  final UserBrief user;
+  final int produced;
+  final int collected;
+  final int forkedByOthers;
+  final VoidCallback onLogout;
+
+  const _ProfileBody({
+    required this.user,
+    required this.produced,
+    required this.collected,
+    required this.forkedByOthers,
+    required this.onLogout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        const SizedBox(height: 16),
+        Center(
+          child: CircleAvatar(
+            radius: 44,
+            backgroundColor: const Color(0xFFFFD700),
+            child: Text(
+              user.username.isNotEmpty ? user.username[0].toUpperCase() : '?',
+              style: const TextStyle(
+                fontSize: 36,
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          user.username,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          user.bio.isEmpty ? '还没有介绍' : user.bio,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Color(0xFF9A9AA0), fontSize: 13),
+        ),
+        const SizedBox(height: 24),
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1E),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              _stat('产生', produced, const Color(0xFFFFD700)),
+              _divider(),
+              _stat('收集', collected, const Color(0xFF4ECDC4)),
+              _divider(),
+              _stat('被 Fork', forkedByOthers, const Color(0xFFB5A8E8)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+        ListTile(
+          leading: const Icon(Icons.notifications_outlined),
+          title: const Text('通知'),
+          trailing: const Icon(Icons.chevron_right, color: Color(0xFF9A9AA0)),
+          onTap: () => context.push('/notifications'),
+        ),
+        ListTile(
+          leading: const Icon(Icons.settings_outlined),
+          title: const Text('设置'),
+          trailing: const Icon(Icons.chevron_right, color: Color(0xFF9A9AA0)),
+          onTap: () => context.push('/settings'),
+        ),
+        const SizedBox(height: 24),
+        TextButton(
+          onPressed: onLogout,
+          style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF5252)),
+          child: const Text('退出登录'),
+        ),
+      ],
+    );
+  }
+
+  Widget _stat(String label, int value, Color color) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            '$value',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(label,
+              style:
+                  const TextStyle(fontSize: 12, color: Color(0xFF9A9AA0))),
+        ],
+      ),
+    );
+  }
+
+  Widget _divider() {
+    return Container(
+      width: 1,
+      height: 32,
+      color: const Color(0xFF2A2A2E),
+    );
+  }
+}
