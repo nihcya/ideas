@@ -1,19 +1,22 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 
 import '../models/idea.dart';
+import 'force_layout.dart';
 
-/// 谱系图（点子详情页用）。
+/// 谱系图（力导向布局版本）。
 ///
-/// 2 层结构（3 行视觉布局）：
-/// - 父节点（0-2个）在上
-/// - 当前节点在中
-/// - 子节点（最多10个）在下
+/// 使用纯 Dart 实现的力导向算法（force_layout.dart）替代旧版 Stack+Bezier 布局。
+/// 优势：
+/// - 支持多父节点（碰撞产生的双父场景）
+/// - 节点自动散开，无重叠
+/// - InteractiveViewer 支持缩放/拖拽
 ///
-/// 每个节点是一个小圆圈（直径 40pt），含作者名和点子前30字。
-/// 节点间用 Bezier 曲线连接。点击节点跳转到对应点子详情。
-class LineageTree extends StatelessWidget {
+/// 旧版实现保留在 lineage_tree_legacy.dart 作为 fallback。
+class LineageTree extends StatefulWidget {
   final Lineage lineage;
 
   /// 当前节点数据（谱系图的中心节点）。
@@ -30,267 +33,290 @@ class LineageTree extends StatelessWidget {
     this.currentNode,
   });
 
-  /// 节点圆圈直径。
-  static const double nodeDiameter = 40.0;
+  @override
+  State<LineageTree> createState() => _LineageTreeState();
+}
 
-  /// 节点间距（水平）。
-  static const double nodeSpacing = 64.0;
+class _LineageTreeState extends State<LineageTree>
+    with SingleTickerProviderStateMixin {
+  static const double _canvasSize = 400.0;
+  static const double _nodeRadius = 22.0;
+  static const double _currentNodeRadius = 28.0;
+  static const Offset _center = Offset(_canvasSize / 2, _canvasSize / 2);
 
-  /// 行间距（垂直）。
-  static const double rowSpacing = 80.0;
+  late final ForceSimulation _simulation;
+  late final Ticker _ticker;
 
-  /// 节点下方文字区域高度。
-  static const double labelHeight = 56.0;
+  /// 当前被拖拽的节点（null 表示无拖拽）。
+  ForceNode? _draggingNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _buildSimulation();
+    _ticker = Ticker(_onTick);
+    _ticker.start();
+  }
+
+  @override
+  void didUpdateWidget(covariant LineageTree oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // lineage 变化时重建模拟
+    if (widget.lineage != oldWidget.lineage ||
+        widget.currentNode != oldWidget.currentNode) {
+      _buildSimulation();
+      _ticker.start();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  void _buildSimulation() {
+    final nodes = <ForceNode>[];
+    final links = <ForceLink>[];
+    final nodeByKey = <String, ForceNode>{};
+
+    // 1. 当前节点（固定在中心）
+    final currentNode = widget.currentNode;
+    final currentKey = currentNode?.id ?? '__current__';
+    final currentData = currentNode ??
+        LineageNode(
+          id: currentKey,
+          colorHex: '#FFD700',
+          author: '',
+          title: '当前',
+        );
+    final currentNodeForce = ForceNode(
+      key: currentKey,
+      data: {
+        'node': currentData,
+        'isCurrent': true,
+      },
+      position: _center,
+      fixed: true,
+      radius: _currentNodeRadius,
+    );
+    nodes.add(currentNodeForce);
+    nodeByKey[currentKey] = currentNodeForce;
+
+    // 2. 父节点（圆形排列在上方）
+    final parents = widget.lineage.parents;
+    for (int i = 0; i < parents.length; i++) {
+      final p = parents[i];
+      final angle = -math.pi / 2 + (i - (parents.length - 1) / 2) * 0.6;
+      final initialPos = _center +
+          Offset(
+            math.cos(angle) * 120,
+            math.sin(angle) * 120,
+          );
+      final node = ForceNode(
+        key: p.id,
+        data: {'node': p, 'isCurrent': false},
+        position: initialPos,
+        radius: _nodeRadius,
+      );
+      nodes.add(node);
+      nodeByKey[p.id] = node;
+      // 父 → 当前
+      links.add(ForceLink(
+        source: node,
+        target: currentNodeForce,
+        distance: 100,
+      ));
+    }
+
+    // 3. 子节点（圆形排列在下方）
+    final children = widget.lineage.children;
+    final childCount = children.length;
+    for (int i = 0; i < childCount; i++) {
+      final c = children[i];
+      final angle = math.pi / 2 +
+          (i - (childCount - 1) / 2) * (0.8 / math.max(childCount, 1));
+      final initialRadius = 120.0 + (i ~/ 5) * 60; // 超过 5 个时分层
+      final initialPos = _center +
+          Offset(
+            math.cos(angle) * initialRadius,
+            math.sin(angle) * initialRadius,
+          );
+      final node = ForceNode(
+        key: c.id,
+        data: {'node': c, 'isCurrent': false},
+        position: initialPos,
+        radius: _nodeRadius,
+      );
+      nodes.add(node);
+      nodeByKey[c.id] = node;
+      // 当前 → 子
+      links.add(ForceLink(
+        source: currentNodeForce,
+        target: node,
+        distance: 100,
+      ));
+    }
+
+    _simulation = ForceSimulation(
+      nodes: nodes,
+      links: links,
+      forces: [
+        ChargeForce(strength: -600.0),
+        LinkForce(strength: 0.4),
+        CenterForce(center: _center),
+        CollideForce(),
+      ],
+    );
+  }
+
+  void _onTick(Duration elapsed) {
+    _simulation.tick();
+    if (_simulation.isStable()) {
+      _ticker.stop();
+    }
+    setState(() {});
+  }
+
+  /// 命中测试：返回点击位置对应的 ideaId（无命中返回 null）。
+  String? _hitTest(Offset localPos) {
+    // 反向遍历：后绘制的在上层
+    for (final n in _simulation.nodes.reversed) {
+      final dist = (localPos - n.position).distance;
+      if (dist <= n.radius) {
+        return n.key == '__current__' ? null : n.key;
+      }
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final parents = lineage.parents;
-    final children = lineage.children;
-
-    // 计算各行节点数
-    final parentCount = parents.length;
-    final childCount = children.length;
-
-    // 计算宽度：取三行中最宽的
-    final parentWidth = math.max(parentCount - 1, 0) * nodeSpacing + nodeDiameter;
-    final childWidth = math.max(childCount - 1, 0) * nodeSpacing + nodeDiameter;
-    final minWidth = nodeDiameter * 2; // 至少容纳当前节点
-    final contentWidth = math.max(
-      math.max(parentWidth, childWidth),
-      minWidth,
-    );
-
-    // 计算高度：3 行节点 + 2 个行间距 + 标签
-    final contentHeight =
-        nodeDiameter * 3 + rowSpacing * 2 + labelHeight * 3;
-
-    // 各行 Y 坐标（圆心）
-    final parentY = nodeDiameter / 2;
-    final currentY = parentY + nodeDiameter + rowSpacing + labelHeight;
-    final childY = currentY + nodeDiameter + rowSpacing + labelHeight;
-
-    // 各行 X 坐标（圆心）
-    final parentXs = _computeRowXs(parentCount, contentWidth);
-    final childXs = _computeRowXs(childCount, contentWidth);
-    final currentX = contentWidth / 2;
-
-    return Center(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: contentWidth,
-          height: contentHeight,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // 连接线（CustomPainter）
-              CustomPaint(
-                size: Size(contentWidth, contentHeight),
-                painter: _LineageLinePainter(
-                  parents: parents,
-                  parentXs: parentXs,
-                  parentY: parentY,
-                  currentX: currentX,
-                  currentY: currentY,
-                  children: children,
-                  childXs: childXs,
-                  childY: childY,
-                ),
-              ),
-              // 父节点
-              for (int i = 0; i < parents.length; i++)
-                _buildNode(
-                  parents[i],
-                  parentXs[i],
-                  parentY,
-                  isCurrent: false,
-                ),
-              // 当前节点
-              _buildCurrentNode(currentX, currentY),
-              // 子节点
-              for (int i = 0; i < children.length; i++)
-                _buildNode(
-                  children[i],
-                  childXs[i],
-                  childY,
-                  isCurrent: false,
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 计算一行中各节点的 X 坐标（圆心），居中排列。
-  List<double> _computeRowXs(int count, double totalWidth) {
-    if (count == 0) return [];
-    final startX = (totalWidth - (count - 1) * nodeSpacing - nodeDiameter) / 2;
-    return List.generate(
-      count,
-      (i) => startX + i * nodeSpacing + nodeDiameter / 2,
-    );
-  }
-
-  /// 当前节点：有数据时显示完整节点，无数据时显示金边占位。
-  Widget _buildCurrentNode(double x, double y) {
-    if (currentNode != null) {
-      return _buildNode(currentNode!, x, y, isCurrent: true);
-    }
-    return Positioned(
-      left: x - nodeDiameter / 2,
-      top: y - nodeDiameter / 2,
+    return InteractiveViewer(
+      minScale: 0.5,
+      maxScale: 2.5,
+      boundaryMargin: const EdgeInsets.all(50),
       child: SizedBox(
-        width: nodeDiameter,
-        height: nodeDiameter + labelHeight,
-        child: Column(
-          children: [
-            Container(
-              width: nodeDiameter,
-              height: nodeDiameter,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFFFD700),
-                border: Border.all(
-                  color: const Color(0xFFFFD700),
-                  width: 2.5,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x66FFD700),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
+        width: _canvasSize,
+        height: _canvasSize,
+        child: GestureDetector(
+          onTapUp: (details) {
+            final ideaId = _hitTest(details.localPosition);
+            if (ideaId != null) {
+              HapticFeedback.selectionClick();
+              widget.onTap(ideaId);
+            }
+          },
+          onPanStart: (details) {
+            // 拖拽节点：命中则标记为 dragging
+            final ideaId = _hitTest(details.localPosition);
+            if (ideaId != null) {
+              _draggingNode = _simulation.nodes.firstWhere(
+                (n) => n.key == ideaId,
+              );
+              _simulation.reheat(0.5);
+              _ticker.start();
+            }
+          },
+          onPanUpdate: (details) {
+            if (_draggingNode != null) {
+              setState(() {
+                _draggingNode!.position = details.localPosition;
+              });
+            }
+          },
+          onPanEnd: (_) {
+            _draggingNode = null;
+          },
+          child: CustomPaint(
+            painter: _ForceGraphPainter(
+              nodes: _simulation.nodes,
+              links: _simulation.links,
             ),
-            const SizedBox(height: 4),
-            const Text(
-              '当前',
-              style: TextStyle(
-                color: Color(0xFFFFD700),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNode(LineageNode node, double x, double y, {required bool isCurrent}) {
-    return Positioned(
-      left: x - nodeDiameter / 2,
-      top: y - nodeDiameter / 2,
-      child: GestureDetector(
-        onTap: () => onTap(node.id),
-        child: SizedBox(
-          width: nodeDiameter,
-          height: nodeDiameter + labelHeight,
-          child: Column(
-            children: [
-              Container(
-                width: nodeDiameter,
-                height: nodeDiameter,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: node.color,
-                  border: isCurrent
-                      ? Border.all(color: const Color(0xFFFFD700), width: 2.5)
-                      : null,
-                  boxShadow: [
-                    BoxShadow(
-                      color: node.color.withValues(alpha: 0.35),
-                      blurRadius: 6,
-                      spreadRadius: 1,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                node.author,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFFF5F5F7),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                _truncate(node.title, 30),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFF9A9AA0),
-                  fontSize: 10,
-                  height: 1.2,
-                ),
-              ),
-            ],
+            size: const Size(_canvasSize, _canvasSize),
           ),
         ),
       ),
     );
-  }
-
-  String _truncate(String text, int max) {
-    if (text.length <= max) return text;
-    return '${text.substring(0, max)}…';
   }
 }
 
-/// 谱系图连接线绘制器：用 Bezier 曲线连接父→当前、当前→子。
-class _LineageLinePainter extends CustomPainter {
-  final List<LineageNode> parents;
-  final List<double> parentXs;
-  final double parentY;
+/// 力导向谱系图绘制器。
+class _ForceGraphPainter extends CustomPainter {
+  final List<ForceNode> nodes;
+  final List<ForceLink> links;
 
-  final double currentX;
-  final double currentY;
-
-  final List<LineageNode> children;
-  final List<double> childXs;
-  final double childY;
-
-  _LineageLinePainter({
-    required this.parents,
-    required this.parentXs,
-    required this.parentY,
-    required this.currentX,
-    required this.currentY,
-    required this.children,
-    required this.childXs,
-    required this.childY,
+  const _ForceGraphPainter({
+    required this.nodes,
+    required this.links,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
+    // 1. 绘制连接线（先画线再画节点，节点在上层）
+    final linePaint = Paint()
+      ..color = const Color(0xFF6B6B70)
       ..strokeWidth = 1.5
-      ..color = const Color(0xFF6B6B70);
+      ..style = PaintingStyle.stroke;
 
-    // 父节点 → 当前节点
-    for (int i = 0; i < parents.length; i++) {
-      final p1 = Offset(parentXs[i], parentY);
-      final p2 = Offset(currentX, currentY);
-      canvas.drawPath(_bezierPath(p1, p2), paint);
+    for (final link in links) {
+      final path = _bezierPath(link.source.position, link.target.position);
+      canvas.drawPath(path, linePaint);
     }
 
-    // 当前节点 → 子节点
-    for (int i = 0; i < children.length; i++) {
-      final p1 = Offset(currentX, currentY);
-      final p2 = Offset(childXs[i], childY);
-      canvas.drawPath(_bezierPath(p1, p2), paint);
+    // 2. 绘制节点
+    for (final node in nodes) {
+      final data = node.data['node'] as LineageNode;
+      final isCurrent = node.data['isCurrent'] as bool;
+      final baseColor = data.color;
+      final radius = node.radius;
+
+      // 辉光
+      final glowPaint = Paint()
+        ..color = baseColor.withOpacity(isCurrent ? 0.5 : 0.3)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 6);
+      canvas.drawCircle(node.position, radius, glowPaint);
+
+      // 实心填充
+      final fillPaint = Paint()..color = baseColor;
+      canvas.drawCircle(node.position, radius, fillPaint);
+
+      // 当前节点金边
+      if (isCurrent) {
+        final borderPaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5
+          ..color = const Color(0xFFFFD700);
+        canvas.drawCircle(node.position, radius, borderPaint);
+      }
+
+      // 作者名（节点下方）
+      final author = data.author;
+      if (author.isNotEmpty) {
+        final authorSpan = TextSpan(
+          text: author,
+          style: const TextStyle(
+            color: Color(0xFF9A9AA0),
+            fontSize: 10,
+          ),
+        );
+        final authorPainter = TextPainter(
+          text: authorSpan,
+          textDirection: TextDirection.ltr,
+          textAlign: TextAlign.center,
+        )..layout(maxWidth: 80);
+        authorPainter.paint(
+          canvas,
+          Offset(
+            node.position.dx - authorPainter.width / 2,
+            node.position.dy + radius + 4,
+          ),
+        );
+      }
     }
   }
 
-  /// 三次 Bezier 曲线：起点和终点的控制点在垂直方向偏移。
+  /// 绘制 S 形 Bezier 曲线连接两点。
   Path _bezierPath(Offset p1, Offset p2) {
     final midY = (p1.dy + p2.dy) / 2;
     final c1 = Offset(p1.dx, midY);
@@ -301,12 +327,7 @@ class _LineageLinePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _LineageLinePainter oldDelegate) {
-    return parents != oldDelegate.parents ||
-        children != oldDelegate.children ||
-        currentX != oldDelegate.currentX ||
-        currentY != oldDelegate.currentY ||
-        parentY != oldDelegate.parentY ||
-        childY != oldDelegate.childY;
+  bool shouldRepaint(covariant _ForceGraphPainter oldDelegate) {
+    return nodes != oldDelegate.nodes || links != oldDelegate.links;
   }
 }
