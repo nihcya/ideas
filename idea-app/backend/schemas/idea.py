@@ -44,6 +44,9 @@ class CircleData(BaseModel):
     )
     is_own: bool = Field(False, description="是否为自己产生的")
     fork_count: int = Field(0, ge=0, description="被 fork 数（用于大小计算）")
+    border_style: BorderStyle | None = Field(
+        None, description="边框样式：'gold-thin' 表示自己产生的金边，None 表示无边框"
+    )
 
 
 class ExploreResponse(BaseModel):

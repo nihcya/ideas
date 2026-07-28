@@ -643,6 +643,14 @@ class _DetailBody extends StatelessWidget {
               ),
               LineageTree(
                 lineage: detail.lineage,
+                currentNode: LineageNode(
+                  id: detail.id,
+                  colorHex: detail.colorHex,
+                  author: detail.author.username,
+                  title: detail.content.length > 30
+                      ? '${detail.content.substring(0, 30)}…'
+                      : detail.content,
+                ),
                 onTap: onCircleTap,
               ),
               const SizedBox(height: 24),

@@ -125,6 +125,7 @@ async def explore(
                 size_score=_calc_size_score(idea.fork_count, idea.last_fork_at),
                 is_own=str(idea.id) in user_vault_ids,
                 fork_count=idea.fork_count,
+                border_style='gold-thin' if (user and idea.author_id == user.id) else None,
             )
             for idea in all_ideas
         ]
