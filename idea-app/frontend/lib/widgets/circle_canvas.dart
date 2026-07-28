@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/idea.dart';
+import '../theme/app_theme.dart';
 import 'circle_painter.dart';
 
 /// 主页和仓库的圆圈画布。
@@ -254,6 +255,7 @@ class _CircleCanvasState extends State<CircleCanvas>
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
+    final goldColor = AppColors.of(context).gold;
 
     return SingleChildScrollView(
       controller: _scrollController,
@@ -269,6 +271,7 @@ class _CircleCanvasState extends State<CircleCanvas>
               return CustomPaint(
                 painter: CirclePainter(
                   circles: _buildRenderData(_floatController.value),
+                  goldColor: goldColor,
                 ),
                 size: Size.infinite,
               );

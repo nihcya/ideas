@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../models/idea.dart';
 import '../models/vault.dart';
 import '../providers/vault_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/circle_canvas.dart';
 
 /// 个人仓库页：自己产生的（金边）+ 收集的（无边）
@@ -24,6 +25,7 @@ class VaultScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncVault = ref.watch(vaultProvider);
+    final colors = AppColors.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('仓库')),
       body: RefreshIndicator(
@@ -48,12 +50,12 @@ class VaultScreen extends ConsumerWidget {
                 Expanded(
                   child: visibleCircles.isEmpty
                       ? ListView(
-                          children: const [
-                            SizedBox(height: 200),
+                          children: [
+                            const SizedBox(height: 200),
                             Center(
                               child: Text(
                                 '仓库还是空的，去探索捡几个吧',
-                                style: TextStyle(color: Color(0xFF9A9AA0)),
+                                style: TextStyle(color: colors.textSecondary),
                               ),
                             ),
                           ],
@@ -93,26 +95,27 @@ class _StatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
       margin: const EdgeInsets.all(12),
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1E),
+        color: colors.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          _statCell('自己产生', stats.produced, const Color(0xFFFFD700)),
-          _divider(),
-          _statCell('收集', stats.collected, const Color(0xFF4ECDC4)),
-          _divider(),
-          _statCell('被 Fork', stats.forkedByOthers, const Color(0xFFB5A8E8)),
+          _statCell('自己产生', stats.produced, colors.gold, colors),
+          _divider(colors.divider),
+          _statCell('收集', stats.collected, colors.success, colors),
+          _divider(colors.divider),
+          _statCell('被 Fork', stats.forkedByOthers, colors.forkAccent, colors),
         ],
       ),
     );
   }
 
-  Widget _statCell(String label, int value, Color color) {
+  Widget _statCell(String label, int value, Color color, AppColors colors) {
     return Expanded(
       child: Column(
         children: [
@@ -127,18 +130,18 @@ class _StatsCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF9A9AA0)),
+            style: TextStyle(fontSize: 12, color: colors.textSecondary),
           ),
         ],
       ),
     );
   }
 
-  Widget _divider() {
+  Widget _divider(Color color) {
     return Container(
       width: 1,
       height: 32,
-      color: const Color(0xFF2A2A2E),
+      color: color,
     );
   }
 }

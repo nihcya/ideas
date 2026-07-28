@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../models/spark.dart';
 import '../providers/spark_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/countdown_ring_painter.dart';
 
 /// 今日一点页：每日一题 + 3 分钟倒计时 + 草稿自动保存
@@ -192,6 +193,7 @@ class _SparkScreenState extends ConsumerState<SparkScreen>
   }
 
   Widget _buildInputView(BuildContext context, SparkToday spark) {
+    final colors = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Column(
@@ -222,9 +224,7 @@ class _SparkScreenState extends ConsumerState<SparkScreen>
                     progress: _totalDuration > 0
                         ? _remaining / _totalDuration
                         : 0,
-                    color: _remaining <= 30
-                        ? const Color(0xFFFF5252)
-                        : const Color(0xFFFFD700),
+                    color: _remaining <= 30 ? colors.error : colors.gold,
                   ),
                 ),
               ),
@@ -233,9 +233,7 @@ class _SparkScreenState extends ConsumerState<SparkScreen>
                 _formatCountdown(_remaining),
                 style: TextStyle(
                   fontSize: 14,
-                  color: _remaining <= 30
-                      ? const Color(0xFFFF5252)
-                      : const Color(0xFF9A9AA0),
+                  color: _remaining <= 30 ? colors.error : colors.textSecondary,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
@@ -247,18 +245,17 @@ class _SparkScreenState extends ConsumerState<SparkScreen>
                   child: CircularProgressIndicator(strokeWidth: 1.5),
                 ),
                 const SizedBox(width: 4),
-                const Text(
+                Text(
                   '保存中',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF9A9AA0)),
+                  style: TextStyle(fontSize: 11, color: colors.textSecondary),
                 ),
               ] else if (_draftSaved) ...[
                 const SizedBox(width: 12),
-                const Icon(Icons.check,
-                    size: 12, color: Color(0xFF4ECDC4)),
+                Icon(Icons.check, size: 12, color: colors.success),
                 const SizedBox(width: 4),
-                const Text(
+                Text(
                   '草稿已保存',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF4ECDC4)),
+                  style: TextStyle(fontSize: 11, color: colors.success),
                 ),
               ],
             ],
@@ -303,6 +300,7 @@ class _SubmittedView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -313,11 +311,10 @@ class _SubmittedView extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: const Color(0xFFFFD700).withValues(alpha: 0.15),
+                color: colors.gold.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check,
-                  color: Color(0xFFFFD700), size: 44),
+              child: Icon(Icons.check, color: colors.gold, size: 44),
             ),
             const SizedBox(height: 24),
             const Text(
@@ -328,14 +325,14 @@ class _SubmittedView extends StatelessWidget {
             Text(
               spark.question,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF9A9AA0), fontSize: 13),
+              style: TextStyle(color: colors.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 24),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1E),
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -346,9 +343,9 @@ class _SubmittedView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               '明天再来捕捉新的灵感',
-              style: TextStyle(color: Color(0xFF9A9AA0), fontSize: 12),
+              style: TextStyle(color: colors.textSecondary, fontSize: 12),
             ),
           ],
         ),
@@ -364,6 +361,7 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final expired = message.contains('expired') || message.contains('410');
     return Center(
       child: Padding(
@@ -374,13 +372,13 @@ class _ErrorView extends StatelessWidget {
             Icon(
               expired ? Icons.schedule_outlined : Icons.error_outline,
               size: 56,
-              color: const Color(0xFF9A9AA0),
+              color: colors.textSecondary,
             ),
             const SizedBox(height: 16),
             Text(
               expired ? '今日一点已过期，明天再来吧' : '加载失败：$message',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF9A9AA0)),
+              style: TextStyle(color: colors.textSecondary),
             ),
             if (!expired) ...[
               const SizedBox(height: 16),

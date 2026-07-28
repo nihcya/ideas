@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/auth_provider.dart';
+import '../theme/app_theme.dart';
 
 /// 登录 / 注册切换页
 class AuthScreen extends ConsumerStatefulWidget {
@@ -81,7 +82,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                         fontSize: 40,
-                        color: const Color(0xFFFFD700),
+                        color: AppColors.of(context).gold,
                       ),
                 ),
                 const SizedBox(height: 8),

@@ -38,13 +38,19 @@ class CircleRenderData {
 /// 圆圈绘制器：在 [CustomPaint] 中渲染所有圆圈。
 ///
 /// 遵循 TECH_CONSTRAINTS 1.1：
-/// - 金边圆圈：先填充实心圆，再 stroke 边框（strokeWidth=3, Color(0xFFFFD700)）
+/// - 金边圆圈：先填充实心圆，再 stroke 边框（strokeWidth=3, goldColor）
 /// - 无边框圆圈：只画实心圆
 /// - 轻微阴影/辉光效果（MaskFilter.blur）
 class CirclePainter extends CustomPainter {
   final List<CircleRenderData> circles;
 
-  const CirclePainter({required this.circles});
+  /// 金边颜色（由外部通过 AppColors.gold 注入，避免硬编码）。
+  final Color goldColor;
+
+  const CirclePainter({
+    required this.circles,
+    required this.goldColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -68,7 +74,7 @@ class CirclePainter extends CustomPainter {
         final borderPaint = Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 3
-          ..color = const Color(0xFFFFD700).withOpacity(c.opacity);
+          ..color = goldColor.withOpacity(c.opacity);
         canvas.drawCircle(c.center, effectiveRadius, borderPaint);
       }
     }
@@ -77,6 +83,7 @@ class CirclePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CirclePainter oldDelegate) {
     if (circles.length != oldDelegate.circles.length) return true;
+    if (goldColor != oldDelegate.goldColor) return true;
     for (int i = 0; i < circles.length; i++) {
       final a = circles[i];
       final b = oldDelegate.circles[i];

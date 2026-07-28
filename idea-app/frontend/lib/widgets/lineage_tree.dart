@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../models/idea.dart';
+import '../theme/app_theme.dart';
 import 'force_layout.dart';
 
 /// 谱系图（力导向布局版本）。
@@ -232,6 +233,7 @@ class _LineageTreeState extends State<LineageTree>
             painter: _ForceGraphPainter(
               nodes: _simulation.nodes,
               links: _simulation.links,
+              colors: AppColors.of(context),
             ),
             size: const Size(_canvasSize, _canvasSize),
           ),
@@ -245,17 +247,19 @@ class _LineageTreeState extends State<LineageTree>
 class _ForceGraphPainter extends CustomPainter {
   final List<ForceNode> nodes;
   final List<ForceLink> links;
+  final AppColors colors;
 
   const _ForceGraphPainter({
     required this.nodes,
     required this.links,
+    required this.colors,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     // 1. 绘制连接线（先画线再画节点，节点在上层）
     final linePaint = Paint()
-      ..color = const Color(0xFF6B6B70)
+      ..color = colors.lineageLine
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
@@ -286,7 +290,7 @@ class _ForceGraphPainter extends CustomPainter {
         final borderPaint = Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.5
-          ..color = const Color(0xFFFFD700);
+          ..color = colors.gold;
         canvas.drawCircle(node.position, radius, borderPaint);
       }
 
@@ -295,8 +299,8 @@ class _ForceGraphPainter extends CustomPainter {
       if (author.isNotEmpty) {
         final authorSpan = TextSpan(
           text: author,
-          style: const TextStyle(
-            color: Color(0xFF9A9AA0),
+          style: TextStyle(
+            color: colors.textSecondary,
             fontSize: 10,
           ),
         );
@@ -328,6 +332,8 @@ class _ForceGraphPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ForceGraphPainter oldDelegate) {
-    return nodes != oldDelegate.nodes || links != oldDelegate.links;
+    return nodes != oldDelegate.nodes ||
+        links != oldDelegate.links ||
+        colors != oldDelegate.colors;
   }
 }

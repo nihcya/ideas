@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../theme/app_theme.dart';
+
 /// 弹出演化菜单（顶级函数，便于直接调用）。
 ///
 /// 用法：`showEvolveMenu(context, onCollide: ..., onEvolve: ...)`
@@ -106,10 +108,11 @@ class _EvolveMenuState extends State<EvolveMenu>
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF1A1A1E),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.fromLTRB(24, 32, 24, 48),
       child: Column(
@@ -232,6 +235,7 @@ class _EvolveMenuState extends State<EvolveMenu>
     required VoidCallback onTap,
   }) {
     const size = 100.0;
+    final textPrimary = AppColors.of(context).textPrimary;
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -259,8 +263,8 @@ class _EvolveMenuState extends State<EvolveMenu>
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(
-              color: Color(0xFFF5F5F7),
+            style: TextStyle(
+              color: textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),

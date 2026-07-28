@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../models/idea.dart';
+import '../theme/app_theme.dart';
 
 /// 谱系图（点子详情页用）。
 ///
@@ -44,6 +45,7 @@ class LineageTree extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final parents = lineage.parents;
     final children = lineage.children;
 
@@ -95,6 +97,7 @@ class LineageTree extends StatelessWidget {
                   children: children,
                   childXs: childXs,
                   childY: childY,
+                  lineColor: colors.lineageLine,
                 ),
               ),
               // 父节点
@@ -104,9 +107,10 @@ class LineageTree extends StatelessWidget {
                   parentXs[i],
                   parentY,
                   isCurrent: false,
+                  colors: colors,
                 ),
               // 当前节点
-              _buildCurrentNode(currentX, currentY),
+              _buildCurrentNode(currentX, currentY, colors),
               // 子节点
               for (int i = 0; i < children.length; i++)
                 _buildNode(
@@ -114,6 +118,7 @@ class LineageTree extends StatelessWidget {
                   childXs[i],
                   childY,
                   isCurrent: false,
+                  colors: colors,
                 ),
             ],
           ),
@@ -133,9 +138,9 @@ class LineageTree extends StatelessWidget {
   }
 
   /// 当前节点：有数据时显示完整节点，无数据时显示金边占位。
-  Widget _buildCurrentNode(double x, double y) {
+  Widget _buildCurrentNode(double x, double y, AppColors colors) {
     if (currentNode != null) {
-      return _buildNode(currentNode!, x, y, isCurrent: true);
+      return _buildNode(currentNode!, x, y, isCurrent: true, colors: colors);
     }
     return Positioned(
       left: x - nodeDiameter / 2,
@@ -150,14 +155,14 @@ class LineageTree extends StatelessWidget {
               height: nodeDiameter,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFFFD700),
+                color: colors.gold,
                 border: Border.all(
-                  color: const Color(0xFFFFD700),
+                  color: colors.gold,
                   width: 2.5,
                 ),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: Color(0x66FFD700),
+                    color: colors.gold.withValues(alpha: 0.4),
                     blurRadius: 8,
                     spreadRadius: 1,
                   ),
@@ -165,10 +170,10 @@ class LineageTree extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               '当前',
               style: TextStyle(
-                color: Color(0xFFFFD700),
+                color: colors.gold,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
@@ -179,7 +184,8 @@ class LineageTree extends StatelessWidget {
     );
   }
 
-  Widget _buildNode(LineageNode node, double x, double y, {required bool isCurrent}) {
+  Widget _buildNode(LineageNode node, double x, double y,
+      {required bool isCurrent, required AppColors colors}) {
     return Positioned(
       left: x - nodeDiameter / 2,
       top: y - nodeDiameter / 2,
@@ -197,7 +203,7 @@ class LineageTree extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: node.color,
                   border: isCurrent
-                      ? Border.all(color: const Color(0xFFFFD700), width: 2.5)
+                      ? Border.all(color: colors.gold, width: 2.5)
                       : null,
                   boxShadow: [
                     BoxShadow(
@@ -213,8 +219,8 @@ class LineageTree extends StatelessWidget {
                 node.author,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFFF5F5F7),
+                style: TextStyle(
+                  color: colors.textPrimary,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -225,8 +231,8 @@ class LineageTree extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFF9A9AA0),
+                style: TextStyle(
+                  color: colors.textSecondary,
                   fontSize: 10,
                   height: 1.2,
                 ),
@@ -257,6 +263,8 @@ class _LineageLinePainter extends CustomPainter {
   final List<double> childXs;
   final double childY;
 
+  final Color lineColor;
+
   _LineageLinePainter({
     required this.parents,
     required this.parentXs,
@@ -266,6 +274,7 @@ class _LineageLinePainter extends CustomPainter {
     required this.children,
     required this.childXs,
     required this.childY,
+    required this.lineColor,
   });
 
   @override
@@ -273,7 +282,7 @@ class _LineageLinePainter extends CustomPainter {
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
-      ..color = const Color(0xFF6B6B70);
+      ..color = lineColor;
 
     // 父节点 → 当前节点
     for (int i = 0; i < parents.length; i++) {
@@ -307,6 +316,7 @@ class _LineageLinePainter extends CustomPainter {
         currentX != oldDelegate.currentX ||
         currentY != oldDelegate.currentY ||
         parentY != oldDelegate.parentY ||
-        childY != oldDelegate.childY;
+        childY != oldDelegate.childY ||
+        lineColor != oldDelegate.lineColor;
   }
 }
