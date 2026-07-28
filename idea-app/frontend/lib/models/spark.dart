@@ -8,6 +8,7 @@ class SparkToday {
   final String type;
   final int durationSeconds;
   final bool hasDraft;
+  final String? draftContent;
   final bool submitted;
 
   const SparkToday({
@@ -16,6 +17,7 @@ class SparkToday {
     required this.type,
     required this.durationSeconds,
     required this.hasDraft,
+    this.draftContent,
     required this.submitted,
   });
 
@@ -26,6 +28,7 @@ class SparkToday {
       type: json['type'] as String,
       durationSeconds: json['duration_seconds'] as int? ?? 180,
       hasDraft: json['has_draft'] as bool? ?? false,
+      draftContent: json['draft_content'] as String?,
       submitted: json['submitted'] as bool? ?? false,
     );
   }

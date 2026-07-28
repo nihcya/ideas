@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../models/spark.dart';
 import '../providers/spark_provider.dart';
+import '../widgets/countdown_ring_painter.dart';
 
 /// 今日一点页：每日一题 + 3 分钟倒计时 + 草稿自动保存
 class SparkScreen extends ConsumerStatefulWidget {
@@ -15,11 +16,13 @@ class SparkScreen extends ConsumerStatefulWidget {
   ConsumerState<SparkScreen> createState() => _SparkScreenState();
 }
 
-class _SparkScreenState extends ConsumerState<SparkScreen> {
+class _SparkScreenState extends ConsumerState<SparkScreen>
+    with SingleTickerProviderStateMixin {
   final _ctrl = TextEditingController();
   Timer? _countdownTimer;
   Timer? _debounceTimer;
   int _remaining = 180;
+  int _totalDuration = 180;
   bool _initialized = false;
   bool _savingDraft = false;
   bool _submitting = false;
@@ -27,11 +30,29 @@ class _SparkScreenState extends ConsumerState<SparkScreen> {
   bool _countdownEnded = false;
   String? _submittedContent;
 
+  /// 题目渐显动画控制器。
+  late final AnimationController _fadeController;
+  late final Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeIn,
+    );
+  }
+
   @override
   void dispose() {
     _countdownTimer?.cancel();
     _debounceTimer?.cancel();
     _ctrl.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
@@ -39,11 +60,17 @@ class _SparkScreenState extends ConsumerState<SparkScreen> {
     if (_initialized) return;
     _initialized = true;
     _remaining = data.durationSeconds;
+    _totalDuration = data.durationSeconds;
     if (data.hasDraft) {
-      // 草稿存在时不重置内容
       _draftSaved = true;
+      // 草稿回填：将后端返回的草稿内容填入输入框
+      if (data.draftContent != null && data.draftContent!.isNotEmpty) {
+        _ctrl.text = data.draftContent!;
+      }
     }
     _startCountdown();
+    // 触发题目渐显动画
+    _fadeController.forward();
   }
 
   void _startCountdown() {
@@ -171,27 +198,37 @@ class _SparkScreenState extends ConsumerState<SparkScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 16),
-          Text(
-            spark.question,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              height: 1.5,
+          FadeTransition(
+            opacity: _fadeAnimation,
+            child: Text(
+              spark.question,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                height: 1.5,
+              ),
             ),
           ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.timer_outlined,
-                size: 16,
-                color: _remaining <= 30
-                    ? const Color(0xFFFF5252)
-                    : const Color(0xFFFFD700),
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CustomPaint(
+                  painter: CountdownRingPainter(
+                    progress: _totalDuration > 0
+                        ? _remaining / _totalDuration
+                        : 0,
+                    color: _remaining <= 30
+                        ? const Color(0xFFFF5252)
+                        : const Color(0xFFFFD700),
+                  ),
+                ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               Text(
                 _formatCountdown(_remaining),
                 style: TextStyle(
