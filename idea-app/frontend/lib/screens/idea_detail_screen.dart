@@ -8,6 +8,7 @@ import '../providers/idea_detail_provider.dart';
 import '../providers/vault_provider.dart';
 import '../widgets/evolve_menu.dart';
 import '../widgets/lineage_tree.dart';
+import '../widgets/radial_menu.dart';
 
 /// 点子详情页：大圆圈 + 内容 + 谱系图 + 操作栏
 class IdeaDetailScreen extends ConsumerStatefulWidget {
@@ -20,6 +21,7 @@ class IdeaDetailScreen extends ConsumerStatefulWidget {
 
 class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
   bool _collecting = false;
+  final GlobalKey _circleKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +41,7 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
       body: asyncDetail.when(
         data: (detail) => _DetailBody(
           detail: detail,
+          circleKey: _circleKey,
           onCircleTap: (id) => context.push('/idea/$id'),
           onFork: () => context.push('/fork/${widget.ideaId}'),
           onToggleCollect: _toggleCollect,
@@ -97,10 +100,47 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
 
   void _showEvolveMenu(BuildContext context) {
     HapticFeedback.mediumImpact();
-    showEvolveMenu(
+
+    // 获取大圆圈的全局位置和尺寸
+    final renderBox =
+        _circleKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) {
+      // fallback：退回底部弹窗
+      showEvolveMenu(
+        context,
+        onCollide: () => _startCollide(context),
+        onEvolve: () => _startEvolve(context),
+      );
+      return;
+    }
+
+    final circleSize = renderBox.size;
+    final circleOrigin = renderBox.localToGlobal(Offset.zero);
+    final center = Offset(
+      circleOrigin.dx + circleSize.width / 2,
+      circleOrigin.dy + circleSize.height / 2,
+    );
+    final innerRadius = circleSize.width / 2;
+
+    RadialMenu.show(
       context,
-      onCollide: () => _startCollide(context),
-      onEvolve: () => _startEvolve(context),
+      center: center,
+      innerRadius: innerRadius,
+      outerRadius: innerRadius + 140,
+      items: [
+        RadialMenuItem(
+          label: '碰撞',
+          icon: Icons.bolt,
+          color: const Color(0xFF6C5CE7),
+          onTap: () => _startCollide(context),
+        ),
+        RadialMenuItem(
+          label: '演化',
+          icon: Icons.eco,
+          color: const Color(0xFF00B894),
+          onTap: () => _startEvolve(context),
+        ),
+      ],
     );
   }
 
@@ -515,6 +555,7 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
 
 class _DetailBody extends StatelessWidget {
   final IdeaDetail detail;
+  final GlobalKey circleKey;
   final void Function(String) onCircleTap;
   final VoidCallback onFork;
   final void Function(bool currentlyInVault) onToggleCollect;
@@ -523,6 +564,7 @@ class _DetailBody extends StatelessWidget {
 
   const _DetailBody({
     required this.detail,
+    required this.circleKey,
     required this.onCircleTap,
     required this.onFork,
     required this.onToggleCollect,
@@ -540,6 +582,7 @@ class _DetailBody extends StatelessWidget {
             // 顶部大圆圈
             Center(
               child: Container(
+                key: circleKey,
                 width: 200,
                 height: 200,
                 decoration: BoxDecoration(

@@ -229,7 +229,7 @@ class ForceSimulation {
   /// 速度衰减率（模拟阻尼）。
   final double velocityDecay;
 
-  Simulation({
+  ForceSimulation({
     required this.nodes,
     required this.links,
     required this.forces,
