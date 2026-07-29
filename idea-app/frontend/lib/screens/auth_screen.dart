@@ -121,6 +121,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   textInputAction: _isRegister ? TextInputAction.next : TextInputAction.done,
                   validator: (v) {
                     if (v == null || v.length < 8) return '密码至少 8 位';
+                    // M1: 前端同步后端密码强度校验——必须含字母+数字
+                    final hasLetter = RegExp(r'[A-Za-z]').hasMatch(v);
+                    final hasDigit = RegExp(r'\d').hasMatch(v);
+                    if (!hasLetter) return '密码必须包含至少一个字母';
+                    if (!hasDigit) return '密码必须包含至少一个数字';
                     return null;
                   },
                 ),

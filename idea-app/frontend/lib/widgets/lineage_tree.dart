@@ -45,7 +45,9 @@ class _LineageTreeState extends State<LineageTree>
   static const double _currentNodeRadius = 28.0;
   static const Offset _center = Offset(_canvasSize / 2, _canvasSize / 2);
 
-  late final ForceSimulation _simulation;
+  // 注意：_simulation 不能用 late final，因为 didUpdateWidget 中 lineage 变化时
+  // 需要重建模拟，会二次赋值。用普通 late 允许重新赋值。
+  late ForceSimulation _simulation;
   late final Ticker _ticker;
 
   /// 当前被拖拽的节点（null 表示无拖拽）。
@@ -179,13 +181,15 @@ class _LineageTreeState extends State<LineageTree>
     setState(() {});
   }
 
-  /// 命中测试：返回点击位置对应的 ideaId（无命中返回 null）。
+  /// 命中测试：返回点击位置对应的 ideaId（无命中或命中当前节点返回 null）。
   String? _hitTest(Offset localPos) {
     // 反向遍历：后绘制的在上层
     for (final n in _simulation.nodes.reversed) {
       final dist = (localPos - n.position).distance;
       if (dist <= n.radius) {
-        return n.key == '__current__' ? null : n.key;
+        // 当前节点不可点击跳转（避免跳转到自身）
+        if (n.data['isCurrent'] == true) return null;
+        return n.key;
       }
     }
     return null;
