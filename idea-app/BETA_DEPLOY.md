@@ -1,6 +1,6 @@
 # 点子 App — Beta 测试部署指南（IP 访问版）
 
-> **适用场景**：域名尚未到位，使用 IP `124.221.108.59` 进行小范围 Beta 测试。
+> **适用场景**：域名尚未到位，使用 IP `<your_server_ip>` 进行小范围 Beta 测试。
 > **前置条件**：服务器已部署过旧版本，Nginx + Docker 均已运行。
 > **操作环境**：本地 Windows + 服务器 Linux（Ubuntu）。
 > **预计操作**：5 个步骤，按顺序执行即可。
@@ -34,13 +34,13 @@
 cd f:\treaFiles\Ideas\ideas\idea-app
 
 # 第 2 步：上传后端修改的文件到服务器
-scp backend\services\fade_service.py root@124.221.108.59:/opt/dianzi/backend/services/fade_service.py
-scp backend\services\rate_limit.py root@124.221.108.59:/opt/dianzi/backend/services/rate_limit.py
-scp backend\requirements.txt root@124.221.108.59:/opt/dianzi/backend/requirements.txt
-scp backend\main.py root@124.221.108.59:/opt/dianzi/backend/main.py
-scp backend\routers\auth.py root@124.221.108.59:/opt/dianzi/backend/routers/auth.py
-scp backend\routers\evolve.py root@124.221.108.59:/opt/dianzi/backend/routers/evolve.py
-scp backend\routers\ideas.py root@124.221.108.59:/opt/dianzi/backend/routers/ideas.py
+scp backend\services\fade_service.py root@<your_server_ip>:/opt/dianzi/backend/services/fade_service.py
+scp backend\services\rate_limit.py root@<your_server_ip>:/opt/dianzi/backend/services/rate_limit.py
+scp backend\requirements.txt root@<your_server_ip>:/opt/dianzi/backend/requirements.txt
+scp backend\main.py root@<your_server_ip>:/opt/dianzi/backend/main.py
+scp backend\routers\auth.py root@<your_server_ip>:/opt/dianzi/backend/routers/auth.py
+scp backend\routers\evolve.py root@<your_server_ip>:/opt/dianzi/backend/routers/evolve.py
+scp backend\routers\ideas.py root@<your_server_ip>:/opt/dianzi/backend/routers/ideas.py
 
 # 第 3 步：确认上传成功（逐个回车，每次应输出文件名或无报错）
 ```
@@ -53,7 +53,7 @@ scp backend\routers\ideas.py root@124.221.108.59:/opt/dianzi/backend/routers/ide
 
 ```bash
 # 第 1 步：登录服务器
-ssh root@124.221.108.59
+ssh root@<your_server_ip>
 
 # 第 2 步：进入项目目录
 cd /opt/dianzi/backend
@@ -68,7 +68,7 @@ nano .env
 
 # 第 4 步：确认 .env 中 CORS 允许 IP 访问
 # 继续在 nano 中检查 CORS_ORIGINS 这一行
-# 应该是：CORS_ORIGINS=http://124.221.108.59
+# 应该是：CORS_ORIGINS=http://<your_server_ip>
 # 如果不是，改成上面这个值
 # 按 Ctrl+O 保存，按 Enter 确认，按 Ctrl+X 退出
 
@@ -114,7 +114,7 @@ flutter clean
 flutter pub get
 
 # 第 4 步：编译 Web 版本，API 地址指向服务器 IP
-flutter build web --release --dart-define=API_BASE_URL=http://124.221.108.59/api
+flutter build web --release --dart-define=API_BASE_URL=http://<your_server_ip>/api
 # 预期输出末尾：Built build\web
 
 # 第 5 步：进入构建产物目录
@@ -124,14 +124,14 @@ cd build\web
 tar -czf ..\..\..\dianzi-web-beta.tar.gz .
 
 # 第 7 步：上传到服务器
-scp ..\..\..\dianzi-web-beta.tar.gz root@124.221.108.59:/opt/dianzi/releases/
+scp ..\..\..\dianzi-web-beta.tar.gz root@<your_server_ip>:/opt/dianzi/releases/
 ```
 
 【在哪执行】服务器（SSH 登录后的终端）
 
 ```bash
 # 第 8 步：登录服务器
-ssh root@124.221.108.59
+ssh root@<your_server_ip>
 
 # 第 9 步：进入项目目录
 cd /opt/dianzi
@@ -148,7 +148,7 @@ sudo systemctl reload nginx
 # 无输出即成功
 
 # 第 13 步：验证前端页面能打开
-curl -I http://124.221.108.59
+curl -I http://<your_server_ip>
 # 预期输出：HTTP/1.1 200 OK
 ```
 
@@ -162,11 +162,11 @@ curl -I http://124.221.108.59
 
 ```powershell
 # 第 1 步：验证健康检查
-curl http://124.221.108.59/health
+curl http://<your_server_ip>/health
 # 预期输出：{"status":"ok","env":"prod",...}
 
 # 第 2 步：验证注册接口
-curl -s -X POST http://124.221.108.59/api/auth/register `
+curl -s -X POST http://<your_server_ip>/api/auth/register `
   -H "Content-Type: application/json" `
   -d '{\"username\":\"betauser\",\"password\":\"test12345\"}'
 # 预期输出：返回含 token 和 username 的 JSON
@@ -175,7 +175,7 @@ curl -s -X POST http://124.221.108.59/api/auth/register `
 # 在 PowerShell 中执行：
 for ($i=1; $i -le 12; $i++) {
   $code = curl -s -o $null -w "%{http_code}" `
-    -X POST http://124.221.108.59/api/auth/login `
+    -X POST http://<your_server_ip>/api/auth/login `
     -H "Content-Type: application/json" `
     -d '{\"username\":\"betauser\",\"password\":\"wrong\"}'
   Write-Host "第 $i 次: $code"
@@ -204,7 +204,7 @@ curl -s -X POST http://127.0.0.1:8765/api/ideas \
 【在哪执行】浏览器
 
 ```
-第 5 步：打开浏览器，访问 http://124.221.108.59
+第 5 步：打开浏览器，访问 http://<your_server_ip>
          预期：看到圆圈探索页面正常加载
 
 第 6 步：点击右上角注册，创建账号，登录
@@ -258,7 +258,7 @@ asyncio.run(test())
 
 ```bash
 # 第 1 步：登录服务器
-ssh root@124.221.108.59
+ssh root@<your_server_ip>
 
 # 第 2 步：创建备份目录
 mkdir -p /opt/dianzi/backup

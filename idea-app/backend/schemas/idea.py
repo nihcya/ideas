@@ -44,6 +44,9 @@ class CircleData(BaseModel):
     )
     is_own: bool = Field(False, description="是否为自己产生的")
     fork_count: int = Field(0, ge=0, description="被 fork 数（用于大小计算）")
+    border_style: BorderStyle | None = Field(
+        None, description="边框样式：'gold-thin' 表示自己产生的金边，None 表示无边框"
+    )
 
 
 class ExploreResponse(BaseModel):
@@ -151,6 +154,11 @@ class CollideResponse(BaseModel):
     suggestions: list[CollideSuggestion] = Field(
         default_factory=list, description="3个碰撞方案"
     )
+    # M4: AI 生成内容预览未审核，提示用户最终入库时会再次审核
+    notice: str = Field(
+        "AI 生成内容仅供预览，确认入库时将再次审核",
+        description="风险提示",
+    )
 
 
 class CollideConfirmRequest(BaseModel):
@@ -201,6 +209,11 @@ class EvolveResponse(BaseModel):
     """演化响应"""
     variants: list[EvolveVariant] = Field(
         default_factory=list, description="3个演化变体"
+    )
+    # M4: AI 生成内容预览未审核，提示用户最终入库时会再次审核
+    notice: str = Field(
+        "AI 生成内容仅供预览，确认入库时将再次审核",
+        description="风险提示",
     )
 
 

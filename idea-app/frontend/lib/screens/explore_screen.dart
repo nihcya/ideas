@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/explore_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/circle_canvas.dart';
 
 /// 主页探索页：圆圈画布 + 强制随机激发
@@ -42,7 +42,6 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   }
 
   void _onCircleTap(String id) {
-    HapticFeedback.selectionClick();
     context.push('/idea/$id');
   }
 
@@ -50,6 +49,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   Widget build(BuildContext context) {
     final asyncCircles = ref.watch(exploreProvider);
     final hasMore = ref.watch(exploreProvider.notifier).hasMore;
+    final colors = AppColors.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('点子'),
@@ -66,12 +66,12 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
           data: (circles) {
             if (circles.isEmpty) {
               return ListView(
-                children: const [
-                  SizedBox(height: 240),
+                children: [
+                  const SizedBox(height: 240),
                   Center(
                     child: Text(
                       '等待灵感涌现...',
-                      style: TextStyle(color: Color(0xFF9A9AA0)),
+                      style: TextStyle(color: colors.textSecondary),
                     ),
                   ),
                 ],
@@ -119,7 +119,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/create'),
-        backgroundColor: const Color(0xFFFFD700),
+        backgroundColor: colors.gold,
         foregroundColor: Colors.black,
         child: const Icon(Icons.add),
       ),

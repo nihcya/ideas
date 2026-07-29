@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import database
 from models import User
-from services.jwt_service import decode_token
+from services.jwt_service import decode_token, is_token_revoked
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:
@@ -38,6 +38,13 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error": {"code": "UNAUTHORIZED", "message": "token 无效或已过期"}},
+        )
+
+    # H2: 检查 token 是否已被撤销（登出黑名单）
+    if await is_token_revoked(payload):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": {"code": "UNAUTHORIZED", "message": "token 已失效，请重新登录"}},
         )
 
     user_id = payload.get("sub")

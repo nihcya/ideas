@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/settings_provider.dart';
+import '../theme/app_theme.dart';
 
 /// 设置页
 ///
@@ -113,7 +114,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF5252)),
+            style: TextButton.styleFrom(foregroundColor: AppColors.of(context).error),
             child: const Text('退出'),
           ),
         ],
@@ -130,6 +131,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     // 进入页面后异步加载 LLM 配置
     _loadLlmConfig();
+    // S2: 读取暗色模式设置
+    final settingsAsync = ref.watch(settingsProvider);
+    final isDark = settingsAsync.value?.darkMode ?? true;
 
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
@@ -138,10 +142,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const _SectionHeader('通用'),
           ListTile(
             title: const Text('深色模式'),
-            subtitle: const Text('固定开启'),
+            subtitle: Text(isDark ? '已开启' : '已关闭'),
             trailing: Switch(
-              value: true,
-              onChanged: null,
+              value: isDark,
+              onChanged: (v) {
+                ref.read(settingsProvider.notifier).saveDarkMode(v);
+              },
             ),
           ),
 
@@ -152,14 +158,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline, size: 16, color: Color(0xFF9A9AA0)),
+                Icon(Icons.info_outline, size: 16, color: AppColors.of(context).textSecondary),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     '配置后，碰撞、演化、审核将调用你自己的大模型。留空则使用服务器默认配置或 Mock 模式。',
                     style: TextStyle(
                       fontSize: 12,
-                      color: const Color(0xFF9A9AA0),
+                      color: AppColors.of(context).textSecondary,
                       height: 1.4,
                     ),
                   ),
@@ -270,9 +276,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const Divider(height: 1, indent: 16),
           const _SectionHeader('账号'),
           ListTile(
-            leading: const Icon(Icons.logout, color: Color(0xFFFF5252)),
-            title: const Text('退出登录',
-                style: TextStyle(color: Color(0xFFFF5252))),
+            leading: Icon(Icons.logout, color: AppColors.of(context).error),
+            title: Text('退出登录',
+                style: TextStyle(color: AppColors.of(context).error)),
             onTap: _logout,
           ),
           const SizedBox(height: 32),
@@ -289,12 +295,13 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Color(0xFF9A9AA0),
+        style: TextStyle(
+          color: colors.textSecondary,
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
@@ -317,10 +324,10 @@ class _FieldLabel extends StatelessWidget {
         children: [
           Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: Color(0xFFE0E0E0),
+              color: AppColors.of(context).textPrimary,
             ),
           ),
           const SizedBox(width: 4),
@@ -340,10 +347,10 @@ class _FieldLabel extends StatelessWidget {
                 ),
               );
             },
-            child: const Icon(
+            child: Icon(
               Icons.help_outline,
               size: 16,
-              color: Color(0xFF9A9AA0),
+              color: AppColors.of(context).textSecondary,
             ),
           ),
         ],

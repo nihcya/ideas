@@ -63,12 +63,21 @@ class AuthService {
     } else {
       throw FormatException('意外的响应格式: ${data.runtimeType}');
     }
-    debugPrint('Auth response parsed: userId=${json['user_id']}, username=${json['username']}');
+    // M7: 不在日志中输出 userId/username 明文
+    if (kDebugMode) {
+      debugPrint('Auth response parsed: user_id=${json['user_id']}');
+    }
     return AuthResult.fromJson(json);
   }
 
-  /// 登出：清除本地存储
+  /// 登出：通知后端撤销 token（H2），再清除本地存储
   Future<void> logout() async {
+    // 尽力通知后端撤销 token，失败不阻塞前端登出
+    try {
+      await _dio.post('/auth/logout');
+    } catch (_) {
+      // 网络错误或 token 已过期，忽略
+    }
     await _storage.delete(key: kTokenKey);
     await _storage.delete(key: kUserIdKey);
     await _storage.delete(key: kUsernameKey);

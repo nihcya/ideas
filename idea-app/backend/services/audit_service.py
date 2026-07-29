@@ -23,25 +23,27 @@ async def contains_banned_word(db: AsyncSession, content: str) -> tuple[bool, Op
 async def audit_content(
     db: AsyncSession,
     content: str,
-    user_api_url: str | None = None,
-    user_api_key: str | None = None,
 ) -> tuple[bool, str]:
-    """审核内容：先违禁词匹配，再AI语义审核。返回 (pass, reason)。"""
+    """审核内容：先违禁词匹配，再AI语义审核。返回 (pass, reason)。
+
+    审核统一使用全局 LLM 配置，不接受用户自定义 API 配置，
+    防止用户通过自定义 endpoint 绕过审核。
+    """
     # 1. 违禁词精确匹配
     hit, word = await contains_banned_word(db, content)
     if hit:
         return False, f"包含违禁词：{word}"
 
-    # 2. AI 语义审核
+    # 2. AI 语义审核（fail-closed：审核服务不可用时拒绝入库，防止违规内容放行）
     try:
-        result = await call_audit_ai(content, user_api_url, user_api_key)
+        result = await call_audit_ai(content)
         passed = bool(result.get("pass", True))
         reason = result.get("reason", "")
         return passed, reason
-    except Exception as e:
-        # 审核失败不阻塞用户（先发后审原则）
-        print(f"[audit] AI audit failed: {e}")
-        return True, ""
+    except Exception:
+        import logging
+        logging.exception("AI audit service unavailable")
+        return False, "审核服务暂时不可用，请稍后再试"
 
 
 async def write_audit_log(

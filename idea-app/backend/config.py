@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # 数据库
+    # L3: 默认值仅 dev 用（dianzi_dev_pwd 占位密码），prod 必须通过 DATABASE_URL env 注入强密码
     database_url: str = "postgresql+asyncpg://dianzi:dianzi_dev_pwd@localhost:5432/dianzi_app"
     database_url_fallback: str = "sqlite+aiosqlite:///./dianzi_dev.db"
 
@@ -20,9 +21,12 @@ class Settings(BaseSettings):
     deepseek_model: str = "deepseek-chat"
 
     # JWT
-    jwt_secret: str = "dev_secret_change_me_in_production"
+    jwt_secret: str = ""  # 必须通过环境变量 JWT_SECRET 设置
     jwt_algorithm: str = "HS256"
     jwt_expire_days: int = 7
+
+    # 用户 LLM API Key 加密密钥（Fernet），必须通过环境变量 LLM_KEY_ENCRYPTION_KEY 设置
+    llm_key_encryption_key: str = ""
 
     # 应用
     app_env: str = "dev"

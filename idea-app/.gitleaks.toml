@@ -1,0 +1,36 @@
+title = "idea-app Secrets Scan"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "deepseek-api-key"
+description = "DeepSeek API Key"
+regex = '''sk-[a-f0-9]{32}'''
+tags = ["key", "deepseek"]
+
+[[rules]]
+id = "jwt-secret"
+description = "JWT Secret (32+ chars base64)"
+regex = '''JWT_SECRET\s*=\s*["']?[A-Za-z0-9+/=]{32,}["']?'''
+tags = ["secret", "jwt"]
+
+[[rules]]
+id = "pg-password"
+description = "PostgreSQL password"
+regex = '''PG_PASSWORD\s*=\s*["'][^"']+["']'''
+tags = ["password", "postgres"]
+
+[[rules]]
+id = "redis-password"
+description = "Redis password"
+regex = '''REDIS_PASSWORD\s*=\s*["'][^"']+["']'''
+tags = ["password", "redis"]
+
+[allowlist]
+description = "Allowed paths"
+paths = [
+  '''^\.git/.*$''',
+  '''^backend/venv/.*$''',
+  '''^frontend/build/.*$''',
+]

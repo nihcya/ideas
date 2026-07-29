@@ -209,7 +209,7 @@
 | 10 | 新 API 域名         | api.dianzi.app                      | `api.dianzi.app`            |
 | 11 | 新 Web 域名（可选）     | api.dianzi.app                      | `app.dianzi.app`            |
 | 12 | 是否有 SSL 证书       | 否                                   | 是/否                         |
-| 13 | DeepSeek API Key | sk-6baecf4098fc4238ab5e9539eb3a35ae | `sk-...`                    |
+| 13 | DeepSeek API Key | sk-<your_deepseek_api_key> | `sk-...`                    |
 | 14 | 域名是否已备案          | 否                                   | 是/否/不需要                     |
 
 **执行人**：U
@@ -1062,11 +1062,11 @@ Gunicorn：4 worker × UvicornWorker
 | 变量名              | 说明                 | 示例值                                |
 | ---------------- | ------------------ | ---------------------------------- |
 | APP_ENV          | 环境标识               | prod                               |
-| JWT_SECRET       | JWT 签名密钥           | Kx9mQ4vR7nWpZ2sT8uYB3aF6dG5hJ0lL... |
-| PG_PASSWORD      | PostgreSQL 密码      | Dz_Pg_2026!aE3fK7mN9pR2sT5vW8xY   |
-| REDIS_PASSWORD   | Redis 密码           | Dz_Rds_2026!bF4gH6jJ7kL9mN1pQ3rT  |
+| JWT_SECRET       | JWT 签名密钥           | <your_jwt_secret_min_32_chars>    |
+| PG_PASSWORD      | PostgreSQL 密码      | <your_pg_password>               |
+| REDIS_PASSWORD   | Redis 密码           | <your_redis_password>            |
 | DATABASE_URL     | 数据库连接串             | postgresql+asyncpg://dianzi:...@postgres:5432/dianzi_app |
-| DEEPSEEK_API_KEY | DeepSeek API Key   | sk-6baecf4098fc4238ab5e9539eb3a35ae |
+| DEEPSEEK_API_KEY | DeepSeek API Key   | sk-<your_deepseek_api_key> |
 | CORS_ORIGINS     | CORS 允许来源          | http://124.221.108.59,http://localhost:*,http://127.0.0.1:* |
 
 ### 17.8 常见问题排查

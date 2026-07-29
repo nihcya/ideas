@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/notification.dart';
 import '../providers/notifications_provider.dart';
+import '../theme/app_theme.dart';
 
 /// 通知列表页
 class NotificationsScreen extends ConsumerWidget {
@@ -23,6 +24,7 @@ class NotificationsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncList = ref.watch(notificationsProvider);
+    final colors = AppColors.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('通知')),
       body: RefreshIndicator(
@@ -31,12 +33,12 @@ class NotificationsScreen extends ConsumerWidget {
           data: (data) {
             if (data.notifications.isEmpty) {
               return ListView(
-                children: const [
-                  SizedBox(height: 240),
+                children: [
+                  const SizedBox(height: 240),
                   Center(
                     child: Text(
                       '暂无通知',
-                      style: TextStyle(color: Color(0xFF9A9AA0)),
+                      style: TextStyle(color: colors.textSecondary),
                     ),
                   ),
                 ],
@@ -44,10 +46,7 @@ class NotificationsScreen extends ConsumerWidget {
             }
             return ListView.separated(
               itemCount: data.notifications.length,
-              separatorBuilder: (_, __) => const Divider(
-                height: 1,
-                color: Color(0xFF2A2A2E),
-              ),
+              separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (_, i) {
                 final n = data.notifications[i];
                 return _NotificationTile(
@@ -84,13 +83,14 @@ class _NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return InkWell(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           border: Border(
             left: BorderSide(
-              color: item.read ? Colors.transparent : const Color(0xFFFFD700),
+              color: item.read ? Colors.transparent : colors.gold,
               width: 3,
             ),
           ),
@@ -99,7 +99,7 @@ class _NotificationTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _typeIcon(item.type),
+            _typeIcon(item.type, colors),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -110,7 +110,7 @@ class _NotificationTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       color:
-                          item.read ? const Color(0xFF9A9AA0) : Colors.white,
+                          item.read ? colors.textSecondary : colors.textPrimary,
                       fontWeight:
                           item.read ? FontWeight.normal : FontWeight.w500,
                     ),
@@ -118,9 +118,9 @@ class _NotificationTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     _formatTime(item.createdAt),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
-                      color: Color(0xFF9A9AA0),
+                      color: colors.textSecondary,
                     ),
                   ),
                 ],
@@ -132,25 +132,25 @@ class _NotificationTile extends StatelessWidget {
     );
   }
 
-  Widget _typeIcon(String type) {
+  Widget _typeIcon(String type, AppColors colors) {
     IconData icon;
     Color color;
     switch (type) {
       case 'forked':
         icon = Icons.call_split;
-        color = const Color(0xFFFFD700);
+        color = colors.gold;
         break;
       case 'collected':
         icon = Icons.bookmark_border;
-        color = const Color(0xFF4ECDC4);
+        color = colors.success;
         break;
       case 'spark_updated':
         icon = Icons.bolt_outlined;
-        color = const Color(0xFFB5A8E8);
+        color = colors.forkAccent;
         break;
       default:
         icon = Icons.notifications_outlined;
-        color = const Color(0xFF9A9AA0);
+        color = colors.textSecondary;
     }
     return Container(
       width: 32,

@@ -6,8 +6,10 @@ import 'package:go_router/go_router.dart';
 import '../models/idea.dart';
 import '../providers/idea_detail_provider.dart';
 import '../providers/vault_provider.dart';
+import '../theme/app_theme.dart';
 import '../widgets/evolve_menu.dart';
 import '../widgets/lineage_tree.dart';
+import '../widgets/radial_menu.dart';
 
 /// 点子详情页：大圆圈 + 内容 + 谱系图 + 操作栏
 class IdeaDetailScreen extends ConsumerStatefulWidget {
@@ -20,6 +22,7 @@ class IdeaDetailScreen extends ConsumerStatefulWidget {
 
 class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
   bool _collecting = false;
+  final GlobalKey _circleKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +42,7 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
       body: asyncDetail.when(
         data: (detail) => _DetailBody(
           detail: detail,
+          circleKey: _circleKey,
           onCircleTap: (id) => context.push('/idea/$id'),
           onFork: () => context.push('/fork/${widget.ideaId}'),
           onToggleCollect: _toggleCollect,
@@ -97,10 +101,47 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
 
   void _showEvolveMenu(BuildContext context) {
     HapticFeedback.mediumImpact();
-    showEvolveMenu(
+
+    // 获取大圆圈的全局位置和尺寸
+    final renderBox =
+        _circleKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) {
+      // fallback：退回底部弹窗
+      showEvolveMenu(
+        context,
+        onCollide: () => _startCollide(context),
+        onEvolve: () => _startEvolve(context),
+      );
+      return;
+    }
+
+    final circleSize = renderBox.size;
+    final circleOrigin = renderBox.localToGlobal(Offset.zero);
+    final center = Offset(
+      circleOrigin.dx + circleSize.width / 2,
+      circleOrigin.dy + circleSize.height / 2,
+    );
+    final innerRadius = circleSize.width / 2;
+
+    RadialMenu.show(
       context,
-      onCollide: () => _startCollide(context),
-      onEvolve: () => _startEvolve(context),
+      center: center,
+      innerRadius: innerRadius,
+      outerRadius: innerRadius + 140,
+      items: [
+        RadialMenuItem(
+          label: '碰撞',
+          icon: Icons.bolt,
+          color: const Color(0xFF6C5CE7),
+          onTap: () => _startCollide(context),
+        ),
+        RadialMenuItem(
+          label: '演化',
+          icon: Icons.eco,
+          color: const Color(0xFF00B894),
+          onTap: () => _startEvolve(context),
+        ),
+      ],
     );
   }
 
@@ -217,10 +258,6 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
     }
     return showModalBottomSheet<String>(
       context: context,
-      backgroundColor: const Color(0xFF1A1A1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
       builder: (ctx) {
         return SafeArea(
           child: Column(
@@ -233,7 +270,7 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFF2A2A2E)),
+              const Divider(height: 1),
               Flexible(
                 child: ListView.builder(
                   shrinkWrap: true,
@@ -249,7 +286,7 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
                           shape: BoxShape.circle,
                           border: c.borderStyle == 'gold-thin'
                               ? Border.all(
-                                  color: const Color(0xFFFFD700), width: 2)
+                                  color: AppColors.of(ctx).gold, width: 2)
                               : null,
                         ),
                       ),
@@ -274,11 +311,7 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
       BuildContext context, List<CollideSuggestion> suggestions) async {
     return showModalBottomSheet<CollideSuggestion>(
       context: context,
-      backgroundColor: const Color(0xFF1A1A1E),
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
       builder: (ctx) {
         return SafeArea(
           child: Column(
@@ -291,7 +324,7 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFF2A2A2E)),
+              const Divider(height: 1),
               Flexible(
                 child: ListView.builder(
                   shrinkWrap: true,
@@ -301,8 +334,8 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
                     return ListTile(
                       title: Text(
                         _suggestionTypeLabel(s.type),
-                        style: const TextStyle(
-                          color: Color(0xFFFFD700),
+                        style: TextStyle(
+                          color: AppColors.of(ctx).gold,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -311,8 +344,8 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
                           s.content,
-                          style: const TextStyle(
-                              fontSize: 14, color: Color(0xFFF5F5F7)),
+                          style: TextStyle(
+                              fontSize: 14, color: AppColors.of(ctx).textPrimary),
                         ),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
@@ -334,11 +367,7 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
       BuildContext context, List<EvolveVariant> variants) async {
     return showModalBottomSheet<EvolveVariant>(
       context: context,
-      backgroundColor: const Color(0xFF1A1A1E),
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
       builder: (ctx) {
         return SafeArea(
           child: Column(
@@ -351,7 +380,7 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFF2A2A2E)),
+              const Divider(height: 1),
               Flexible(
                 child: ListView.builder(
                   shrinkWrap: true,
@@ -361,8 +390,8 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
                     return ListTile(
                       title: Text(
                         _distanceLabel(v.distance),
-                        style: const TextStyle(
-                          color: Color(0xFFB5A8E8),
+                        style: TextStyle(
+                          color: AppColors.of(ctx).forkAccent,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -371,8 +400,8 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
                           v.content,
-                          style: const TextStyle(
-                              fontSize: 14, color: Color(0xFFF5F5F7)),
+                          style: TextStyle(
+                              fontSize: 14, color: AppColors.of(ctx).textPrimary),
                         ),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
@@ -401,10 +430,6 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
     ];
     return showModalBottomSheet<String>(
       context: context,
-      backgroundColor: const Color(0xFF1A1A1E),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
       builder: (ctx) {
         return SafeArea(
           child: Column(
@@ -417,7 +442,7 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFF2A2A2E)),
+              const Divider(height: 1),
               Flexible(
                 child: ListView.builder(
                   shrinkWrap: true,
@@ -428,8 +453,8 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
                       title: Text(a.$2,
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Text(a.$3,
-                          style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF9A9AA0))),
+                          style: TextStyle(
+                              fontSize: 12, color: AppColors.of(ctx).textSecondary)),
                       onTap: () {
                         HapticFeedback.lightImpact();
                         Navigator.pop(ctx, a.$1);
@@ -456,7 +481,6 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1E),
           title: Text(title),
           content: SingleChildScrollView(
             child: TextField(
@@ -515,6 +539,7 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
 
 class _DetailBody extends StatelessWidget {
   final IdeaDetail detail;
+  final GlobalKey circleKey;
   final void Function(String) onCircleTap;
   final VoidCallback onFork;
   final void Function(bool currentlyInVault) onToggleCollect;
@@ -523,6 +548,7 @@ class _DetailBody extends StatelessWidget {
 
   const _DetailBody({
     required this.detail,
+    required this.circleKey,
     required this.onCircleTap,
     required this.onFork,
     required this.onToggleCollect,
@@ -540,6 +566,7 @@ class _DetailBody extends StatelessWidget {
             // 顶部大圆圈
             Center(
               child: Container(
+                key: circleKey,
                 width: 200,
                 height: 200,
                 decoration: BoxDecoration(
@@ -566,14 +593,14 @@ class _DetailBody extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1E),
+                color: AppColors.of(context).surface,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor: const Color(0xFFFFD700),
+                    backgroundColor: AppColors.of(context).gold,
                     child: Text(
                       detail.author.username.isNotEmpty
                           ? detail.author.username[0].toUpperCase()
@@ -595,8 +622,8 @@ class _DetailBody extends StatelessWidget {
                         if (detail.author.bio.isNotEmpty)
                           Text(
                             detail.author.bio,
-                            style: const TextStyle(
-                                fontSize: 12, color: Color(0xFF9A9AA0)),
+                            style: TextStyle(
+                                fontSize: 12, color: AppColors.of(context).textSecondary),
                           ),
                       ],
                     ),
@@ -608,22 +635,22 @@ class _DetailBody extends StatelessWidget {
             // 时间 + fork 数
             Row(
               children: [
-                const Icon(Icons.access_time,
-                    size: 14, color: Color(0xFF9A9AA0)),
+                Icon(Icons.access_time,
+                    size: 14, color: AppColors.of(context).textSecondary),
                 const SizedBox(width: 4),
                 Text(
                   _formatTime(detail.createdAt),
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF9A9AA0)),
+                  style: TextStyle(
+                      fontSize: 12, color: AppColors.of(context).textSecondary),
                 ),
                 const SizedBox(width: 16),
-                const Icon(Icons.call_split,
-                    size: 14, color: Color(0xFF9A9AA0)),
+                Icon(Icons.call_split,
+                    size: 14, color: AppColors.of(context).textSecondary),
                 const SizedBox(width: 4),
                 Text(
                   '${detail.forkCount} 次 fork',
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF9A9AA0)),
+                  style: TextStyle(
+                      fontSize: 12, color: AppColors.of(context).textSecondary),
                 ),
               ],
             ),
@@ -631,18 +658,26 @@ class _DetailBody extends StatelessWidget {
             // 谱系图
             if (detail.lineage.parents.isNotEmpty ||
                 detail.lineage.children.isNotEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.only(bottom: 12),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
                   '谱系',
                   style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF9A9AA0)),
+                      color: AppColors.of(context).textSecondary),
                 ),
               ),
               LineageTree(
                 lineage: detail.lineage,
+                currentNode: LineageNode(
+                  id: detail.id,
+                  colorHex: detail.colorHex,
+                  author: detail.author.username,
+                  title: detail.content.length > 30
+                      ? '${detail.content.substring(0, 30)}…'
+                      : detail.content,
+                ),
                 onTap: onCircleTap,
               ),
               const SizedBox(height: 24),
@@ -656,9 +691,9 @@ class _DetailBody extends StatelessWidget {
           bottom: 0,
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF0E0E10),
+              color: AppColors.of(context).background,
               border: Border(
-                  top: BorderSide(color: const Color(0xFF2A2A2E), width: 1)),
+                  top: BorderSide(color: AppColors.of(context).divider, width: 1)),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: SafeArea(
@@ -723,6 +758,7 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final gold = AppColors.of(context).gold;
     return InkWell(
       onTap: loading ? null : onTap,
       child: Padding(
@@ -737,13 +773,13 @@ class _ActionButton extends StatelessWidget {
                     child:
                         CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Icon(icon, color: const Color(0xFFFFD700)),
+                : Icon(icon, color: gold),
             const SizedBox(height: 4),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: Color(0xFFFFD700),
+                color: gold,
                 fontWeight: FontWeight.w600,
               ),
             ),

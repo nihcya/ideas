@@ -31,6 +31,25 @@ class SettingsNotifier extends AsyncNotifier<UserSettings> {
     final fresh = await service.getSettings();
     state = AsyncData(fresh);
   }
+
+  /// 切换暗色模式（S2：dark_mode 接入主题）
+  Future<void> saveDarkMode(bool darkMode) async {
+    final service = ref.read(settingsServiceProvider);
+    await service.updateSettings(darkMode: darkMode);
+    // 乐观更新本地状态，主题立即响应
+    final current = state.value;
+    if (current != null) {
+      state = AsyncData(UserSettings(
+        darkMode: darkMode,
+        forkable: current.forkable,
+        username: current.username,
+        bio: current.bio,
+        llmApiUrl: current.llmApiUrl,
+        llmApiKey: current.llmApiKey,
+        llmApiKeyConfigured: current.llmApiKeyConfigured,
+      ));
+    }
+  }
 }
 
 final settingsProvider =

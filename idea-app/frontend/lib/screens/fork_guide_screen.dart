@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/idea_detail_provider.dart';
+import '../theme/app_theme.dart';
 
 /// Fork 引导页：阅读原点子 → 写下你的联想
 class ForkGuideScreen extends ConsumerStatefulWidget {
@@ -51,6 +52,7 @@ class _ForkGuideScreenState extends ConsumerState<ForkGuideScreen> {
   @override
   Widget build(BuildContext context) {
     final asyncDetail = ref.watch(ideaDetailProvider(widget.parentId));
+    final colors = AppColors.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Fork'),
@@ -77,7 +79,7 @@ class _ForkGuideScreenState extends ConsumerState<ForkGuideScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1A1A1E),
+                    color: colors.surface,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
@@ -96,8 +98,8 @@ class _ForkGuideScreenState extends ConsumerState<ForkGuideScreen> {
                           const SizedBox(width: 8),
                           Text(
                             '来自 @${detail.author.username}',
-                            style: const TextStyle(
-                              color: Color(0xFF9A9AA0),
+                            style: TextStyle(
+                              color: colors.textSecondary,
                               fontSize: 12,
                             ),
                           ),
@@ -106,8 +108,8 @@ class _ForkGuideScreenState extends ConsumerState<ForkGuideScreen> {
                       const SizedBox(height: 12),
                       Text(
                         detail.content,
-                        style: const TextStyle(
-                          color: Color(0xFF9A9AA0),
+                        style: TextStyle(
+                          color: colors.textSecondary,
                           fontSize: 15,
                           height: 1.6,
                         ),
@@ -140,8 +142,8 @@ class _ForkGuideScreenState extends ConsumerState<ForkGuideScreen> {
                   alignment: Alignment.centerRight,
                   child: Text(
                     '${_ctrl.text.length}/300',
-                    style: const TextStyle(
-                      color: Color(0xFF9A9AA0),
+                    style: TextStyle(
+                      color: colors.textSecondary,
                       fontSize: 12,
                     ),
                   ),

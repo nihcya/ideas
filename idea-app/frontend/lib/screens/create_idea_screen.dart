@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/explore_provider.dart';
+import '../theme/app_theme.dart';
 
 /// 发布新点子页
 class CreateIdeaScreen extends ConsumerStatefulWidget {
@@ -46,6 +47,7 @@ class _CreateIdeaScreenState extends ConsumerState<CreateIdeaScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('发布点子'),
@@ -92,8 +94,8 @@ class _CreateIdeaScreenState extends ConsumerState<CreateIdeaScreen> {
               alignment: Alignment.centerRight,
               child: Text(
                 '${_ctrl.text.length}/300',
-                style: const TextStyle(
-                  color: Color(0xFF9A9AA0),
+                style: TextStyle(
+                  color: colors.textSecondary,
                   fontSize: 12,
                 ),
               ),

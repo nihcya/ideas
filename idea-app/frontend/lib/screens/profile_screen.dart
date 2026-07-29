@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/vault_provider.dart';
+import '../theme/app_theme.dart';
 
 /// 个人主页：思维森林
 class ProfileScreen extends ConsumerWidget {
@@ -93,6 +94,7 @@ class _ProfileBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -100,7 +102,7 @@ class _ProfileBody extends StatelessWidget {
         Center(
           child: CircleAvatar(
             radius: 44,
-            backgroundColor: const Color(0xFFFFD700),
+            backgroundColor: colors.gold,
             child: Text(
               user.username.isNotEmpty ? user.username[0].toUpperCase() : '?',
               style: const TextStyle(
@@ -121,22 +123,22 @@ class _ProfileBody extends StatelessWidget {
         Text(
           user.bio.isEmpty ? '还没有介绍' : user.bio,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Color(0xFF9A9AA0), fontSize: 13),
+          style: TextStyle(color: colors.textSecondary, fontSize: 13),
         ),
         const SizedBox(height: 24),
         Container(
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1E),
+            color: colors.surface,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             children: [
-              _stat('产生', produced, const Color(0xFFFFD700)),
-              _divider(),
-              _stat('收集', collected, const Color(0xFF4ECDC4)),
-              _divider(),
-              _stat('被 Fork', forkedByOthers, const Color(0xFFB5A8E8)),
+              _stat('产生', produced, colors.gold, colors),
+              _divider(colors.divider),
+              _stat('收集', collected, colors.success, colors),
+              _divider(colors.divider),
+              _stat('被 Fork', forkedByOthers, colors.forkAccent, colors),
             ],
           ),
         ),
@@ -144,26 +146,26 @@ class _ProfileBody extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.notifications_outlined),
           title: const Text('通知'),
-          trailing: const Icon(Icons.chevron_right, color: Color(0xFF9A9AA0)),
+          trailing: Icon(Icons.chevron_right, color: colors.textSecondary),
           onTap: () => context.push('/notifications'),
         ),
         ListTile(
           leading: const Icon(Icons.settings_outlined),
           title: const Text('设置'),
-          trailing: const Icon(Icons.chevron_right, color: Color(0xFF9A9AA0)),
+          trailing: Icon(Icons.chevron_right, color: colors.textSecondary),
           onTap: () => context.push('/settings'),
         ),
         const SizedBox(height: 24),
         TextButton(
           onPressed: onLogout,
-          style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF5252)),
+          style: TextButton.styleFrom(foregroundColor: colors.error),
           child: const Text('退出登录'),
         ),
       ],
     );
   }
 
-  Widget _stat(String label, int value, Color color) {
+  Widget _stat(String label, int value, Color color, AppColors colors) {
     return Expanded(
       child: Column(
         children: [
@@ -178,17 +180,17 @@ class _ProfileBody extends StatelessWidget {
           const SizedBox(height: 4),
           Text(label,
               style:
-                  const TextStyle(fontSize: 12, color: Color(0xFF9A9AA0))),
+                  TextStyle(fontSize: 12, color: colors.textSecondary)),
         ],
       ),
     );
   }
 
-  Widget _divider() {
+  Widget _divider(Color color) {
     return Container(
       width: 1,
       height: 32,
-      color: const Color(0xFF2A2A2E),
+      color: color,
     );
   }
 }

@@ -1,20 +1,23 @@
 """用户路由"""
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user
 from models import User, Idea, VaultItem, ForkRelation
 from schemas.user import UserProfile
+from services.rate_limit import limiter, DEFAULT_LIMIT
 from routers.ideas import _calc_size_score
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.get("/{user_id}", response_model=UserProfile)
+@limiter.limit(DEFAULT_LIMIT)
 async def get_user_profile(
+    request: Request,
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):

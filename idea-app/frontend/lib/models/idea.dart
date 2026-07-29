@@ -58,7 +58,9 @@ class CircleData {
       sizeScore: (json['size_score'] as num?)?.toDouble() ?? 0.5,
       isOwn: json['is_own'] as bool? ?? false,
       forkCount: json['fork_count'] as int? ?? 0,
-      borderStyle: json['border_style'] as String?,
+      // 后端已返回 border_style；若未返回，根据 isOwn 兜底推断
+      borderStyle: (json['border_style'] as String?) ??
+          (json['is_own'] == true ? 'gold-thin' : null),
       status: json['status'] as String?,
     );
   }

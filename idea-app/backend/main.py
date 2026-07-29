@@ -24,7 +24,7 @@ from routers import get_all_routers
 #   - 通过环境变量 DIANZI_SCHEDULER_ENABLED=1 显式开启，
 #     推荐生产只让 1 个 worker 启用，彻底避免竞态
 
-SCHEDULER_LOCK_KEY = 0x_D1A2_3BEF  # 自定义 advisory lock key
+SCHEDULER_LOCK_KEY = 0xD1A2_3BEF  # 自定义 advisory lock key
 
 
 def _scheduler_enabled() -> bool:
@@ -164,6 +164,18 @@ def _setup_scheduler() -> "AsyncIOScheduler":
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 启动
+    # JWT 密钥校验
+    if not settings.jwt_secret:
+        if settings.app_env == "prod":
+            raise RuntimeError("[FATAL] JWT_SECRET 环境变量未设置，生产环境拒绝启动")
+        else:
+            import secrets as _secrets
+            settings.jwt_secret = _secrets.token_urlsafe(32)
+            print("[WARN] JWT_SECRET 未设置，dev 模式生成临时密钥")
+    # API Key 加密密钥校验
+    if settings.app_env == "prod" and not settings.llm_key_encryption_key:
+        raise RuntimeError("[FATAL] LLM_KEY_ENCRYPTION_KEY 未设置，生产环境拒绝启动")
+
     print("[startup] initializing database...")
     await init_engine()
     print("[startup] initializing cache...")
@@ -203,6 +215,10 @@ app = FastAPI(
     description="创意激发社区 — Flutter + FastAPI + DeepSeek",
     version="0.1.0",
     lifespan=lifespan,
+    # M2: 生产环境关闭 Swagger/OpenAPI 文档暴露
+    docs_url=None if settings.app_env == "prod" else "/docs",
+    redoc_url=None if settings.app_env == "prod" else "/redoc",
+    openapi_url=None if settings.app_env == "prod" else "/openapi.json",
 )
 
 # 速率限制
@@ -219,21 +235,22 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 # CORS:dev 模式用 regex 匹配 localhost:任意端口,prod 用精确列表
 # Starlette CORSMiddleware.allow_origins 不支持通配符,
 # 需用 allow_origin_regex 才能匹配 http://localhost:52990 这样的动态端口
+# H3 收敛:methods/headers 仅允许实际使用的方法和头,避免过度暴露
 if settings.cors_origin_regex:
     app.add_middleware(
         CORSMiddleware,
         allow_origin_regex=settings.cors_origin_regex,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+        allow_headers=["Authorization", "Content-Type"],
     )
 else:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+        allow_headers=["Authorization", "Content-Type"],
     )
 
 

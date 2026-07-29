@@ -21,6 +21,7 @@ class SparkTodayResponse(BaseModel):
         180, ge=0, description="建议作答时长（秒）"
     )
     has_draft: bool = Field(False, description="是否已有草稿")
+    draft_content: str | None = Field(None, description="草稿内容（有草稿时返回）")
     submitted: bool = Field(False, description="是否已提交")
 
 

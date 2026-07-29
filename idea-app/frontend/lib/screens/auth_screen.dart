@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/auth_provider.dart';
+import '../theme/app_theme.dart';
 
 /// 登录 / 注册切换页
 class AuthScreen extends ConsumerStatefulWidget {
@@ -81,7 +82,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                         fontSize: 40,
-                        color: const Color(0xFFFFD700),
+                        color: AppColors.of(context).gold,
                       ),
                 ),
                 const SizedBox(height: 8),
@@ -120,6 +121,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   textInputAction: _isRegister ? TextInputAction.next : TextInputAction.done,
                   validator: (v) {
                     if (v == null || v.length < 8) return '密码至少 8 位';
+                    // M1: 前端同步后端密码强度校验——必须含字母+数字
+                    final hasLetter = RegExp(r'[A-Za-z]').hasMatch(v);
+                    final hasDigit = RegExp(r'\d').hasMatch(v);
+                    if (!hasLetter) return '密码必须包含至少一个字母';
+                    if (!hasDigit) return '密码必须包含至少一个数字';
                     return null;
                   },
                 ),

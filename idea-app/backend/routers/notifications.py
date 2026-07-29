@@ -1,5 +1,7 @@
 """通知路由"""
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,12 +11,15 @@ from schemas.notification import (
     NotificationItem, NotificationsResponse,
     MarkReadRequest, MarkReadResponse,
 )
+from services.rate_limit import limiter, DEFAULT_LIMIT
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
 @router.get("", response_model=NotificationsResponse)
+@limiter.limit(DEFAULT_LIMIT)
 async def get_notifications(
+    request: Request,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -53,7 +58,9 @@ async def get_notifications(
 
 
 @router.post("/read", response_model=MarkReadResponse)
+@limiter.limit(DEFAULT_LIMIT)
 async def mark_read(
+    request: Request,
     req: MarkReadRequest,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -64,7 +71,7 @@ async def mark_read(
     ids = []
     for nid in req.notification_ids:
         try:
-            ids.append(__import__("uuid").UUID(nid))
+            ids.append(uuid.UUID(nid))
         except ValueError:
             continue
 
@@ -78,5 +85,6 @@ async def mark_read(
         .values(read=True)
     )
     await db.commit()
-    marked = result.rowcount if hasattr(result, "rowcount") else 0
+    # N5: SQLAlchemy Result 必有 rowcount，移除冗余 hasattr 兜底
+    marked = result.rowcount or 0
     return MarkReadResponse(marked_read=marked)

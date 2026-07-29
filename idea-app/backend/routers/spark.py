@@ -43,6 +43,7 @@ async def get_today(
         )
 
     has_draft = False
+    draft_content = None
     draft_result = await db.execute(
         select(SparkDraft).where(
             SparkDraft.user_id == user.id,
@@ -52,6 +53,7 @@ async def get_today(
     draft = draft_result.scalar_one_or_none()
     if draft and draft.content:
         has_draft = True
+        draft_content = draft.content
 
     submitted = await has_submitted(db, user.id, today_q.id)
 
@@ -61,6 +63,7 @@ async def get_today(
         type=today_q.type,
         duration_seconds=settings.spark_duration_seconds,
         has_draft=has_draft,
+        draft_content=draft_content,
         submitted=submitted,
     )
 

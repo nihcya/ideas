@@ -158,13 +158,14 @@ async def call_evolve_ai(
     return json.loads(resp.choices[0].message.content)
 
 
-async def call_audit_ai(
-    content: str,
-    user_api_url: str | None = None,
-    user_api_key: str | None = None,
-) -> dict[str, Any]:
-    """AI 内容审核。"""
-    url, key, is_mock = _resolve_config(user_api_url, user_api_key)
+async def call_audit_ai(content: str) -> dict[str, Any]:
+    """AI 内容审核。
+
+    审核调用强制使用全局 .env 配置，不接受用户自定义 API 配置，
+    避免用户通过自定义 endpoint 绕过审核（SSRF + 审核绕过防护）。
+    """
+    # 审核强制走全局配置：不传 user 参数
+    url, key, is_mock = _resolve_config()
     if is_mock:
         if len(content.strip()) < 2:
             return {"pass": False, "reason": "内容过短"}

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/idea.dart';
+import '../theme/app_theme.dart';
 import 'circle_painter.dart';
 
 /// 主页和仓库的圆圈画布。
@@ -57,6 +58,9 @@ class _CircleCanvasState extends State<CircleCanvas>
   /// 是否正在加载更多（防重复触发）。
   bool _isLoading = false;
 
+  /// 上次布局时的屏幕宽度（用于检测旋转屏）。
+  double? _lastWidth;
+
   @override
   void initState() {
     super.initState();
@@ -77,6 +81,14 @@ class _CircleCanvasState extends State<CircleCanvas>
   @override
   void didUpdateWidget(covariant CircleCanvas oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // 旋转屏 / 窗口尺寸变化检测：宽度变化超 50pt 时清空布局重排
+    final newWidth = MediaQuery.sizeOf(context).width;
+    if (_lastWidth != null && (newWidth - _lastWidth!).abs() > 50) {
+      _layoutMap.clear();
+      _contentHeight = 600;
+    }
+    _lastWidth = newWidth;
+
     if (widget.circles != oldWidget.circles) {
       _isLoading = false;
       _updateLayout();
@@ -100,15 +112,17 @@ class _CircleCanvasState extends State<CircleCanvas>
   /// - 重叠判定：两圆心距离 > (r1 + r2) * 0.7 则不重叠
   void _updateLayout() {
     final width = MediaQuery.sizeOf(context).width;
+    _lastWidth = width;
 
     for (final d in widget.circles) {
-      // 已存在则更新 data（forkCount/status 可能变化）
+      // 已存在则更新 data（forkCount/status 可能变化），保留原 addedAt
       final existing = _layoutMap[d.id];
       if (existing != null) {
         _layoutMap[d.id] = _LayoutCircle(
           center: existing.center,
           radius: existing.radius,
           data: d,
+          addedAt: existing.addedAt,
         );
         continue;
       }
@@ -147,7 +161,12 @@ class _CircleCanvasState extends State<CircleCanvas>
         _contentHeight + radius + 20,
       );
 
-      _layoutMap[d.id] = _LayoutCircle(center: pos, radius: radius, data: d);
+      _layoutMap[d.id] = _LayoutCircle(
+        center: pos,
+        radius: radius,
+        data: d,
+        addedAt: DateTime.now(),
+      );
       _contentHeight = math.max(_contentHeight, pos.dy + radius + 30);
     }
 
@@ -167,8 +186,9 @@ class _CircleCanvasState extends State<CircleCanvas>
     }
   }
 
-  /// 构建渲染数据列表（应用浮动偏移 + 状态效果）。
+  /// 构建渲染数据列表（应用浮动偏移 + 状态效果 + 入场动画）。
   List<CircleRenderData> _buildRenderData(double t) {
+    final now = DateTime.now();
     final result = <CircleRenderData>[];
     for (final c in _layoutMap.values) {
       // faded 圆圈不显示
@@ -181,6 +201,15 @@ class _CircleCanvasState extends State<CircleCanvas>
         radius = c.radius * 0.7;
       }
 
+      // 入场动画：600ms easeOutBack，从 0 缩放到 1（略微超过 1 再回弹）
+      final elapsed = now.difference(c.addedAt).inMilliseconds;
+      double scale = 1.0;
+      if (elapsed < 600) {
+        final enterT = (elapsed / 600).clamp(0.0, 1.0);
+        scale = Curves.easeOutBack.transform(enterT);
+        opacity *= enterT;  // 入场时也淡入
+      }
+
       // 浮动偏移：±5px，不同圆圈 phase 不同（基于 id.hashCode）
       final phase = (c.data.id.hashCode.abs() % 360) * math.pi / 180.0;
       final yOffset = math.sin(t * math.pi * 2 + phase) * 5.0;
@@ -191,17 +220,20 @@ class _CircleCanvasState extends State<CircleCanvas>
         colorHex: c.data.colorHex,
         borderStyle: c.data.borderStyle,
         opacity: opacity,
+        scale: scale,
       ));
     }
     return result;
   }
 
   /// 点击命中测试：找到点击位置对应的圆圈。
+  /// 反向遍历：后绘制的圆圈在视觉上层，应优先命中。
   void _handleTapUp(TapUpDetails details) {
     final localPos = details.localPosition;
     final t = _floatController.value;
 
-    for (final c in _layoutMap.values) {
+    final layoutList = _layoutMap.values.toList().reversed;
+    for (final c in layoutList) {
       if (c.data.status == 'faded') continue;
 
       double radius = c.radius;
@@ -223,6 +255,7 @@ class _CircleCanvasState extends State<CircleCanvas>
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
+    final goldColor = AppColors.of(context).gold;
 
     return SingleChildScrollView(
       controller: _scrollController,
@@ -238,6 +271,7 @@ class _CircleCanvasState extends State<CircleCanvas>
               return CustomPaint(
                 painter: CirclePainter(
                   circles: _buildRenderData(_floatController.value),
+                  goldColor: goldColor,
                 ),
                 size: Size.infinite,
               );
@@ -249,15 +283,18 @@ class _CircleCanvasState extends State<CircleCanvas>
   }
 }
 
-/// 内部布局圆圈数据：圆心 + 半径 + 原始 CircleData。
+/// 内部布局圆圈数据：圆心 + 半径 + 原始 CircleData + 入场时间戳。
 class _LayoutCircle {
   final Offset center;
   final double radius;
   final CircleData data;
+  /// 圆圈首次布局的时间戳，用于入场动画。
+  final DateTime addedAt;
 
   _LayoutCircle({
     required this.center,
     required this.radius,
     required this.data,
+    required this.addedAt,
   });
 }
