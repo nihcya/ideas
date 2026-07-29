@@ -110,7 +110,7 @@ class _NotificationTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       color:
-                          item.read ? colors.textSecondary : Colors.white,
+                          item.read ? colors.textSecondary : colors.textPrimary,
                       fontWeight:
                           item.read ? FontWeight.normal : FontWeight.w500,
                     ),

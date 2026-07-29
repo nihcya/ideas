@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
 # 电子点子 App 一键部署脚本
-# 服务器：124.221.108.59
+# 服务器：<your_server_ip>
 # 用法：cd /opt/dianzi && ./deploy.sh
 # ============================================================
 set -e
@@ -90,11 +90,11 @@ echo ""
 echo "============================================"
 echo "  部署信息"
 echo "============================================"
-echo "  服务器 IP:   124.221.108.59"
-echo "  API 健康:    http://124.221.108.59/health"
-echo "  API 接口:    http://124.221.108.59/api/"
-echo "  Swagger:     http://124.221.108.59/docs"
-echo "  Web 前端:    http://124.221.108.59/  (需上传前端产物)"
+echo "  服务器 IP:   <your_server_ip>"
+echo "  API 健康:    http://<your_server_ip>/health"
+echo "  API 接口:    http://<your_server_ip>/api/"
+echo "  Swagger:     http://<your_server_ip>/docs"
+echo "  Web 前端:    http://<your_server_ip>/  (需上传前端产物)"
 echo "============================================"
 echo ""
 echo "常用命令:"

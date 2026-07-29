@@ -1,6 +1,10 @@
 """设置相关 schemas"""
 from __future__ import annotations
 
+import ipaddress
+import socket
+from urllib.parse import urlparse
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -54,4 +58,35 @@ class SettingsUpdateRequest(BaseModel):
         v = v.strip()
         if not (v.startswith("http://") or v.startswith("https://")):
             raise ValueError("API 地址必须以 http:// 或 https:// 开头")
+        # SSRF 防护：拦截内网/元数据地址
+        parsed = urlparse(v)
+        host = parsed.hostname
+        if not host:
+            raise ValueError("URL 缺少主机名")
+        # 拦截已知内网域名
+        if host in ("localhost", "postgres", "redis", "db", "mysql"):
+            raise ValueError("不允许的内网地址")
+        # 判断 host 是否为 IP 格式：ipaddress.ip_address 对非 IP 字符串抛 ValueError
+        # 注意：必须用 flag 区分，避免我们主动抛的 ValueError 被外层 except 吞掉
+        is_ip = False
+        try:
+            ipaddress.ip_address(host)
+            is_ip = True
+        except ValueError:
+            is_ip = False
+        if is_ip:
+            # host 是 IP 字面量：拦截私有/保留段
+            ip = ipaddress.ip_address(host)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                raise ValueError("不允许的内网 IP 地址")
+        else:
+            # host 是域名：解析后校验解析结果
+            try:
+                resolved = socket.gethostbyname(host)
+                ip = ipaddress.ip_address(resolved)
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    raise ValueError(f"域名 {host} 解析到内网 IP，不允许")
+            except socket.gaierror:
+                # 域名解析失败，放行让 LLM 调用时报错
+                pass
         return v

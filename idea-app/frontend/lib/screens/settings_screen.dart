@@ -131,6 +131,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     // 进入页面后异步加载 LLM 配置
     _loadLlmConfig();
+    // S2: 读取暗色模式设置
+    final settingsAsync = ref.watch(settingsProvider);
+    final isDark = settingsAsync.value?.darkMode ?? true;
 
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
@@ -139,10 +142,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const _SectionHeader('通用'),
           ListTile(
             title: const Text('深色模式'),
-            subtitle: const Text('固定开启'),
+            subtitle: Text(isDark ? '已开启' : '已关闭'),
             trailing: Switch(
-              value: true,
-              onChanged: null,
+              value: isDark,
+              onChanged: (v) {
+                ref.read(settingsProvider.notifier).saveDarkMode(v);
+              },
             ),
           ),
 

@@ -2,7 +2,7 @@
 import math
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,13 +13,16 @@ from schemas.vault import (
     CollectResponse, RemoveResponse,
 )
 from services.cache import cache, key_user_vault
+from services.rate_limit import limiter, DEFAULT_LIMIT
 from routers.ideas import _calc_size_score
 
 router = APIRouter(prefix="/vault", tags=["vault"])
 
 
 @router.get("", response_model=VaultResponse)
+@limiter.limit(DEFAULT_LIMIT)
 async def get_vault(
+    request: Request,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -75,7 +78,9 @@ async def get_vault(
 
 
 @router.delete("/{idea_id}", response_model=RemoveResponse)
+@limiter.limit(DEFAULT_LIMIT)
 async def remove_from_vault(
+    request: Request,
     idea_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -113,7 +118,9 @@ async def remove_from_vault(
 
 
 @router.post("/{idea_id}/collect", response_model=CollectResponse, status_code=201)
+@limiter.limit(DEFAULT_LIMIT)
 async def collect_idea(
+    request: Request,
     idea_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),

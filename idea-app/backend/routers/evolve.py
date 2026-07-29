@@ -15,6 +15,7 @@ from schemas.idea import (
 )
 from services.color_pool import random_color
 from services.audit_service import audit_content
+from services.crypto_service import decrypt
 from services.deepseek_client import (
     call_collide_ai, call_evolve_ai, SAMPER_ANGLES,
 )
@@ -50,9 +51,11 @@ async def collide(
     try:
         result = await call_collide_ai(idea_a.content, idea_b.content)
     except Exception as e:
+        import logging
+        logging.exception("AI collide call failed")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": f"AI 调用失败: {e}"}},
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": {"code": "AI_UNAVAILABLE", "message": "AI 服务暂时不可用，请稍后再试"}},
         )
 
     suggestions = [
@@ -149,14 +152,18 @@ async def evolve(
 
     angle_desc = SAMPER_ANGLES.get(req.angle, "")
     try:
+        # 用户自己的演化可用自己的 Key；从存储中解密后传入
+        decrypted_key = decrypt(user.llm_api_key) if user.llm_api_key else None
         ai_result = await call_evolve_ai(
             idea.content, req.angle, angle_desc,
-            user_api_url=user.llm_api_url, user_api_key=user.llm_api_key,
+            user_api_url=user.llm_api_url, user_api_key=decrypted_key,
         )
-    except Exception as e:
+    except Exception:
+        import logging
+        logging.exception("AI evolve call failed")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": f"AI 调用失败: {e}"}},
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": {"code": "AI_UNAVAILABLE", "message": "AI 服务暂时不可用，请稍后再试"}},
         )
 
     variants = [EvolveVariant(**v) for v in ai_result.get("variants", [])[:3]]

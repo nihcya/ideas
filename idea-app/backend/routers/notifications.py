@@ -1,5 +1,5 @@
 """通知路由"""
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,12 +9,15 @@ from schemas.notification import (
     NotificationItem, NotificationsResponse,
     MarkReadRequest, MarkReadResponse,
 )
+from services.rate_limit import limiter, DEFAULT_LIMIT
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
 @router.get("", response_model=NotificationsResponse)
+@limiter.limit(DEFAULT_LIMIT)
 async def get_notifications(
+    request: Request,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -53,7 +56,9 @@ async def get_notifications(
 
 
 @router.post("/read", response_model=MarkReadResponse)
+@limiter.limit(DEFAULT_LIMIT)
 async def mark_read(
+    request: Request,
     req: MarkReadRequest,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),

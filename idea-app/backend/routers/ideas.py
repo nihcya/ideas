@@ -270,10 +270,8 @@ async def create_idea(
     await db.refresh(idea)
 
     # 异步审核（不阻塞用户）— MVP 阶段同步审核，不通过则撤回
-    passed, reason = await audit_content(
-        db, req.content,
-        user_api_url=user.llm_api_url, user_api_key=user.llm_api_key,
-    )
+    # 审核统一使用全局 LLM 配置，避免用户通过自定义 endpoint 绕过审核
+    passed, reason = await audit_content(db, req.content)
     await write_audit_log(db, idea.id, req.content, passed, reason)
     if not passed:
         idea.status = "rejected"

@@ -20,9 +20,12 @@ class Settings(BaseSettings):
     deepseek_model: str = "deepseek-chat"
 
     # JWT
-    jwt_secret: str = "dev_secret_change_me_in_production"
+    jwt_secret: str = ""  # 必须通过环境变量 JWT_SECRET 设置
     jwt_algorithm: str = "HS256"
     jwt_expire_days: int = 7
+
+    # 用户 LLM API Key 加密密钥（Fernet），必须通过环境变量 LLM_KEY_ENCRYPTION_KEY 设置
+    llm_key_encryption_key: str = ""
 
     # 应用
     app_env: str = "dev"
