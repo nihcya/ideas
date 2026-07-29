@@ -1,7 +1,9 @@
 """认证相关 schemas"""
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+import re
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class RegisterRequest(BaseModel):
@@ -17,13 +19,23 @@ class RegisterRequest(BaseModel):
         ...,
         min_length=8,
         max_length=128,
-        description="密码，至少8位",
+        description="密码，至少8位，必须包含字母和数字",
     )
     bio: str = Field(
         "",
         max_length=50,
         description="一句话简介，0-50字符",
     )
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        """M1: 密码强度校验——至少包含字母和数字，防止纯数字/纯字母弱口令。"""
+        if not re.search(r"[A-Za-z]", v):
+            raise ValueError("密码必须包含至少一个字母")
+        if not re.search(r"\d", v):
+            raise ValueError("密码必须包含至少一个数字")
+        return v
 
 
 class LoginRequest(BaseModel):

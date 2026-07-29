@@ -1,4 +1,6 @@
 """通知路由"""
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,7 +71,7 @@ async def mark_read(
     ids = []
     for nid in req.notification_ids:
         try:
-            ids.append(__import__("uuid").UUID(nid))
+            ids.append(uuid.UUID(nid))
         except ValueError:
             continue
 
@@ -83,5 +85,6 @@ async def mark_read(
         .values(read=True)
     )
     await db.commit()
-    marked = result.rowcount if hasattr(result, "rowcount") else 0
+    # N5: SQLAlchemy Result 必有 rowcount，移除冗余 hasattr 兜底
+    marked = result.rowcount or 0
     return MarkReadResponse(marked_read=marked)

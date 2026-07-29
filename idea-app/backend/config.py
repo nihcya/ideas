@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # 数据库
+    # L3: 默认值仅 dev 用（dianzi_dev_pwd 占位密码），prod 必须通过 DATABASE_URL env 注入强密码
     database_url: str = "postgresql+asyncpg://dianzi:dianzi_dev_pwd@localhost:5432/dianzi_app"
     database_url_fallback: str = "sqlite+aiosqlite:///./dianzi_dev.db"
 

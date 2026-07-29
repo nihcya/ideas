@@ -1,18 +1,23 @@
 """设置相关 schemas"""
 from __future__ import annotations
 
+import logging
 import ipaddress
 import socket
 from urllib.parse import urlparse
 
+from config import settings
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+logger = logging.getLogger(__name__)
 
 
 def _mask_api_key(key: str) -> str:
     """脱敏 API key：前3后4，中间星号。空则返回空。"""
     if not key:
         return ""
-    if len(key) <= 8:
+    # N1: 长度 < 8 才全部掩码，长度 8 可正常显示 3+1+4
+    if len(key) < 8:
         return "*" * len(key)
     return f"{key[:3]}{'*' * (len(key) - 7)}{key[-4:]}"
 
@@ -58,6 +63,9 @@ class SettingsUpdateRequest(BaseModel):
         v = v.strip()
         if not (v.startswith("http://") or v.startswith("https://")):
             raise ValueError("API 地址必须以 http:// 或 https:// 开头")
+        # M9: 生产环境强制 https，防止 API Key 明文传输
+        if settings.app_env == "prod" and v.startswith("http://"):
+            raise ValueError("生产环境 API 地址必须使用 https://")
         # SSRF 防护：拦截内网/元数据地址
         parsed = urlparse(v)
         host = parsed.hostname
@@ -65,6 +73,7 @@ class SettingsUpdateRequest(BaseModel):
             raise ValueError("URL 缺少主机名")
         # 拦截已知内网域名
         if host in ("localhost", "postgres", "redis", "db", "mysql"):
+            logger.warning("SSRF blocked: internal hostname=%s", host)
             raise ValueError("不允许的内网地址")
         # 判断 host 是否为 IP 格式：ipaddress.ip_address 对非 IP 字符串抛 ValueError
         # 注意：必须用 flag 区分，避免我们主动抛的 ValueError 被外层 except 吞掉
@@ -78,6 +87,7 @@ class SettingsUpdateRequest(BaseModel):
             # host 是 IP 字面量：拦截私有/保留段
             ip = ipaddress.ip_address(host)
             if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                logger.warning("SSRF blocked: internal IP=%s", host)
                 raise ValueError("不允许的内网 IP 地址")
         else:
             # host 是域名：解析后校验解析结果
@@ -85,6 +95,7 @@ class SettingsUpdateRequest(BaseModel):
                 resolved = socket.gethostbyname(host)
                 ip = ipaddress.ip_address(resolved)
                 if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    logger.warning("SSRF blocked: domain %s resolves to internal IP %s", host, resolved)
                     raise ValueError(f"域名 {host} 解析到内网 IP，不允许")
             except socket.gaierror:
                 # 域名解析失败，放行让 LLM 调用时报错

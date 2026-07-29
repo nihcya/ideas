@@ -6,6 +6,7 @@ from .vault import VaultItem
 from .fork_relation import ForkRelation
 from .spark import SparkQuestion, SparkDraft, SparkSubmission
 from .notification import Notification, AuditLog, BannedWord
+from .security_event import SecurityEvent
 
 __all__ = [
     "Base",
@@ -20,4 +21,5 @@ __all__ = [
     "Notification",
     "AuditLog",
     "BannedWord",
+    "SecurityEvent",
 ]

@@ -24,7 +24,7 @@ from routers import get_all_routers
 #   - 通过环境变量 DIANZI_SCHEDULER_ENABLED=1 显式开启，
 #     推荐生产只让 1 个 worker 启用，彻底避免竞态
 
-SCHEDULER_LOCK_KEY = 0x_D1A2_3BEF  # 自定义 advisory lock key
+SCHEDULER_LOCK_KEY = 0xD1A2_3BEF  # 自定义 advisory lock key
 
 
 def _scheduler_enabled() -> bool:
@@ -215,6 +215,10 @@ app = FastAPI(
     description="创意激发社区 — Flutter + FastAPI + DeepSeek",
     version="0.1.0",
     lifespan=lifespan,
+    # M2: 生产环境关闭 Swagger/OpenAPI 文档暴露
+    docs_url=None if settings.app_env == "prod" else "/docs",
+    redoc_url=None if settings.app_env == "prod" else "/redoc",
+    openapi_url=None if settings.app_env == "prod" else "/openapi.json",
 )
 
 # 速率限制

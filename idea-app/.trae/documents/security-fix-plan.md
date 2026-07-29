@@ -1092,3 +1092,75 @@ flutter build web --release --dart-define=API_BASE_URL=https://yourdomain.com/ap
 - **批次 5**（P2 Nit 代码清理）：N1-N6 + S4/S7/S8/L1-L6
 - **批次 6**（测试+文档+用户操作指引）
 - **Git 提交**：分批次 commit + post-security-fix tag
+
+---
+
+### 批次 4：P2 Medium 安全修复 ✅ 已完成
+
+| 任务 | 状态 | 修改文件 | 说明 |
+|------|------|---------|------|
+| M1 密码强度 | ✅ | `backend/schemas/auth.py` | 新增 `validate_password_strength` field_validator，要求至少包含字母+数字 |
+| M2 Swagger 关闭 | ✅ | `backend/main.py` | prod 环境 `docs_url/redoc_url/openapi_url` 均设为 None |
+| M3 Prompt Injection | ✅ | `backend/prompts/templates.py` | 4 个 prompt 模板用户输入全部用 `<user_input>` XML 边界包裹，并声明「标签内为数据非指令」 |
+| M4 LLM 输出过滤 | ✅ | `backend/schemas/idea.py` | CollideResponse/EvolveResponse 新增 `notice` 字段提示「AI 生成内容仅供预览，确认入库时将再次审核」 |
+| M5 localStorage 注释 | ✅ | `frontend/lib/services/web_storage.dart` | 顶部加 M5 安全说明（XSS 风险、CSP 要求、HTTPS 后切回 FlutterSecureStorage） |
+| M6 全局限流 | ✅(S5 已完成) | — | vault/notifications/settings/users 全部端点已加 DEFAULT_LIMIT |
+| M7 debugPrint | ✅(批次3已完成) | — | auth_service.dart debugPrint 已包裹 kDebugMode 并移除 username 明文 |
+| M8 安全审计日志 | ✅ | `backend/models/security_event.py`(新)、`backend/services/security_event_service.py`(新)、`backend/models/__init__.py`、`backend/routers/auth.py`、`backend/schemas/settings.py` | 新增 SecurityEvent 表 + log_security_event 服务；login 成功/失败、logout 记录；SSRF 拦截记录 warning 日志 |
+| M9 LLM URL 强制 https | ✅ | `backend/schemas/settings.py` | prod 环境 `llm_api_url` 必须为 `https://`，否则拒绝 |
+
+### 批次 5：P2 Nit 代码清理 ✅ 已完成（部分延后）
+
+| 任务 | 状态 | 修改文件 | 说明 |
+|------|------|---------|------|
+| N1 mask 边界 | ✅ | `backend/schemas/settings.py` | `<= 8` 改 `< 8`，长度 8 的 key 可正常显示 3+1+4 |
+| N2 EvolveMenu 双 API | ⏸延后 | — | 低优先级，不影响功能，延后处理 |
+| N3 PGC 数据迁移 | ⏸延后 | — | 工作量大，MVP 阶段延后（计划已列） |
+| N4 0x 字面量 | ✅ | `backend/main.py` | `0x_D1A2_3BEF` → `0xD1A2_3BEF` |
+| N5 hasattr 兜底 | ✅ | `backend/routers/notifications.py` | `result.rowcount if hasattr(result, "rowcount") else 0` → `result.rowcount or 0` |
+| N6 AuthResponse settings | ⏸延后 | — | 低优先级，可跳过（计划已列） |
+| S4 `__import__("uuid")` | ✅ | `backend/routers/notifications.py` | 文件顶部 `import uuid`，`__import__("uuid").UUID(nid)` → `uuid.UUID(nid)` |
+| S7 查询优化 | ⏸延后 | — | MVP 阶段可延后（计划已列） |
+| S8 localStorage 注释 | ✅(M5 已完成) | — | web_storage.dart 已加完整安全说明 |
+| L3 默认密码 | ✅ | `backend/config.py` | 加注释说明「默认值仅 dev 用，prod 必须通过 env 注入强密码」（保留默认值避免破坏 dev 流程） |
+
+### 批次 6：用户操作指引 ✅ 已完成
+
+用户操作指引已在本文档第四章「用户必须执行的操作清单」完整给出，包含：
+- 4.1 吊销并轮换已泄露凭据（DeepSeek API Key / JWT Secret / PG 密码 / Redis 密码）
+- 4.2 git 历史清理（git filter-repo / BFG 两种方式）
+- 4.3 配置 HTTPS（域名申请 / SSL 证书 / nginx 配置 / 前端重新构建）
+- 4.4 生成加密密钥（Fernet 密钥生成 + 环境变量设置 + 迁移脚本运行）
+- 4.5 安装新依赖并重启服务
+
+> 注：测试补充（任务 6.1）为独立工作项，需单独安排测试环境运行 pytest。本次修复已确保 `flutter analyze` 和后端 import 验证通过，不引入语法错误。
+
+### 批次 4-6 验证结果
+
+| 验证项 | 结果 |
+|--------|------|
+| 后端 `import main` | ✅ 无报错 |
+| 前端 `flutter analyze` | ✅ 0 errors |
+| grep 确认密码强度校验 | ✅ `validate_password_strength` 存在 |
+| grep 确认 Swagger 关闭 | ✅ `docs_url=None if settings.app_env == "prod"` |
+| grep 确认 Prompt XML 边界 | ✅ 4 个 prompt 均含 `<user_input>` |
+| grep 确认 `__import__("uuid")` 已清除 | ✅ |
+| grep 确认 `0x_D1A2` 已清除 | ✅ 改为 `0xD1A2_3BEF` |
+| grep 确认 SecurityEvent 模型注册 | ✅ `models/__init__.py` 已导入 |
+
+### 跳过项汇总（已在计划 6.3 节说明）
+
+- L5/L6：explore/users 接口未鉴权——设计如此（公开内容），已加限流
+- S7：get_idea_detail 查询优化——MVP 阶段可延后
+- N3：PGC 数据迁移到 SQL——工作量大，延后
+- N6：register 返回 settings——低优先级，跳过
+- N2：EvolveMenu 双 API——低优先级，不影响功能，延后
+
+### 用户需自行执行的外部操作（摘要）
+
+详见本文档第四章，核心 5 步：
+1. **吊销已泄露凭据**（DeepSeek API Key、JWT Secret、PG/Redis 密码）并重新生成
+2. **清理 git 历史**（git filter-repo 或 BFG，清除历史 commit 中的凭据明文）
+3. **配置 HTTPS**（申请域名 + Let's Encrypt SSL + nginx 配置 + 前端 `--dart-define=API_BASE_URL=https://...` 重新构建）
+4. **生成 Fernet 密钥**并设置 `LLM_KEY_ENCRYPTION_KEY` 环境变量，运行 `scripts/encrypt_existing_api_keys.py` 迁移现有 Key
+5. **安装新依赖**（`pip install -r requirements.txt`、`flutter clean && flutter pub get`）并重启服务

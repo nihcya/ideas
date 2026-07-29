@@ -9,6 +9,7 @@ from models import User
 from schemas.auth import RegisterRequest, LoginRequest, AuthResponse
 from services.jwt_service import create_access_token, revoke_token
 from services.rate_limit import limiter, LOGIN_LIMIT, REGISTER_LIMIT
+from services.security_event_service import log_security_event
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -53,14 +54,28 @@ async def register(request: Request, req: RegisterRequest, db: AsyncSession = De
 @router.post("/login", response_model=AuthResponse)
 @limiter.limit(LOGIN_LIMIT)
 async def login(request: Request, req: LoginRequest, db: AsyncSession = Depends(get_db)):
+    client_ip = request.client.host if request.client else None
     result = await db.execute(select(User).where(User.username == req.username))
     user = result.scalar_one_or_none()
     if user is None or not _verify_password(req.password, user.password_hash):
+        # M8: 记录登录失败事件
+        await log_security_event(
+            db, "login_failed", "failure",
+            username=req.username, ip=client_ip,
+            reason="用户名或密码错误",
+            commit=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error": {"code": "UNAUTHORIZED", "message": "用户名或密码错误"}},
         )
 
+    # M8: 记录登录成功事件
+    await log_security_event(
+        db, "login_success", "success",
+        user_id=user.id, username=user.username, ip=client_ip,
+        commit=True,
+    )
     token = create_access_token(user.id, user.username)
     return AuthResponse(user_id=str(user.id), username=user.username, token=token)
 
@@ -68,6 +83,7 @@ async def login(request: Request, req: LoginRequest, db: AsyncSession = Depends(
 @router.post("/logout")
 async def logout(
     authorization: str | None = Header(None),
+    db: AsyncSession = Depends(get_db),
 ):
     """登出：将当前 token 加入黑名单（H2 JWT 撤销机制）。
 
@@ -79,4 +95,14 @@ async def logout(
         return {"logged_out": True}
     token = authorization.split(" ", 1)[1]
     await revoke_token(token)
+    # M8: 记录登出事件（用户身份从 token 解析）
+    from services.jwt_service import decode_token
+    payload = decode_token(token)
+    if payload:
+        await log_security_event(
+            db, "logout", "success",
+            user_id=payload.get("sub"),
+            username=payload.get("username"),
+            commit=True,
+        )
     return {"logged_out": True}
