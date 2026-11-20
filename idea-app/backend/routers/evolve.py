@@ -38,6 +38,12 @@ async def collide(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    if req.idea_a_id == req.idea_b_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": {"code": "DUPLICATE_SOURCE", "message": "碰撞需要选择两个不同的来源创意"}},
+        )
+
     a_result = await db.execute(select(Idea).where(Idea.id == uuid.UUID(req.idea_a_id)))
     idea_a = a_result.scalar_one_or_none()
     b_result = await db.execute(select(Idea).where(Idea.id == uuid.UUID(req.idea_b_id)))
