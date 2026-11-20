@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     fade_fading_days: int = 7
     fade_faded_days: int = 8
     idea_max_length: int = 300
+    # Historical public Ideas receive a 90-day license confirmation window after V2 activation.
+    legacy_license_review_period_days: int = 90
 
     @property
     def is_deepseek_configured(self) -> bool:
