@@ -161,3 +161,11 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 署名保存 author_id、用户名和贡献文本快照；数据库唯一约束限制 contribution_id 只能归属一个版本。
 - 版本发布不修改 visibility、license 或 allow_fork。
 - 静态审查不能替代 pytest / PostgreSQL 并发测试；migration 003 未执行，所有自动化测试仍待实际运行。
+
+
+### CI 验证补充（2026-11-20）
+- GitHub Actions 后端 pytest 已通过：39 passed，1 warning。
+- Flutter `flutter pub get` 和 `flutter test` 已通过。
+- 首次 `flutter analyze` 因项目现存 62 条 info 级提示返回非零；未发现 warning/error 级输出。CI 已调整为 `flutter analyze --no-fatal-infos`，保留 warning/error 失败门槛，正在重新执行。
+- Android Debug build 尚待该轮 Flutter analyze 通过后执行。
+- PostgreSQL migration 003 未执行。
