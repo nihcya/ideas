@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 
 from models import User, Idea
@@ -43,7 +45,7 @@ async def test_private_invite_lifecycle_and_revocation(monkeypatch, db_session):
         db_session,
         owner,
     )
-    invite_id = __import__("uuid").UUID(created["invite_id"])
+    invite_id = uuid.UUID(created["invite_id"])
     assert created["status"] == "pending"
     assert await can_view_idea(db_session, idea, invitee.id) is False
 
@@ -69,6 +71,10 @@ async def test_private_invite_lifecycle_and_revocation(monkeypatch, db_session):
 
 @pytest.mark.asyncio
 async def test_private_invite_can_be_declined(monkeypatch, db_session):
+    async def noop_delete(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(ideas_router.cache, "delete", noop_delete)
     owner = await _user(db_session, "invite_decline_owner")
     invitee = await _user(db_session, "invite_decline_invitee")
     idea = await _private_idea(db_session, owner.id)
@@ -79,7 +85,6 @@ async def test_private_invite_can_be_declined(monkeypatch, db_session):
         db_session,
         owner,
     )
-    import uuid
     invite_id = uuid.UUID(created["invite_id"])
 
     declined = await ideas_router.decline_private_idea_invite(
