@@ -134,7 +134,7 @@ Persist direct invites independently from collaboration membership. Suggested ta
 
 ## 版本管理 API（第一阶段）
 
-所有接口均要求登录，且仅创意作者可访问；当前版本管理仅开放给 private、未归档、非 rejected 创意。
+版本管理接口要求登录且仅创意作者可访问。可管理私有工作态创意，以及同时满足 `visibility=public`、`publication_status=published`、`status=active` 的公开创意。
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -195,3 +195,12 @@ Persist direct invites independently from collaboration membership. Suggested ta
 公开创意作者可调用版本列表、创建草稿、编辑草稿、发布版本和版本差异接口。非作者统一返回 404。公开版本发布仅更新 `Idea.content` 和版本快照，不改变可见性、发布状态、授权字段或衍生权限字段。
 
 公开只读时间线仍只返回 `IdeaVersion.status=published` 且 `IdeaVersion.published_at >= Idea.published_at` 的版本；转为公开之前发布的私有阶段版本不追溯公开。公开创意被撤回、归档或状态不再 active 后，版本写入接口拒绝操作。
+
+
+
+### 公开时间线与贡献主页的前端导航约定
+
+- 公开主页贡献列表使用 `GET /api/users/{user_id}/contributions` 的分页元数据，按 `limit=20`、`offset` 增量加载；必须保留服务端的 `total`、`has_more`。
+- 点击贡献记录时，前端携带 `version_id` 导航至 `/idea/{idea_id}/timeline?version={version_id}`。
+- 时间线页面仍调用公开只读接口，不以 query 参数绕过服务端可见性检查；`version` 参数只用于定位/展开目标版本。
+- 深链目标若不在当前公开时间线结果中（例如创意已撤回或版本不属于公开阶段），页面不得显示私有快照。
