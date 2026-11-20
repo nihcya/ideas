@@ -11,6 +11,18 @@
 
 BEGIN;
 
+CREATE TABLE IF NOT EXISTS app_schema_migrations (
+  version VARCHAR(120) PRIMARY KEY,
+  applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+DO $
+BEGIN
+  IF EXISTS (SELECT 1 FROM app_schema_migrations WHERE version = '001_idea_visibility_and_acl') THEN
+    RAISE EXCEPTION 'Migration 001_idea_visibility_and_acl has already been applied';
+  END IF;
+END $;
+
 ALTER TABLE fork_relations ADD COLUMN IF NOT EXISTS metadata JSONB;
 
 ALTER TABLE ideas
@@ -70,6 +82,8 @@ CREATE INDEX IF NOT EXISTS idx_idea_access_grants_user_status
   ON idea_access_grants (user_id, status);
 CREATE INDEX IF NOT EXISTS idx_idea_access_grants_idea_status
   ON idea_access_grants (idea_id, status);
+
+INSERT INTO app_schema_migrations(version) VALUES ('001_idea_visibility_and_acl');
 
 COMMIT;
 
