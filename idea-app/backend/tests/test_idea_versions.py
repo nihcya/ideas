@@ -223,3 +223,47 @@ async def test_diff_compares_only_published_versions_of_owned_idea(db_session):
             idea.id, new.id, old.id, db_session, other
         )
     assert acl_error.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_public_timeline_exposes_only_published_versions_of_active_public_ideas(db_session):
+    owner = await _user(db_session, "public_timeline_owner")
+    public_idea = Idea(
+        content="公开创意当前内容", color_hex="#123456", source="ugc",
+        author_id=owner.id, border_style="gold-thin",
+        publication_status="published", visibility="public", status="active",
+    )
+    private_idea = Idea(
+        content="私有创意内容", color_hex="#123456", source="ugc",
+        author_id=owner.id, border_style="gold-thin",
+        publication_status="published", visibility="private", status="active",
+    )
+    db_session.add_all([public_idea, private_idea])
+    await db_session.flush()
+    now = datetime.now(timezone.utc)
+    public_version = IdeaVersion(
+        idea_id=public_idea.id, version_number=1,
+        content_snapshot="公开版本快照", change_summary="首个公开版本",
+        status="published", created_by=owner.id,
+        published_by=owner.id, published_at=now,
+    )
+    public_draft = IdeaVersion(
+        idea_id=public_idea.id, version_number=2,
+        content_snapshot="不应公开的草稿", status="draft", created_by=owner.id,
+    )
+    private_version = IdeaVersion(
+        idea_id=private_idea.id, version_number=1,
+        content_snapshot="私有版本快照", status="published",
+        created_by=owner.id, published_by=owner.id, published_at=now,
+    )
+    db_session.add_all([public_version, public_draft, private_version])
+    await db_session.commit()
+
+    result = await versions_router.list_public_versions(public_idea.id, db_session)
+    assert len(result["items"]) == 1
+    assert result["items"][0]["version_number"] == 1
+    assert result["items"][0]["content"] == "公开版本快照"
+
+    with pytest.raises(HTTPException) as private_error:
+        await versions_router.list_public_versions(private_idea.id, db_session)
+    assert private_error.value.status_code == 404
