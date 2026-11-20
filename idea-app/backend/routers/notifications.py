@@ -2,12 +2,12 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select, update, func, or_, and_
+from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user
-from models import User, Notification, Idea, IdeaAccessGrant
-from services.idea_access import can_view_idea
+from models import User, Notification
+from services.notification_access import visible_notification_predicate
 from schemas.notification import (
     NotificationItem, NotificationsResponse,
     MarkReadRequest, MarkReadResponse,
@@ -28,26 +28,7 @@ async def get_notifications(
 ):
     # Apply resource visibility in SQL before pagination so hidden rows cannot
     # create short pages or leak ordering/position information.
-    visible_linked_idea = select(Idea.id).where(
-        Idea.id == Notification.idea_id,
-        or_(
-            Idea.author_id == user.id,
-            and_(
-                Idea.publication_status == "published",
-                Idea.visibility == "public",
-                Idea.status == "active",
-            ),
-            select(IdeaAccessGrant.id).where(
-                IdeaAccessGrant.idea_id == Idea.id,
-                IdeaAccessGrant.user_id == user.id,
-                IdeaAccessGrant.status == "accepted",
-            ).exists(),
-        ),
-    ).exists()
-    visible_notification = or_(
-        Notification.idea_id.is_(None),
-        visible_linked_idea,
-    )
+    visible_notification = visible_notification_predicate(user.id)
 
     result = await db.execute(
         select(Notification)
@@ -104,26 +85,7 @@ async def mark_read(
     # Mark-read must enforce the same current resource ACL as list retrieval.
     # Otherwise a stale notification ID could still be operated on after access
     # to its private Idea has been revoked.
-    visible_linked_idea = select(Idea.id).where(
-        Idea.id == Notification.idea_id,
-        or_(
-            Idea.author_id == user.id,
-            and_(
-                Idea.publication_status == "published",
-                Idea.visibility == "public",
-                Idea.status == "active",
-            ),
-            select(IdeaAccessGrant.id).where(
-                IdeaAccessGrant.idea_id == Idea.id,
-                IdeaAccessGrant.user_id == user.id,
-                IdeaAccessGrant.status == "accepted",
-            ).exists(),
-        ),
-    ).exists()
-    visible_notification = or_(
-        Notification.idea_id.is_(None),
-        visible_linked_idea,
-    )
+    visible_notification = visible_notification_predicate(user.id)
 
     result = await db.execute(
         update(Notification)
