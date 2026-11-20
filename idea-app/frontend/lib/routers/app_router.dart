@@ -8,6 +8,7 @@ import '../screens/spark_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/idea_detail_screen.dart';
 import '../screens/create_idea_screen.dart';
+import '../screens/publish_idea_screen.dart';
 import '../screens/fork_guide_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../screens/settings_screen.dart';
@@ -89,6 +90,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/idea/:id',
         name: 'ideaDetail',
         builder: (context, state) => IdeaDetailScreen(
+          ideaId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/idea/:id/publish',
+        name: 'publishIdea',
+        builder: (context, state) => PublishIdeaScreen(
           ideaId: state.pathParameters['id']!,
         ),
       ),
