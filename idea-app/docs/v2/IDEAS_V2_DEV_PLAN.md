@@ -288,7 +288,7 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 新增 Flutter `PublicUserProfileScreen`，复用公开用户主页和公开贡献记录 API。
 - [x] 新增 `/user/:id` 路由，并允许未登录访问；后端用户主页与贡献记录 API 均只返回公开数据。
 - [x] 创意详情作者卡片可点击进入对应公开主页。
-- [x] 新增只读 `GET /api/ideas/{idea_id}/versions/public`，只返回当前公开 active Idea 的已发布版本及冻结署名。
+- [x] 新增只读 `GET /api/ideas/{idea_id}/versions/public`，只返回当前公开 active Idea 在 `Idea.published_at` 当日及之后发布的版本及冻结署名；私有阶段版本不追溯公开。
 - [x] 新增只读 Flutter 版本时间线页面，展示版本内容、变更说明、发布时间和贡献署名；署名作者可进入公开主页。
 - [x] 公开创意详情增加“版本时间线”入口；公开主页的贡献卡片跳转到对应创意时间线。
 - [x] 新增后端测试，覆盖公开 Idea 的 published 版本可见、私有 Idea 不可访问。
