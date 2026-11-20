@@ -588,7 +588,31 @@ class _DetailBody extends StatelessWidget {
               detail.content,
               style: const TextStyle(fontSize: 16, height: 1.7),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Chip(
+                  avatar: Icon(
+                    detail.visibility == 'public' ? Icons.public : Icons.lock_outline,
+                    size: 16,
+                  ),
+                  label: Text(
+                    detail.publicationStatus == 'published'
+                        ? (detail.visibility == 'public' ? '已公开' : '已发布·私有')
+                        : (detail.publicationStatus == 'archived' ? '已归档' : '私有草稿'),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+                if (detail.licenseCode != null)
+                  Chip(
+                    label: Text('授权：${detail.licenseCode}'),
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
             // 作者信息
             Container(
               padding: const EdgeInsets.all(12),
@@ -700,13 +724,14 @@ class _DetailBody extends StatelessWidget {
               top: false,
               child: Row(
                 children: [
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Icons.call_split,
-                      label: 'Fork',
-                      onTap: onFork,
+                  if (detail.isForkable)
+                    Expanded(
+                      child: _ActionButton(
+                        icon: Icons.call_split,
+                        label: 'Fork',
+                        onTap: onFork,
+                      ),
                     ),
-                  ),
                   Expanded(
                     child: _ActionButton(
                       icon: detail.isInVault
@@ -717,13 +742,14 @@ class _DetailBody extends StatelessWidget {
                       onTap: () => onToggleCollect(detail.isInVault),
                     ),
                   ),
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Icons.auto_awesome_outlined,
-                      label: '演化',
-                      onTap: onEvolveMenu,
+                  if (detail.isForkable)
+                    Expanded(
+                      child: _ActionButton(
+                        icon: Icons.auto_awesome_outlined,
+                        label: '碰撞 / 演化',
+                        onTap: onEvolveMenu,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
