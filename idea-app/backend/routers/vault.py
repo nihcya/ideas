@@ -3,11 +3,12 @@ import math
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, or_, and_
+from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user
-from models import User, Idea, VaultItem, ForkRelation
+from models import User, Idea, VaultItem, ForkRelation, IdeaAccessGrant
 from schemas.vault import (
     VaultStats, VaultCircle, VaultResponse,
     CollectResponse, RemoveResponse,
@@ -15,6 +16,7 @@ from schemas.vault import (
 from services.cache import cache, key_user_vault
 from services.rate_limit import limiter, DEFAULT_LIMIT
 from routers.ideas import _calc_size_score
+from services.idea_access import can_view_idea
 
 router = APIRouter(prefix="/vault", tags=["vault"])
 
@@ -28,26 +30,49 @@ async def get_vault(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # 统计
+    # 只统计当前用户仍有权访问的条目，避免撤销邀请后从计数侧信道泄露私有内容。
+    visible_to_user = or_(
+        Idea.author_id == user.id,
+        and_(
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
+        ),
+        select(IdeaAccessGrant.id).where(
+            IdeaAccessGrant.idea_id == Idea.id,
+            IdeaAccessGrant.user_id == user.id,
+            IdeaAccessGrant.status == "accepted",
+        ).exists(),
+    )
+
     produced_result = await db.execute(
-        select(func.count()).select_from(VaultItem).where(
-            VaultItem.user_id == user.id, VaultItem.is_producer == True
-        )
+        select(func.count()).select_from(VaultItem)
+        .join(Idea, Idea.id == VaultItem.idea_id)
+        .where(VaultItem.user_id == user.id, VaultItem.is_producer == True, visible_to_user)
     )
     produced = produced_result.scalar() or 0
 
     collected_result = await db.execute(
-        select(func.count()).select_from(VaultItem).where(
-            VaultItem.user_id == user.id, VaultItem.is_producer == False
-        )
+        select(func.count()).select_from(VaultItem)
+        .join(Idea, Idea.id == VaultItem.idea_id)
+        .where(VaultItem.user_id == user.id, VaultItem.is_producer == False, visible_to_user)
     )
     collected = collected_result.scalar() or 0
 
-    # 被别人 fork 的总数
+    # 只统计公开可见的衍生节点，避免通过父创意的 Fork 计数
+    # 推断其他用户创建了私有衍生创意。
+    child_idea = aliased(Idea)
     forked_by_result = await db.execute(
         select(func.count()).select_from(ForkRelation)
         .join(Idea, Idea.id == ForkRelation.parent_id)
-        .where(Idea.author_id == user.id)
+        .join(child_idea, child_idea.id == ForkRelation.child_id)
+        .where(
+            Idea.author_id == user.id,
+            visible_to_user,
+            child_idea.publication_status == "published",
+            child_idea.visibility == "public",
+            child_idea.status == "active",
+        )
     )
     forked_by_others = forked_by_result.scalar() or 0
 
@@ -55,7 +80,19 @@ async def get_vault(
     result = await db.execute(
         select(Idea, VaultItem)
         .join(VaultItem, VaultItem.idea_id == Idea.id)
-        .where(VaultItem.user_id == user.id, Idea.status != "faded")
+        .where(
+            VaultItem.user_id == user.id,
+            Idea.status != "faded",
+            or_(
+                Idea.author_id == user.id,
+                and_(Idea.publication_status == "published", Idea.visibility == "public", Idea.status == "active"),
+                select(IdeaAccessGrant.id).where(
+                    IdeaAccessGrant.idea_id == Idea.id,
+                    IdeaAccessGrant.user_id == user.id,
+                    IdeaAccessGrant.status == "accepted",
+                ).exists(),
+            ),
+        )
         .order_by(VaultItem.last_touch_at.desc())
         .limit(limit).offset(offset)
     )
@@ -99,19 +136,7 @@ async def remove_from_vault(
 
     await db.delete(vault_item)
 
-    # 如果点子未被 fork 过，物理删除
-    fork_result = await db.execute(
-        select(func.count()).select_from(ForkRelation).where(
-            (ForkRelation.parent_id == idea_id) | (ForkRelation.child_id == idea_id)
-        )
-    )
-    fork_count = fork_result.scalar() or 0
-    if fork_count == 0:
-        idea_result = await db.execute(select(Idea).where(Idea.id == idea_id))
-        idea = idea_result.scalar_one_or_none()
-        if idea:
-            await db.delete(idea)
-
+    # Removing a VaultItem is a personal collection action, never an Idea deletion.
     await db.commit()
     await cache.delete(key_user_vault(str(user.id)))
     return RemoveResponse(removed=True, idea_id=str(idea_id))
@@ -128,7 +153,7 @@ async def collect_idea(
     # 验证点子存在
     idea_result = await db.execute(select(Idea).where(Idea.id == idea_id))
     idea = idea_result.scalar_one_or_none()
-    if idea is None:
+    if idea is None or not await can_view_idea(db, idea, user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}},

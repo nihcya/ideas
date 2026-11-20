@@ -9,6 +9,7 @@ from .spark import router as spark_router
 from .users import router as users_router
 from .notifications import router as notifications_router
 from .settings import router as settings_router
+from .idea_versions import router as idea_versions_router
 
 
 def get_all_routers() -> list[APIRouter]:
@@ -21,4 +22,5 @@ def get_all_routers() -> list[APIRouter]:
         users_router,
         notifications_router,
         settings_router,
+        idea_versions_router,
     ]

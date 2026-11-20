@@ -42,13 +42,29 @@ CREATE TABLE IF NOT EXISTS ideas (
     status        VARCHAR(10) DEFAULT 'active' CHECK (status IN ('active','fading','faded','rejected')),
     last_fork_at  TIMESTAMPTZ,
     last_touch_at TIMESTAMPTZ DEFAULT NOW(),
-    created_at    TIMESTAMPTZ DEFAULT NOW()
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    publication_status VARCHAR(16) NOT NULL DEFAULT 'draft'
+        CHECK (publication_status IN ('draft','published','archived')),
+    visibility VARCHAR(16) NOT NULL DEFAULT 'private'
+        CHECK (visibility IN ('private','public')),
+    license_code VARCHAR(32),
+    license_text_snapshot TEXT,
+    license_version VARCHAR(32),
+    allow_fork BOOLEAN NOT NULL DEFAULT FALSE,
+    published_at TIMESTAMPTZ,
+    archived_at TIMESTAMPTZ,
+    legacy_license_review_status VARCHAR(16) NOT NULL DEFAULT 'not_required'
+        CHECK (legacy_license_review_status IN ('not_required','pending','confirmed','expired')),
+    legacy_license_review_notified_at TIMESTAMPTZ,
+    legacy_license_reviewed_at TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_ideas_author    ON ideas(author_id);
 CREATE INDEX IF NOT EXISTS idx_ideas_fork_count ON ideas(fork_count DESC);
 CREATE INDEX IF NOT EXISTS idx_ideas_last_fork ON ideas(last_fork_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ideas_status    ON ideas(status);
+CREATE INDEX IF NOT EXISTS idx_ideas_publication_visibility ON ideas(publication_status, visibility, status);
+CREATE INDEX IF NOT EXISTS idx_ideas_legacy_license_review ON ideas(legacy_license_review_status);
 CREATE INDEX IF NOT EXISTS idx_ideas_created   ON ideas(created_at DESC);
 
 -- ============================================================
@@ -76,6 +92,7 @@ CREATE TABLE IF NOT EXISTS fork_relations (
     parent_id     UUID NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
     relation_type VARCHAR(10) NOT NULL CHECK (relation_type IN ('fork','merge','evolve')),
     angle         VARCHAR(20) NULL,
+    metadata      JSONB NULL,
     created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -162,5 +179,30 @@ CREATE TABLE IF NOT EXISTS banned_words (
 );
 
 -- ============================================================
+
+-- ============================================================
+-- 11. idea_access_grants — direct private Idea invitations
+-- ============================================================
+CREATE TABLE IF NOT EXISTS idea_access_grants (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    idea_id     UUID NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role        VARCHAR(16) NOT NULL DEFAULT 'viewer'
+                CHECK (role IN ('contributor','viewer')),
+    status      VARCHAR(16) NOT NULL DEFAULT 'pending'
+                CHECK (status IN ('pending','accepted','declined','revoked')),
+    invited_by  UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    invited_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    responded_at TIMESTAMPTZ,
+    revoked_at  TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(idea_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_idea_access_grants_user_status
+    ON idea_access_grants(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_idea_access_grants_idea_status
+    ON idea_access_grants(idea_id, status);
+
 -- 完成
 -- ============================================================

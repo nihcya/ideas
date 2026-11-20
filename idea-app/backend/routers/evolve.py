@@ -1,4 +1,5 @@
 """演化路由：碰撞 + 演化"""
+from datetime import datetime, timezone
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -20,6 +21,7 @@ from services.deepseek_client import (
     call_collide_ai, call_evolve_ai, SAMPER_ANGLES,
 )
 from services.rate_limit import limiter, AI_LIMIT
+from services.idea_access import can_view_idea, can_derive_from_idea
 
 router = APIRouter(prefix="/ideas", tags=["evolve"])
 
@@ -36,16 +38,29 @@ async def collide(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    if req.idea_a_id == req.idea_b_id:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": {"code": "DUPLICATE_SOURCE", "message": "碰撞需要选择两个不同的来源创意"}},
+        )
+
     a_result = await db.execute(select(Idea).where(Idea.id == uuid.UUID(req.idea_a_id)))
     idea_a = a_result.scalar_one_or_none()
     b_result = await db.execute(select(Idea).where(Idea.id == uuid.UUID(req.idea_b_id)))
     idea_b = b_result.scalar_one_or_none()
 
-    if idea_a is None or idea_b is None:
+    if (
+        idea_a is None or idea_b is None
+        or not await can_view_idea(db, idea_a, user.id)
+        or not await can_view_idea(db, idea_b, user.id)
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}},
         )
+
+    if not await can_derive_from_idea(db, idea_a, user.id) or not await can_derive_from_idea(db, idea_b, user.id):
+        raise HTTPException(status_code=403, detail={"error": {"code": "DERIVATIVE_NOT_ALLOWED", "message": "来源创意授权不允许碰撞衍生"}})
 
     # 调用 AI
     try:
@@ -74,14 +89,16 @@ async def collide_confirm(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # 验证父点子存在
+    # 确认阶段重新加载并校验两个来源，不能信任此前 AI 预览时的权限状态。
+    parents = []
     for pid in [req.idea_a_id, req.idea_b_id]:
         result = await db.execute(select(Idea).where(Idea.id == uuid.UUID(pid)))
-        if result.scalar_one_or_none() is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={"error": {"code": "NOT_FOUND", "message": f"点子 {pid} 不存在"}},
-            )
+        parent = result.scalar_one_or_none()
+        if parent is None or not await can_view_idea(db, parent, user.id):
+            raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "来源创意不存在"}})
+        if not await can_derive_from_idea(db, parent, user.id):
+            raise HTTPException(status_code=403, detail={"error": {"code": "DERIVATIVE_NOT_ALLOWED", "message": "来源创意授权不允许碰撞衍生"}})
+        parents.append(parent)
 
     # 审核
     passed, reason = await audit_content(db, req.content)
@@ -104,11 +121,19 @@ async def collide_confirm(
     await db.flush()
 
     # 建立两个父关系
-    for pid in [req.idea_a_id, req.idea_b_id]:
+    for parent in parents:
         relation = ForkRelation(
             child_id=new_idea.id,
-            parent_id=uuid.UUID(pid),
+            parent_id=parent.id,
             relation_type="merge",
+            license_snapshot={
+                "license_code": parent.license_code,
+                "license_text_snapshot": parent.license_text_snapshot,
+                "license_version": parent.license_version,
+                "source_author_id": str(parent.author_id) if parent.author_id else None,
+                "captured_at": datetime.now(timezone.utc).isoformat(),
+                "allow_fork": parent.allow_fork,
+            },
         )
         db.add(relation)
 
@@ -144,11 +169,10 @@ async def evolve(
 ):
     result = await db.execute(select(Idea).where(Idea.id == uuid.UUID(req.idea_id)))
     idea = result.scalar_one_or_none()
-    if idea is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}},
-        )
+    if idea is None or not await can_view_idea(db, idea, user.id):
+        raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}})
+    if not await can_derive_from_idea(db, idea, user.id):
+        raise HTTPException(status_code=403, detail={"error": {"code": "DERIVATIVE_NOT_ALLOWED", "message": "来源创意授权不允许演化"}})
 
     angle_desc = SAMPER_ANGLES.get(req.angle, "")
     try:
@@ -182,11 +206,10 @@ async def evolve_confirm(
 ):
     result = await db.execute(select(Idea).where(Idea.id == uuid.UUID(req.parent_id)))
     parent = result.scalar_one_or_none()
-    if parent is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": {"code": "NOT_FOUND", "message": "原点子不存在"}},
-        )
+    if parent is None or not await can_view_idea(db, parent, user.id):
+        raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "原点子不存在"}})
+    if not await can_derive_from_idea(db, parent, user.id):
+        raise HTTPException(status_code=403, detail={"error": {"code": "DERIVATIVE_NOT_ALLOWED", "message": "来源创意授权不允许演化"}})
 
     # 审核
     passed, reason = await audit_content(db, req.content)
@@ -214,6 +237,14 @@ async def evolve_confirm(
         parent_id=parent.id,
         relation_type="evolve",
         angle=req.angle,
+        license_snapshot={
+            "license_code": parent.license_code,
+            "license_text_snapshot": parent.license_text_snapshot,
+            "license_version": parent.license_version,
+            "source_author_id": str(parent.author_id) if parent.author_id else None,
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "allow_fork": parent.allow_fork,
+        },
     )
     db.add(relation)
 

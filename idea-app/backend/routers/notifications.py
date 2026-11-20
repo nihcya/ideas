@@ -2,11 +2,12 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select, func, update
+from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user
 from models import User, Notification
+from services.notification_access import visible_notification_predicate
 from schemas.notification import (
     NotificationItem, NotificationsResponse,
     MarkReadRequest, MarkReadResponse,
@@ -25,12 +26,17 @@ async def get_notifications(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    # Apply resource visibility in SQL before pagination so hidden rows cannot
+    # create short pages or leak ordering/position information.
+    visible_notification = visible_notification_predicate(user.id)
+
     result = await db.execute(
         select(Notification)
-        .where(Notification.user_id == user.id)
+        .where(Notification.user_id == user.id, visible_notification)
         .order_by(Notification.created_at.desc())
         .limit(limit).offset(offset)
     )
+    rows = result.scalars().all()
     notifications = [
         NotificationItem(
             id=str(n.id),
@@ -41,12 +47,13 @@ async def get_notifications(
             created_at=n.created_at,
             read=n.read,
         )
-        for n in result.scalars().all()
+        for n in rows
     ]
-
     unread_result = await db.execute(
         select(func.count()).select_from(Notification).where(
-            Notification.user_id == user.id, Notification.read == False
+            Notification.user_id == user.id,
+            Notification.read == False,
+            visible_notification,
         )
     )
     unread_count = unread_result.scalar() or 0
@@ -75,12 +82,18 @@ async def mark_read(
         except ValueError:
             continue
 
+    # Mark-read must enforce the same current resource ACL as list retrieval.
+    # Otherwise a stale notification ID could still be operated on after access
+    # to its private Idea has been revoked.
+    visible_notification = visible_notification_predicate(user.id)
+
     result = await db.execute(
         update(Notification)
         .where(
             Notification.user_id == user.id,
             Notification.id.in_(ids),
             Notification.read == False,
+            visible_notification,
         )
         .values(read=True)
     )

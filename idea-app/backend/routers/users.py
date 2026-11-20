@@ -1,12 +1,12 @@
 """用户路由"""
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user
-from models import User, Idea, VaultItem, ForkRelation
+from models import User, Idea, VaultItem, ForkRelation, IdeaVersion, IdeaVersionContribution
 from schemas.user import UserProfile
 from services.rate_limit import limiter, DEFAULT_LIMIT
 from routers.ideas import _calc_size_score
@@ -31,15 +31,27 @@ async def get_user_profile(
 
     # 统计
     produced_result = await db.execute(
-        select(func.count()).select_from(VaultItem).where(
-            VaultItem.user_id == user.id, VaultItem.is_producer == True
+        select(func.count()).select_from(VaultItem)
+        .join(Idea, Idea.id == VaultItem.idea_id)
+        .where(
+            VaultItem.user_id == user.id,
+            VaultItem.is_producer == True,
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
         )
     )
     produced = produced_result.scalar() or 0
 
     collected_result = await db.execute(
-        select(func.count()).select_from(VaultItem).where(
-            VaultItem.user_id == user.id, VaultItem.is_producer == False
+        select(func.count()).select_from(VaultItem)
+        .join(Idea, Idea.id == VaultItem.idea_id)
+        .where(
+            VaultItem.user_id == user.id,
+            VaultItem.is_producer == False,
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
         )
     )
     collected = collected_result.scalar() or 0
@@ -47,14 +59,24 @@ async def get_user_profile(
     forked_by_result = await db.execute(
         select(func.count()).select_from(ForkRelation)
         .join(Idea, Idea.id == ForkRelation.parent_id)
-        .where(Idea.author_id == user.id)
+        .where(
+            Idea.author_id == user.id,
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
+        )
     )
     forked_by_others = forked_by_result.scalar() or 0
 
     forked_others_result = await db.execute(
         select(func.count()).select_from(ForkRelation)
         .join(Idea, Idea.id == ForkRelation.child_id)
-        .where(Idea.author_id == user.id)
+        .where(
+            Idea.author_id == user.id,
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
+        )
     )
     forked_others = forked_others_result.scalar() or 0
 
@@ -62,8 +84,13 @@ async def get_user_profile(
     circles_result = await db.execute(
         select(Idea, VaultItem)
         .join(VaultItem, VaultItem.idea_id == Idea.id)
-        .where(VaultItem.user_id == user.id, Idea.status != "faded")
-        .order_by(VaultItem.added_at.desc())
+        .where(
+            VaultItem.user_id == user.id,
+            Idea.status == "active",
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+        )
+        .order_by(VaultItem.created_at.desc())
     )
     circles = []
     for idea, vi in circles_result.all():
@@ -86,6 +113,71 @@ async def get_user_profile(
         },
         circles=circles,
     )
+
+
+@router.get("/{user_id}/contributions")
+@limiter.limit(DEFAULT_LIMIT)
+async def get_user_contributions(
+    request: Request,
+    user_id: uuid.UUID,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    """公开展示用户已被正式发布版本采纳的贡献；私有创意与草稿一律不暴露。"""
+    user_result = await db.execute(select(User.id).where(User.id == user_id))
+    if user_result.scalar_one_or_none() is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "NOT_FOUND", "message": "用户不存在"}},
+        )
+
+    public_filters = (
+        IdeaVersionContribution.author_id_snapshot == user_id,
+        IdeaVersion.status == "published",
+        Idea.publication_status == "published",
+        Idea.visibility == "public",
+        Idea.status == "active",
+    )
+    count_result = await db.execute(
+        select(func.count())
+        .select_from(IdeaVersionContribution)
+        .join(IdeaVersion, IdeaVersion.id == IdeaVersionContribution.version_id)
+        .join(Idea, Idea.id == IdeaVersion.idea_id)
+        .where(*public_filters)
+    )
+    total = count_result.scalar() or 0
+
+    result = await db.execute(
+        select(IdeaVersionContribution, IdeaVersion, Idea)
+        .join(IdeaVersion, IdeaVersion.id == IdeaVersionContribution.version_id)
+        .join(Idea, Idea.id == IdeaVersion.idea_id)
+        .where(*public_filters)
+        .order_by(IdeaVersion.published_at.desc(), IdeaVersion.version_number.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    items = []
+    for attribution, version, idea in result.all():
+        items.append({
+            "id": str(attribution.id),
+            "idea_id": str(idea.id),
+            "idea_content": version.content_snapshot,
+            "version_id": str(version.id),
+            "version_number": version.version_number,
+            "published_at": version.published_at.isoformat() if version.published_at else None,
+            "change_summary": version.change_summary,
+            "contribution_content": attribution.content_snapshot,
+            "author_name": attribution.author_name_snapshot,
+        })
+
+    return {
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": offset + len(items) < total,
+    }
 
 
 @router.get("/me/vault")

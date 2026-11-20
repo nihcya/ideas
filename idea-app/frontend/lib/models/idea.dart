@@ -153,6 +153,12 @@ class IdeaDetail {
   final int forkCount;
   final bool isInVault;
   final Lineage lineage;
+  final String publicationStatus;
+  final String visibility;
+  final String? licenseCode;
+  final String? licenseVersion;
+  final String? accessRole;
+  final bool isForkable;
 
   const IdeaDetail({
     required this.id,
@@ -163,6 +169,12 @@ class IdeaDetail {
     required this.forkCount,
     required this.isInVault,
     required this.lineage,
+    this.publicationStatus = 'draft',
+    this.visibility = 'private',
+    this.licenseCode,
+    this.licenseVersion,
+    this.accessRole,
+    this.isForkable = false,
   });
 
   Color get color => Color(int.parse('0xFF${colorHex.substring(1)}'));
@@ -181,6 +193,12 @@ class IdeaDetail {
       lineage: Lineage.fromJson(
         json['lineage'] as Map<String, dynamic>? ?? {},
       ),
+      publicationStatus: json['publication_status'] as String? ?? 'draft',
+      visibility: json['visibility'] as String? ?? 'private',
+      licenseCode: json['license_code'] as String?,
+      licenseVersion: json['license_version'] as String?,
+      accessRole: json['access_role'] as String?,
+      isForkable: json['is_forkable'] as bool? ?? false,
     );
   }
 }
@@ -197,6 +215,10 @@ class IdeaResponse {
   final String source;
   final String borderStyle;
   final DateTime createdAt;
+  final String publicationStatus;
+  final String visibility;
+  final String? licenseCode;
+  final bool allowFork;
 
   const IdeaResponse({
     required this.id,
@@ -205,6 +227,10 @@ class IdeaResponse {
     required this.source,
     required this.borderStyle,
     required this.createdAt,
+    this.publicationStatus = 'draft',
+    this.visibility = 'private',
+    this.licenseCode,
+    this.allowFork = false,
   });
 
   factory IdeaResponse.fromJson(Map<String, dynamic> json) {
@@ -215,6 +241,10 @@ class IdeaResponse {
       source: json['source'] as String? ?? 'original',
       borderStyle: json['border_style'] as String? ?? 'none',
       createdAt: DateTime.parse(json['created_at'] as String),
+      publicationStatus: json['publication_status'] as String? ?? 'draft',
+      visibility: json['visibility'] as String? ?? 'private',
+      licenseCode: json['license_code'] as String?,
+      allowFork: json['allow_fork'] as bool? ?? false,
     );
   }
 }
