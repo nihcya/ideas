@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import HTTPException
@@ -226,43 +226,53 @@ async def test_diff_compares_only_published_versions_of_owned_idea(db_session):
 
 
 @pytest.mark.asyncio
-async def test_public_timeline_exposes_only_published_versions_of_active_public_ideas(db_session):
+async def test_public_timeline_exposes_only_public_era_published_versions(db_session):
     owner = await _user(db_session, "public_timeline_owner")
+    now = datetime.now(timezone.utc)
     public_idea = Idea(
         content="公开创意当前内容", color_hex="#123456", source="ugc",
         author_id=owner.id, border_style="gold-thin",
         publication_status="published", visibility="public", status="active",
+        published_at=now,
     )
     private_idea = Idea(
         content="私有创意内容", color_hex="#123456", source="ugc",
         author_id=owner.id, border_style="gold-thin",
         publication_status="published", visibility="private", status="active",
+        published_at=now,
     )
     db_session.add_all([public_idea, private_idea])
     await db_session.flush()
-    now = datetime.now(timezone.utc)
-    public_version = IdeaVersion(
+    private_era_version = IdeaVersion(
         idea_id=public_idea.id, version_number=1,
-        content_snapshot="公开版本快照", change_summary="首个公开版本",
+        content_snapshot="转公开前的私有版本", change_summary="私有阶段版本",
         status="published", created_by=owner.id,
-        published_by=owner.id, published_at=now,
+        published_by=owner.id, published_at=now - timedelta(days=1),
+    )
+    public_era_version = IdeaVersion(
+        idea_id=public_idea.id, version_number=2,
+        content_snapshot="公开之后发布的版本", change_summary="公开阶段更新",
+        status="published", created_by=owner.id,
+        published_by=owner.id, published_at=now + timedelta(days=1),
     )
     public_draft = IdeaVersion(
-        idea_id=public_idea.id, version_number=2,
+        idea_id=public_idea.id, version_number=3,
         content_snapshot="不应公开的草稿", status="draft", created_by=owner.id,
     )
     private_version = IdeaVersion(
         idea_id=private_idea.id, version_number=1,
         content_snapshot="私有版本快照", status="published",
-        created_by=owner.id, published_by=owner.id, published_at=now,
+        created_by=owner.id, published_by=owner.id, published_at=now + timedelta(days=1),
     )
-    db_session.add_all([public_version, public_draft, private_version])
+    db_session.add_all([
+        private_era_version, public_era_version, public_draft, private_version,
+    ])
     await db_session.commit()
 
     result = await versions_router.list_public_versions(public_idea.id, db_session)
     assert len(result["items"]) == 1
-    assert result["items"][0]["version_number"] == 1
-    assert result["items"][0]["content"] == "公开版本快照"
+    assert result["items"][0]["version_number"] == 2
+    assert result["items"][0]["content"] == "公开之后发布的版本"
 
     with pytest.raises(HTTPException) as private_error:
         await versions_router.list_public_versions(private_idea.id, db_session)
