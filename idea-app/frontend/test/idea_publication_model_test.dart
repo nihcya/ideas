@@ -32,12 +32,14 @@ void main() {
         'license_code': 'attribution_adaptation',
         'license_version': 'v1',
         'is_forkable': true,
+        'access_role': 'contributor',
       });
 
       expect(idea.publicationStatus, 'published');
       expect(idea.visibility, 'public');
       expect(idea.licenseCode, 'attribution_adaptation');
       expect(idea.licenseVersion, 'v1');
+      expect(idea.accessRole, 'contributor');
       expect(idea.isForkable, isTrue);
     });
   });
