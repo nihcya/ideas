@@ -18,6 +18,7 @@ from services.color_pool import random_color
 from services.audit_service import audit_content, write_audit_log
 from services.cache import cache, key_explore_page, key_idea_detail
 from services.rate_limit import limiter, CREATE_LIMIT
+from services.idea_access import can_view_idea, can_derive_from_idea
 
 router = APIRouter(prefix="/ideas", tags=["ideas"])
 
@@ -88,6 +89,8 @@ async def explore(
             select(Idea)
             .where(
                 Idea.status == "active",
+                Idea.publication_status == "published",
+                Idea.visibility == "public",
                 Idea.last_fork_at != None,
                 Idea.last_fork_at >= thirty_days_ago,
             )
@@ -101,7 +104,12 @@ async def explore(
         # 随机：SQLite 用 RANDOM()，PG 用 RANDOM()
         random_result = await db.execute(
             select(Idea)
-            .where(Idea.status == "active")
+            .where(
+                Idea.status == "active",
+                Idea.publication_status == "published",
+                Idea.visibility == "public",
+                ~Idea.id.in_(hot_ids) if hot_ids else True,
+            )
             .order_by(func.random())
             .limit(random_count)
         )
@@ -151,7 +159,11 @@ async def get_idea_detail(
 ):
     result = await db.execute(select(Idea).where(Idea.id == idea_id))
     idea = result.scalar_one_or_none()
-    if idea is None or idea.status == "rejected":
+    if (
+        idea is None
+        or idea.status == "rejected"
+        or not await can_view_idea(db, idea, user.id if user else None)
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}},
@@ -195,6 +207,8 @@ async def get_idea_detail(
     )
     parents = []
     for parent_idea, parent_user, _rel in parents_result.all():
+        if not await can_view_idea(db, parent_idea, user.id if user else None):
+            continue
         parents.append(LineageNode(
             id=str(parent_idea.id),
             color_hex=parent_idea.color_hex,
@@ -213,6 +227,8 @@ async def get_idea_detail(
     )
     children = []
     for child_idea, child_user in children_result.all():
+        if not await can_view_idea(db, child_idea, user.id if user else None):
+            continue
         children.append(LineageNode(
             id=str(child_idea.id),
             color_hex=child_idea.color_hex,
@@ -305,12 +321,12 @@ async def fork_idea(
     # 验证 parent
     parent_result = await db.execute(select(Idea).where(Idea.id == uuid.UUID(req.parent_id)))
     parent = parent_result.scalar_one_or_none()
-    if parent is None or parent.status == "rejected":
+    if parent is None or parent.status == "rejected" or not await can_view_idea(db, parent, user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": {"code": "NOT_FOUND", "message": "原点子不存在"}},
         )
-    if not parent.is_forkable:
+    if not parent.is_forkable or not await can_derive_from_idea(db, parent, user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"error": {"code": "FORK_DISABLED", "message": "原点子不允许 fork"}},
@@ -343,6 +359,14 @@ async def fork_idea(
         child_id=new_idea.id,
         parent_id=parent.id,
         relation_type="fork",
+        license_snapshot={
+            "license_code": parent.license_code,
+            "license_text_snapshot": parent.license_text_snapshot,
+            "license_version": parent.license_version,
+            "source_author_id": str(parent.author_id) if parent.author_id else None,
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "allow_fork": parent.allow_fork,
+        },
     )
     db.add(relation)
 
