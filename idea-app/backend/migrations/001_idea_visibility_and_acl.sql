@@ -11,6 +11,8 @@
 
 BEGIN;
 
+ALTER TABLE fork_relations ADD COLUMN IF NOT EXISTS metadata JSONB;
+
 ALTER TABLE ideas
   ADD COLUMN IF NOT EXISTS publication_status VARCHAR(16) NOT NULL DEFAULT 'draft',
   ADD COLUMN IF NOT EXISTS visibility VARCHAR(16) NOT NULL DEFAULT 'private',
