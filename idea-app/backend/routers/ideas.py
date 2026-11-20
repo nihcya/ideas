@@ -8,10 +8,10 @@ from sqlalchemy import select, func, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user, get_optional_user
-from models import User, Idea, VaultItem, ForkRelation, Notification
+from models import User, Idea, VaultItem, ForkRelation, Notification, IdeaAccessGrant
 from schemas.idea import (
     IdeaCreate, IdeaForkRequest, CircleData, ExploreResponse,
-    LineageNode, Lineage, IdeaDetail, IdeaResponse, ForkResponse,
+    LineageNode, Lineage, IdeaDetail, IdeaResponse, ForkResponse,\n    IdeaPublishRequest, IdeaInviteRequest,
 )
 from schemas.common import SuccessResponse
 from services.color_pool import random_color
@@ -412,3 +412,169 @@ async def fork_idea(
         source=new_idea.source,
         border_style=new_idea.border_style,
     )
+
+
+
+# ============================================================
+# V2: explicit publication and direct private-Idea invitations
+# ============================================================
+
+@router.post("/{idea_id}/publish", response_model=IdeaResponse)
+async def publish_idea(
+    idea_id: uuid.UUID,
+    req: IdeaPublishRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(Idea).where(Idea.id == idea_id))
+    idea = result.scalar_one_or_none()
+    if idea is None or idea.author_id != user.id:
+        raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}})
+    if not req.confirm_terms:
+        raise HTTPException(status_code=400, detail={"error": {"code": "TERMS_NOT_CONFIRMED", "message": "必须确认授权条款"}})
+    if idea.publication_status == "archived":
+        raise HTTPException(status_code=409, detail={"error": {"code": "IDEA_ARCHIVED", "message": "归档点子不能直接发布"}})
+    if req.license_code == "custom" and not (req.license_custom_text or "").strip():
+        raise HTTPException(status_code=422, detail={"error": {"code": "LICENSE_TEXT_REQUIRED", "message": "自定义授权必须填写授权说明"}})
+    if req.allow_fork and req.license_code not in ("attribution_adaptation", "custom"):
+        raise HTTPException(status_code=422, detail={"error": {"code": "LICENSE_DERIVATIVE_MISMATCH", "message": "当前授权不允许开启 Fork"}})
+
+    passed, reason = await audit_content(db, idea.content)
+    if not passed:
+        raise HTTPException(status_code=403, detail={"error": {"code": "AUDIT_FAILED", "message": reason or "内容审核不通过"}})
+
+    now = datetime.now(timezone.utc)
+    idea.publication_status = "published"
+    idea.visibility = req.visibility
+    idea.license_code = req.license_code
+    idea.license_text_snapshot = req.license_custom_text
+    idea.license_version = req.license_version
+    idea.allow_fork = req.allow_fork
+    idea.published_at = now
+    if idea.legacy_license_review_status == "pending":
+        idea.legacy_license_review_status = "confirmed"
+        idea.legacy_license_reviewed_at = now
+    await db.commit()
+    await db.refresh(idea)
+    return IdeaResponse(
+        id=str(idea.id), content=idea.content, color_hex=idea.color_hex,
+        source=idea.source, author_id=str(idea.author_id),
+        created_at=idea.created_at, border_style=idea.border_style,
+    )
+
+
+@router.post("/{idea_id}/unpublish")
+async def unpublish_idea(
+    idea_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(Idea).where(Idea.id == idea_id))
+    idea = result.scalar_one_or_none()
+    if idea is None or idea.author_id != user.id:
+        raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}})
+    idea.publication_status = "draft"
+    idea.visibility = "private"
+    idea.allow_fork = False
+    await db.commit()
+    return {"unpublished": True, "idea_id": str(idea.id)}
+
+
+@router.post("/{idea_id}/invites", status_code=201)
+async def invite_to_private_idea(
+    idea_id: uuid.UUID,
+    req: IdeaInviteRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(Idea).where(Idea.id == idea_id))
+    idea = result.scalar_one_or_none()
+    if idea is None or idea.author_id != user.id:
+        raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}})
+    if idea.visibility != "private":
+        raise HTTPException(status_code=409, detail={"error": {"code": "IDEA_NOT_PRIVATE", "message": "仅私有点子支持直接邀请"}})
+    try:
+        invitee_id = uuid.UUID(req.user_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail={"error": {"code": "INVALID_USER_ID", "message": "用户 ID 无效"}})
+    if invitee_id == user.id:
+        raise HTTPException(status_code=400, detail={"error": {"code": "SELF_INVITE", "message": "不能邀请自己"}})
+    invitee_result = await db.execute(select(User.id).where(User.id == invitee_id))
+    if invitee_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail={"error": {"code": "USER_NOT_FOUND", "message": "用户不存在"}})
+
+    grant_result = await db.execute(
+        select(IdeaAccessGrant).where(
+            IdeaAccessGrant.idea_id == idea.id,
+            IdeaAccessGrant.user_id == invitee_id,
+        )
+    )
+    grant = grant_result.scalar_one_or_none()
+    if grant and grant.status in ("pending", "accepted"):
+        raise HTTPException(status_code=409, detail={"error": {"code": "INVITE_EXISTS", "message": "邀请已存在"}})
+    if grant:
+        grant.role = req.role
+        grant.status = "pending"
+        grant.invited_by = user.id
+        grant.invited_at = datetime.now(timezone.utc)
+        grant.responded_at = None
+        grant.revoked_at = None
+    else:
+        grant = IdeaAccessGrant(
+            idea_id=idea.id, user_id=invitee_id, role=req.role,
+            status="pending", invited_by=user.id,
+        )
+        db.add(grant)
+    await db.commit()
+    await db.refresh(grant)
+    return {"invite_id": str(grant.id), "status": grant.status, "role": grant.role}
+
+
+@router.post("/{idea_id}/invites/{invite_id}/accept")
+async def accept_private_idea_invite(
+    idea_id: uuid.UUID,
+    invite_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(IdeaAccessGrant).where(
+            IdeaAccessGrant.id == invite_id,
+            IdeaAccessGrant.idea_id == idea_id,
+            IdeaAccessGrant.user_id == user.id,
+            IdeaAccessGrant.status == "pending",
+        )
+    )
+    grant = result.scalar_one_or_none()
+    if grant is None:
+        raise HTTPException(status_code=404, detail={"error": {"code": "INVITE_NOT_FOUND", "message": "待处理邀请不存在"}})
+    grant.status = "accepted"
+    grant.responded_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"accepted": True, "idea_id": str(idea_id), "role": grant.role}
+
+
+@router.delete("/{idea_id}/invites/{invite_id}")
+async def revoke_private_idea_invite(
+    idea_id: uuid.UUID,
+    invite_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    idea_result = await db.execute(select(Idea).where(Idea.id == idea_id))
+    idea = idea_result.scalar_one_or_none()
+    if idea is None or idea.author_id != user.id:
+        raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}})
+    grant_result = await db.execute(
+        select(IdeaAccessGrant).where(
+            IdeaAccessGrant.id == invite_id,
+            IdeaAccessGrant.idea_id == idea_id,
+        )
+    )
+    grant = grant_result.scalar_one_or_none()
+    if grant is None:
+        raise HTTPException(status_code=404, detail={"error": {"code": "INVITE_NOT_FOUND", "message": "邀请不存在"}})
+    grant.status = "revoked"
+    grant.revoked_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"revoked": True, "invite_id": str(invite_id)}
