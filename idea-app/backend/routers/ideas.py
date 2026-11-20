@@ -499,6 +499,98 @@ async def unpublish_idea(
     return {"unpublished": True, "idea_id": str(idea.id)}
 
 
+@router.get("/invites/inbox")
+async def list_pending_idea_invites(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List pending private-Idea invitations addressed to the current user."""
+    result = await db.execute(
+        select(IdeaAccessGrant, Idea, User)
+        .join(Idea, Idea.id == IdeaAccessGrant.idea_id)
+        .join(User, User.id == IdeaAccessGrant.invited_by)
+        .where(
+            IdeaAccessGrant.user_id == user.id,
+            IdeaAccessGrant.status == "pending",
+            Idea.visibility == "private",
+            Idea.status != "rejected",
+        )
+        .order_by(IdeaAccessGrant.invited_at.desc())
+    )
+    return {
+        "items": [
+            {
+                "invite_id": str(grant.id),
+                "idea_id": str(idea.id),
+                "idea_content": idea.content,
+                "idea_color_hex": idea.color_hex,
+                "role": grant.role,
+                "invited_at": grant.invited_at,
+                "inviter": {"id": str(inviter.id), "username": inviter.username},
+            }
+            for grant, idea, inviter in result.all()
+        ]
+    }
+
+
+@router.get("/{idea_id}/invites")
+async def list_idea_invites(
+    idea_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List invite states for the owner of a private Idea."""
+    idea_result = await db.execute(select(Idea).where(Idea.id == idea_id))
+    idea = idea_result.scalar_one_or_none()
+    if idea is None or idea.author_id != user.id:
+        raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}})
+    result = await db.execute(
+        select(IdeaAccessGrant, User)
+        .join(User, User.id == IdeaAccessGrant.user_id)
+        .where(IdeaAccessGrant.idea_id == idea_id)
+        .order_by(IdeaAccessGrant.invited_at.desc())
+    )
+    return {
+        "items": [
+            {
+                "invite_id": str(grant.id),
+                "user_id": str(invitee.id),
+                "username": invitee.username,
+                "role": grant.role,
+                "status": grant.status,
+                "invited_at": grant.invited_at,
+                "responded_at": grant.responded_at,
+                "revoked_at": grant.revoked_at,
+            }
+            for grant, invitee in result.all()
+        ]
+    }
+
+
+@router.post("/{idea_id}/invites/{invite_id}/decline")
+async def decline_private_idea_invite(
+    idea_id: uuid.UUID,
+    invite_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(IdeaAccessGrant).where(
+            IdeaAccessGrant.id == invite_id,
+            IdeaAccessGrant.idea_id == idea_id,
+            IdeaAccessGrant.user_id == user.id,
+            IdeaAccessGrant.status == "pending",
+        )
+    )
+    grant = result.scalar_one_or_none()
+    if grant is None:
+        raise HTTPException(status_code=404, detail={"error": {"code": "INVITE_NOT_FOUND", "message": "待处理邀请不存在"}})
+    grant.status = "declined"
+    grant.responded_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"declined": True, "invite_id": str(invite_id)}
+
+
 @router.post("/{idea_id}/invites", status_code=201)
 async def invite_to_private_idea(
     idea_id: uuid.UUID,
