@@ -277,3 +277,60 @@ async def test_public_timeline_exposes_only_public_era_published_versions(db_ses
     with pytest.raises(HTTPException) as private_error:
         await versions_router.list_public_versions(private_idea.id, db_session)
     assert private_error.value.status_code == 404
+
+
+
+@pytest.mark.asyncio
+async def test_public_idea_owner_can_create_and_publish_versions_without_changing_rights(db_session):
+    owner = await _user(db_session, "public_version_owner")
+    idea = Idea(
+        content="公开创意初始内容", color_hex="#123456", source="ugc",
+        author_id=owner.id, border_style="gold-thin",
+        publication_status="published", visibility="public", status="active",
+        published_at=datetime.now(timezone.utc),
+        license_code="CC-BY-4.0", allow_fork=True,
+    )
+    db_session.add(idea)
+    await db_session.commit()
+    original_published_at = idea.published_at
+
+    draft = await versions_router.create_version_draft(
+        idea.id,
+        VersionDraftCreate(content="公开创意的后续版本", change_summary="公开后持续迭代"),
+        db_session,
+        owner,
+    )
+    assert draft["status"] == "draft"
+
+    published = await versions_router.publish_version(
+        idea.id, uuid.UUID(draft["id"]), db_session, owner
+    )
+    assert published["published"] is True
+    assert idea.content == "公开创意的后续版本"
+    assert idea.visibility == "public"
+    assert idea.publication_status == "published"
+    assert idea.status == "active"
+    assert idea.license_code == "CC-BY-4.0"
+    assert idea.allow_fork is True
+    assert idea.published_at == original_published_at
+
+
+@pytest.mark.asyncio
+async def test_non_owner_cannot_manage_public_idea_versions(db_session):
+    owner = await _user(db_session, "public_version_acl_owner")
+    other = await _user(db_session, "public_version_acl_other")
+    idea = Idea(
+        content="作者的公开创意", color_hex="#123456", source="ugc",
+        author_id=owner.id, border_style="gold-thin",
+        publication_status="published", visibility="public", status="active",
+        published_at=datetime.now(timezone.utc),
+    )
+    db_session.add(idea)
+    await db_session.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        await versions_router.create_version_draft(
+            idea.id, VersionDraftCreate(content="越权修改"),
+            db_session, other,
+        )
+    assert exc.value.status_code == 404
