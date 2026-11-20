@@ -1,6 +1,6 @@
 # IDEAS V2.0 API Specification
 
-- Version: Draft 1.0
+- Version: Draft 1.1
 - Base path: /api (existing FastAPI prefix)
 - Authentication: existing JWT Bearer token
 - Compatibility: retain existing v1 routes; add new endpoints without silently changing old semantics.
@@ -9,7 +9,8 @@
 
 ### Access control
 - Public reads must filter publication_status=published, visibility=public, status=active in SQL.
-- Private Ideas and private collaborations are visible only to their owner and accepted, authorized members.
+- Private Ideas and private collaborations are visible only to their owner and explicitly authorized members whose direct Idea invite or collaboration invite has been accepted.
+- Collaboration membership does not implicitly grant access to every private source Idea; check the Idea ACL separately.
 - Return 404 for inaccessible private resources to avoid existence disclosure.
 - Frontend hiding is not authorization; every endpoint enforces permissions server-side.
 - Fork, Collide, Evolve and collaboration publishing must validate source license and author settings.
@@ -28,8 +29,10 @@ Add:
 - visibility: private | public
 - license_code: all_rights_reserved | attribution | attribution_adaptation | custom | legacy_unspecified
 - license_text_snapshot, license_version, published_at, archived_at, allow_fork
+- legacy_license_review_status: not_required | pending | confirmed | expired (or equivalent state machine)
+- legacy_license_review_notified_at, legacy_license_reviewed_at (audit timestamps)
 
-License codes are implementation placeholders; legal wording and availability must be confirmed before public launch. Historical records migrate to legacy_unspecified and must not gain broader rights automatically.
+License codes are implementation placeholders; legal wording and availability must be confirmed before public launch. Historical records migrate to legacy_unspecified and must not gain broader rights automatically. Existing active Ideas that were publicly visible before V2 are backfilled as published + public, with legacy_license_review_status=pending. During the configured transition period they remain publicly readable but cannot be newly Forked/Collided/Evolved until the author confirms a license.
 
 ## 3. Idea endpoints
 
@@ -49,16 +52,22 @@ Author-only. Moves a published Idea back to private draft or an equivalent withd
 Retain limit/offset. Return only published + public + active Ideas. Fix current hot/random overlap by deduplicating IDs. Never expose draft/private content.
 
 ### GET /api/ideas/{id}
-Guests may read public Ideas. Owners and accepted collaborators may read authorized private Ideas. Include publication metadata, license, lineage relation types and contributors.
+Guests may read public Ideas. Owners and accepted direct-invite/collaboration members may read authorized private Ideas. Include publication metadata, license, lineage relation types and contributors.
+
+### POST /api/ideas/{id}/invites
+Author-only. Request: { user_id, role: contributor|viewer }. Creates a pending direct access grant for this private Idea. A pending invite grants no read access.
+
+### POST /api/ideas/{id}/invites/{invite_id}/accept
+Invitee-only. Accepts the pending grant; subsequent reads are authorized according to the granted role. Revocation by the author immediately removes access.
 
 ### GET /api/ideas/{id}/lineage
 Query: depth=1..3 (default 2), direction=ancestors|descendants|both, limit=1..100 (default 50). Response: { root_id, nodes: [], edges: [], truncated }. Apply access control within recursive query and do not leak private node identifiers or titles.
 
 ### POST /api/ideas/{id}/fork
-Request: { content, fork_type: improvement|extension|scenario_shift|reverse_thinking, note?, ai_assisted? }. Response 201 with new Idea and parent_id. Parent must be public, published, active, fork-enabled and licensed for the requested derivative use. In one transaction create Idea, relation, VaultItem, attribution/license snapshot, notification and atomic fork_count increment.
+Request: { content, fork_type: improvement|extension|scenario_shift|reverse_thinking, note?, ai_assisted? }. Response 201 with new Idea and parent_id. Parent must be public, published, active, fork-enabled and licensed for the requested derivative use. A legacy public Idea with license review pending remains readable during the transition but cannot be newly Forked. In one transaction create Idea, relation, VaultItem, attribution/license snapshot, notification and atomic fork_count increment.
 
 ### Collide and Evolve
-Keep existing POST /api/ideas/collide, /collide/confirm, /evolve and /evolve/confirm routes. Add source visibility and license validation before AI generation and before creating a derivative. Merge creates two parent edges. Multi-user results must publish through collaboration workflow.
+Keep existing POST /api/ideas/collide, /collide/confirm, /evolve and /evolve/confirm routes. Add source visibility and license validation before AI generation and before creating a derivative. Merge creates two parent edges. Multi-user results must publish through collaboration workflow. A legacy public source with license review pending cannot be used for new Collide/Evolve operations.
 
 ## 4. Collaboration endpoints
 
@@ -88,21 +97,36 @@ Owner confirms final publication: { content, visibility, license_code, allow_for
 GET /api/ideas/{id}/contributors returns contributors with user_id, username, role and contribution_count; private Idea requires access.
 Extend notification types with collaboration_invited, contribution_submitted, contribution_accepted, contribution_rejected and collaboration_published. Retain existing notification list/read APIs.
 
-## 6. Compatibility and rollout
+## 6. Withdrawal and derivative continuity
+
+- Unpublishing/withdrawing a parent Idea removes that parent from public discovery immediately; it does not cascade-delete existing child Ideas.
+- Existing derivative Ideas retain attribution, parent edge and immutable license/attribution snapshot captured when the derivative was created.
+- An existing derivative may remain public only to the extent the source license snapshot and any other parent licenses permit public redistribution. If the snapshot is missing, ambiguous or does not permit it, restrict the derivative from public discovery pending rights review; preserve it for its author and authorized members.
+- No new derivative may be created from an unpublished/withdrawn parent. A parent withdrawal does not silently broaden the derivative's rights.
+
+## 7. Compatibility and rollout
 
 - Keep existing routes and fields during migration.
 - Retain is_forkable as a compatibility projection, not the sole authorization decision.
-- Legacy Ideas receive license_code=legacy_unspecified and remain private until an explicit, approved migration/republication policy is applied.
+- Existing active Ideas that were publicly visible before V2 remain published + public during a configurable license-completion transition period and are marked review pending.
+- During that transition, legacy public Ideas remain readable but cannot be newly Forked/Collided/Evolved until license confirmation.
+- Historical inactive/rejected content is not automatically published.
 - Old clients must not accidentally publish content. Update the Flutter Create flow to save draft and call the explicit publish endpoint.
 - Do not switch public Explore to the new predicate until public content has been reviewed and republished.
 
-## 7. Acceptance tests
+## 8. Acceptance tests
 
 1. Guest cannot read private Idea (404).
-2. Private Idea never appears in Explore, public profile or public lineage.
-3. Pending invite cannot read private collaboration.
-4. Disallowed license blocks Fork/Collide/Evolve server-side.
-5. Fork creates a new node and one parent edge; Merge creates two parent edges.
-6. Repeated Idempotency-Key does not duplicate resources.
-7. Collaboration publish is atomic across Idea, version, relations and contributors.
-8. Lineage obeys depth/node limits and permission filtering.
+2. Private Idea never appears in Explore, public profile or public lineage; direct invite access is denied until accepted and revoked immediately after revocation.
+3. Existing active public Ideas remain public after migration and are marked license review pending; new derivatives from them are blocked until license confirmation.
+4. Withdrawing a parent does not delete existing derivatives; attribution and license snapshots remain and govern derivative visibility and future use.
+5. Pending invite cannot read private collaboration.
+6. Disallowed license blocks Fork/Collide/Evolve server-side.
+7. Fork creates a new node and one parent edge; Merge creates two parent edges.
+8. Repeated Idempotency-Key does not duplicate resources.
+9. Collaboration publish is atomic across Idea, version, relations and contributors.
+10. Lineage obeys depth/node limits and permission filtering.
+
+## 9. Direct private-Idea access grants
+
+Persist direct invites independently from collaboration membership. Suggested table: idea_access_grants(idea_id, user_id, role, status, invited_by, invited_at, responded_at, revoked_at), unique on (idea_id, user_id). Access is granted only when status=accepted and not revoked. Owner can revoke at any time. Every endpoint that returns Idea content, versions, lineage or attachments must call the same authorization service.
