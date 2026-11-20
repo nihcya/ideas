@@ -657,14 +657,17 @@ class _DetailBody extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            // 作者信息
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.of(context).surface,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
+            // 作者信息：点击进入公开主页
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => context.push('/user/${detail.author.id}'),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.of(context).surface,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
                 children: [
                   CircleAvatar(
                     radius: 18,
@@ -697,6 +700,7 @@ class _DetailBody extends StatelessWidget {
                     ),
                   ),
                 ],
+                ),
               ),
             ),
             const SizedBox(height: 12),
