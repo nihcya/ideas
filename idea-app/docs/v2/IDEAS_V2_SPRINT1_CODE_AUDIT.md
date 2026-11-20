@@ -115,3 +115,12 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 历史 idea_id 为空通知仍无法追溯其原始内容来源，需单独审计历史文案或迁移数据。
 
 验证边界：本轮只提交代码和测试；未运行 pytest、SQLite/PostgreSQL 集成测试，也没有 CI workflow run。
+
+## 10. Flutter V2 接入首轮静态复审（2026-11-20）
+
+- 创建页此前将新建 API 呈现为“发布”，但后端创建行为实际是 draft/private。现已改为“保存草稿”，并提示默认仅作者可见。
+- IdeaDetail 模型此前忽略后端已返回的 publication_status、visibility、license_code、license_version、is_forkable；现已补充字段和兼容旧响应的默认值。
+- IdeaService 已补充 publish/unpublish/invite/accept/revoke 方法；新增发布设置页并接入 /idea/:id/publish 路由。
+- 详情页展示公开状态和授权信息，衍生操作按钮由后端 is_forkable 控制，避免仅凭客户端假设展示可用操作。
+- 新增 Flutter 模型解析测试；未执行 flutter test、flutter analyze 或 build。
+- 邀请成员 UI、撤回发布入口、API 服务测试、旧客户端行为和真实设备验证仍未完成。
