@@ -32,7 +32,7 @@ Add:
 - legacy_license_review_status: not_required | pending | confirmed | expired (or equivalent state machine)
 - legacy_license_review_notified_at, legacy_license_reviewed_at (audit timestamps)
 
-License codes are implementation placeholders; legal wording and availability must be confirmed before public launch. Historical records migrate to legacy_unspecified and must not gain broader rights automatically. Existing active Ideas that were publicly visible before V2 are backfilled as published + public, with legacy_license_review_status=pending. During the configured transition period they remain publicly readable but cannot be newly Forked/Collided/Evolved until the author confirms a license.
+License codes are implementation placeholders; legal wording and availability must be confirmed before public launch. Historical records migrate to legacy_unspecified and must not gain broader rights automatically. Existing active Ideas that were publicly visible before V2 are backfilled as published + public, with legacy_license_review_status=pending. During the 90-day transition period, starting from the V2.0 activation/announcement effective date, they remain publicly readable but cannot be newly Forked/Collided/Evolved until the author confirms a license. The deployment configuration supplies the single deadline; expiry handling for unconfirmed Ideas remains a product decision.
 
 ## 3. Idea endpoints
 
@@ -64,7 +64,7 @@ Invitee-only. Accepts the pending grant; subsequent reads are authorized accordi
 Query: depth=1..3 (default 2), direction=ancestors|descendants|both, limit=1..100 (default 50). Response: { root_id, nodes: [], edges: [], truncated }. Apply access control within recursive query and do not leak private node identifiers or titles.
 
 ### POST /api/ideas/{id}/fork
-Request: { content, fork_type: improvement|extension|scenario_shift|reverse_thinking, note?, ai_assisted? }. Response 201 with new Idea and parent_id. Parent must be public, published, active, fork-enabled and licensed for the requested derivative use. A legacy public Idea with license review pending remains readable during the transition but cannot be newly Forked. In one transaction create Idea, relation, VaultItem, attribution/license snapshot, notification and atomic fork_count increment.
+Request: { content, fork_type: improvement|extension|scenario_shift|reverse_thinking, note?, ai_assisted? }. Response 201 with new Idea and parent_id. Parent must be public, published, active, fork-enabled and licensed for the requested derivative use. A legacy public Idea with license review pending remains readable during the 90-day transition but cannot be newly Forked. In one transaction create Idea, relation, VaultItem, attribution/license snapshot, notification and atomic fork_count increment.
 
 ### Collide and Evolve
 Keep existing POST /api/ideas/collide, /collide/confirm, /evolve and /evolve/confirm routes. Add source visibility and license validation before AI generation and before creating a derivative. Merge creates two parent edges. Multi-user results must publish through collaboration workflow. A legacy public source with license review pending cannot be used for new Collide/Evolve operations.
