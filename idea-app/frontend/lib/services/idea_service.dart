@@ -155,6 +155,77 @@ class IdeaService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getIdeaContributions(String ideaId) async {
+    try {
+      final res = await _dio.get('/ideas/$ideaId/contributions');
+      return ((res.data as Map<String, dynamic>)['items'] as List<dynamic>)
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> submitIdeaContribution({
+    required String ideaId,
+    required String content,
+    String? note,
+  }) async {
+    try {
+      final res = await _dio.post('/ideas/$ideaId/contributions', data: {
+        'content': content,
+        'note': note,
+      });
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  Future<void> updateIdeaContribution({
+    required String ideaId,
+    required String contributionId,
+    required String content,
+    String? note,
+  }) async {
+    try {
+      await _dio.patch('/ideas/$ideaId/contributions/$contributionId', data: {
+        'content': content,
+        'note': note,
+      });
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  Future<void> withdrawIdeaContribution({
+    required String ideaId,
+    required String contributionId,
+  }) async {
+    try {
+      await _dio.delete('/ideas/$ideaId/contributions/$contributionId');
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> reviewIdeaContribution({
+    required String ideaId,
+    required String contributionId,
+    required String decision,
+    String? reviewNote,
+  }) async {
+    try {
+      final res = await _dio.post(
+        '/ideas/$ideaId/contributions/$contributionId/review',
+        data: {'decision': decision, 'review_note': reviewNote},
+      );
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
   /// Fork 一个点子（联想引导后提交）
   Future<ForkResponse> forkIdea({
     required String parentId,
