@@ -544,6 +544,8 @@ async def list_idea_invites(
     idea = idea_result.scalar_one_or_none()
     if idea is None or idea.author_id != user.id:
         raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}})
+    if idea.visibility != "private":
+        raise HTTPException(status_code=409, detail={"error": {"code": "IDEA_NOT_PRIVATE", "message": "仅私有点子支持邀请管理"}})
     result = await db.execute(
         select(IdeaAccessGrant, User)
         .join(User, User.id == IdeaAccessGrant.user_id)
