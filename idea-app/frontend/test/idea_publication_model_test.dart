@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:dianzi/models/idea.dart';
+import 'package:dianzi_app/models/idea.dart';
 
 void main() {
   group('IdeaDetail publication metadata', () {
