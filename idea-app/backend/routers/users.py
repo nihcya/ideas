@@ -62,7 +62,12 @@ async def get_user_profile(
     circles_result = await db.execute(
         select(Idea, VaultItem)
         .join(VaultItem, VaultItem.idea_id == Idea.id)
-        .where(VaultItem.user_id == user.id, Idea.status != "faded")
+        .where(
+            VaultItem.user_id == user.id,
+            Idea.status != "faded",
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+        )
         .order_by(VaultItem.added_at.desc())
     )
     circles = []
