@@ -156,3 +156,19 @@ Persist direct invites independently from collaboration membership. Suggested ta
 - 同一响应增加 `attribution_content_snapshot` 与 `attribution_author_name`，用于核对发布时冻结的贡献文本和署名；草稿关联不会向协作者暴露为已发布归属。
 - 版本历史中的每个版本返回 `attributions[]`，包含 contribution_id、author_id、author_name、content。版本详情页展示完整贡献文本快照，而不只是贡献者名字。
 - Flutter 贡献记录可以跳转到具体版本；版本草稿选择器会禁用已经归属已发布版本的贡献。
+
+
+## 贡献者公开主页记录
+
+### GET /api/users/{user_id}/contributions
+
+公开查询用户已正式纳入**公开、已发布、active Idea 版本**的贡献署名记录。无需登录；支持 `limit`（1–100，默认 20）和 `offset`（默认 0）。
+
+响应：
+- `items[]`：署名 ID、Idea ID、版本快照内容、版本 ID/编号、发布时间、变更说明、冻结的贡献内容快照和作者名快照。
+- `total`、`limit`、`offset`、`has_more`：分页元数据。
+
+隐私约束：
+- 仅返回 `IdeaVersion.status=published` 且关联 Idea 同时满足 `publication_status=published`、`visibility=public`、`status=active` 的署名。
+- 私有 Idea 的贡献、版本草稿中的贡献关联、未公开/撤回/非 active Idea 的记录不出现在公开主页。
+- 署名使用版本发布时冻结的作者名和贡献内容，不回读可变的贡献正文来重写历史。
