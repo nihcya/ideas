@@ -38,6 +38,7 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
         loadedDetail.author.id == currentUserId;
     final canPublish = isOwner && loadedDetail.publicationStatus == 'draft';
     final canManageInvites = isOwner && loadedDetail.visibility == 'private';
+    final canManageVersions = isOwner && loadedDetail.visibility == 'private';
     final canCollaborate = loadedDetail != null &&
         loadedDetail.visibility == 'private' &&
         (loadedDetail.accessRole == 'owner' ||
@@ -51,6 +52,12 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
               tooltip: '发布设置',
               icon: const Icon(Icons.public),
               onPressed: () => context.push('/idea/${widget.ideaId}/publish'),
+            ),
+          if (canManageVersions)
+            IconButton(
+              tooltip: '版本管理',
+              icon: const Icon(Icons.history),
+              onPressed: () => context.push('/idea/${widget.ideaId}/versions'),
             ),
           if (canManageInvites)
             IconButton(
