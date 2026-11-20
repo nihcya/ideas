@@ -116,6 +116,7 @@ async def test_pending_invite_cannot_be_accepted_after_idea_becomes_public(monke
     invite_id = uuid.UUID(created["invite_id"])
 
     idea.visibility = "public"
+    idea.publication_status = "published"
     await db_session.flush()
     with pytest.raises(HTTPException) as exc:
         await ideas_router.accept_private_idea_invite(
