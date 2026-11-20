@@ -277,6 +277,7 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] Flutter UserService / Riverpod provider 接入贡献记录查询。
 - [x] 个人主页新增“贡献记录”区域，可查看版本快照、变更说明和本人贡献文本，并跳转至对应 Idea。
 - [x] 新增后端回归测试，覆盖公开版本、私有 Idea 和草稿关联的隔离。
-- [ ] 新增贡献者主页 API 测试与 Flutter 变更尚待最新 GitHub Actions 验证。
+- [x] 最新 GitHub Actions run 44751593189：Backend 42 passed、Flutter test 和 analyze 通过。
+- [ ] Android Debug APK build 仍在运行，待最终确认。
 - [ ] 当前页面为登录用户的“我”主页接入；公开查看其他用户主页的导航入口不在本阶段范围。
 - [ ] PostgreSQL migrations 001/002/003 仍未执行。
