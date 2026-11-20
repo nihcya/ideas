@@ -191,3 +191,14 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 静态检查通知生成端：当前 Idea 关联通知由 Fork 路由创建并关联 parent Idea。
 - [ ] 执行 pytest 和 SQLite/PostgreSQL 集成测试；当前仅提交测试代码。
 - [ ] 审计历史 idea_id 为空的通知文案与数据，判断是否存在已脱离资源 ACL 的内容快照。
+
+### 13.4 Flutter V2 首批接入（2026-11-20）
+
+- [x] IdeaDetail / IdeaResponse 模型增加 publication_status、visibility、license、is_forkable / allow_fork 元数据，并为旧响应提供安全默认值。
+- [x] IdeaService 增加显式发布、撤回、私有邀请、接受邀请和撤销邀请 API 方法。
+- [x] 新建创意页面改为“保存草稿”，明确提示默认私有，不再误导为立即公开发布。
+- [x] 新增发布设置页面：公开范围、授权类型、自定义授权说明、衍生许可开关和明确条款确认。
+- [x] 详情页展示发布状态和授权；Fork / 碰撞 / 演化入口按服务端 is_forkable 控制。
+- [x] 详情页仅在当前用户是作者且内容为草稿时显示发布设置入口。
+- [x] 新增 Flutter 模型解析测试，覆盖旧 API 默认私有和 V2 授权字段。
+- [ ] Flutter test / analyze / build 尚未运行；邀请成员管理 UI、撤回发布 UI 和完整端到端流程仍待完成。
