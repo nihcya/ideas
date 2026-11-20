@@ -649,16 +649,21 @@ async def accept_private_idea_invite(
     user: User = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(IdeaAccessGrant).where(
+        select(IdeaAccessGrant, Idea).join(
+            Idea, Idea.id == IdeaAccessGrant.idea_id
+        ).where(
             IdeaAccessGrant.id == invite_id,
             IdeaAccessGrant.idea_id == idea_id,
             IdeaAccessGrant.user_id == user.id,
             IdeaAccessGrant.status == "pending",
         )
     )
-    grant = result.scalar_one_or_none()
-    if grant is None:
+    row = result.one_or_none()
+    if row is None:
         raise HTTPException(status_code=404, detail={"error": {"code": "INVITE_NOT_FOUND", "message": "待处理邀请不存在"}})
+    grant, idea = row
+    if idea.visibility != "private" or idea.status == "rejected":
+        raise HTTPException(status_code=409, detail={"error": {"code": "INVITE_NO_LONGER_VALID", "message": "该创意已不再处于可邀请状态"}})
     grant.status = "accepted"
     grant.responded_at = datetime.now(timezone.utc)
     await db.commit()
@@ -691,4 +696,5 @@ async def revoke_private_idea_invite(
     grant.revoked_at = datetime.now(timezone.utc)
     await db.commit()
     await cache.delete(key_idea_detail(str(idea_id)))
+    await cache.delete(key_user_vault(str(grant.user_id)))
     return {"revoked": True, "invite_id": str(invite_id)}
