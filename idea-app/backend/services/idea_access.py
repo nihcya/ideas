@@ -48,9 +48,12 @@ async def can_derive_from_idea(
     user_id: uuid.UUID | None,
 ) -> bool:
     """Only explicitly licensed public Ideas may be used as derivative sources."""
-    if not await can_view_idea(db, idea, user_id):
+    # Derivative operations are intentionally limited to published public Ideas.
+    # An accepted private invitation grants read access only; contributor work is
+    # handled by the collaboration workflow and does not imply Fork/Collide/Evolve rights.
+    if not is_public_idea(idea):
         return False
-    if idea.publication_status != "published" or idea.status != "active":
+    if not await can_view_idea(db, idea, user_id):
         return False
     if idea.legacy_license_review_status in ("pending", "expired"):
         return False
