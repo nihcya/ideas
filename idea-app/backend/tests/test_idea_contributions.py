@@ -17,7 +17,11 @@ from services.idea_access import can_view_idea
 def disable_cache_calls(monkeypatch):
     async def noop_delete(*args, **kwargs):
         return None
+    async def allow_audit(*args, **kwargs):
+        return True, ""
+
     monkeypatch.setattr(ideas_router.cache, "delete", noop_delete)
+    monkeypatch.setattr(ideas_router, "audit_content", allow_audit)
 
 
 async def _user(db, username):
