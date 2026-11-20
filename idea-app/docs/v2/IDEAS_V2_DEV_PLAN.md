@@ -265,5 +265,18 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 拒绝比较相同版本、草稿版本、其他 Idea 的版本；非作者请求统一返回 404。
 - [x] Flutter IdeaService 增加版本比较请求。
 - [x] 版本历史卡片增加“与上一版本对比”入口，差异弹窗分别标识新增和删除文本。
-- [ ] 本阶段后端和 Flutter CI 正在执行；尚未标记为通过。
+- [x] GitHub Actions run 44750312739：后端 41 passed、Flutter test/analyze 和 Android Debug APK 均通过。
 - [ ] 仍需补充 Flutter UI 交互测试，以及真实 PostgreSQL migration / 并发事务验证。
+
+
+## 13.10 贡献者公开主页记录（2026-11-20）
+
+- [x] 新增 `GET /api/users/{user_id}/contributions`，支持 limit/offset 分页。
+- [x] 仅返回已发布版本中、所属 Idea 当前仍为 published + public + active 的冻结署名。
+- [x] 私有 Idea、版本草稿、撤回或非 active Idea 的贡献不会出现在公开贡献记录中。
+- [x] Flutter UserService / Riverpod provider 接入贡献记录查询。
+- [x] 个人主页新增“贡献记录”区域，可查看版本快照、变更说明和本人贡献文本，并跳转至对应 Idea。
+- [x] 新增后端回归测试，覆盖公开版本、私有 Idea 和草稿关联的隔离。
+- [ ] 新增贡献者主页 API 测试与 Flutter 变更尚待最新 GitHub Actions 验证。
+- [ ] 当前页面为登录用户的“我”主页接入；公开查看其他用户主页的导航入口不在本阶段范围。
+- [ ] PostgreSQL migrations 001/002/003 仍未执行。
