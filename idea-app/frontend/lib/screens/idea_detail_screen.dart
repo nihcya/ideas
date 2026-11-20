@@ -34,9 +34,10 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
       orElse: () => null,
     );
     final loadedDetail = asyncDetail.valueOrNull;
-    final canPublish = loadedDetail != null &&
-        loadedDetail.author.id == currentUserId &&
-        loadedDetail.publicationStatus == 'draft';
+    final isOwner = loadedDetail != null &&
+        loadedDetail.author.id == currentUserId;
+    final canPublish = isOwner && loadedDetail.publicationStatus == 'draft';
+    final canManageInvites = isOwner && loadedDetail.visibility == 'private';
     return Scaffold(
       appBar: AppBar(
         title: const Text('点子'),
@@ -46,6 +47,12 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
               tooltip: '发布设置',
               icon: const Icon(Icons.public),
               onPressed: () => context.push('/idea/${widget.ideaId}/publish'),
+            ),
+          if (canManageInvites)
+            IconButton(
+              tooltip: '管理协作者',
+              icon: const Icon(Icons.group_outlined),
+              onPressed: () => context.push('/idea/${widget.ideaId}/invites'),
             ),
         ],
         // 当导航栈无可返回页面时（如从每日一题 pushReplacement 跳转来），
