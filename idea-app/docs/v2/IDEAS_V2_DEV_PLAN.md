@@ -215,3 +215,18 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 新增后端邀请生命周期测试，覆盖 pending → accepted → revoked、declined、访问权变化，以及创意转为公开后拒绝接受过期邀请。
 - [ ] pytest / Flutter test / analyze / build 尚未运行。
 - [ ] 当前邀请角色用于区分 viewer / contributor 访问级别，但完整异步贡献提交、版本记录和贡献合并工作流仍未实现。
+
+### 13.6 异步贡献第一阶段（2026-11-20）
+
+- [x] 新增独立 idea_contributions 数据模型和 PostgreSQL 手动迁移 002。
+- [x] Contributor 必须接受 contributor 邀请后才可提交；Viewer 不可提交。
+- [x] 新增贡献提交、列表、编辑、撤回和作者审核接口。
+- [x] 贡献列表按权限隔离：作者查看全部，Contributor 仅查看自己的记录。
+- [x] 贡献内容提交和编辑接入现有内容审核与审计日志。
+- [x] 贡献状态进入审核后锁定；采纳不会自动覆盖源 Idea。
+- [x] Idea Detail 返回当前用户 access_role。
+- [x] Flutter 新增异步贡献页面，支持提交、查看和作者采纳/拒绝。
+- [x] 新增后端贡献权限/流程测试及前端 access_role 解析测试。
+- [ ] pytest / flutter test / analyze / build 尚未运行。
+- [ ] 贡献采纳后的版本草稿、版本差异、最终发布事务和贡献署名展示尚未实现。
+- [ ] PostgreSQL Migration 002 尚未执行。
