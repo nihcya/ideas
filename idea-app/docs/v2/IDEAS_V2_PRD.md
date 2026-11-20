@@ -1,14 +1,203 @@
-# IDEAS V2.0 PRD
+# IDEAS V2.0 产品需求文档（PRD）
 
-Draft 1.0
+- 版本：V2.0 / Draft 1.0
+- 状态：待产品负责人审核
+- 产品定位：AI-Native Collaborative Idea Network（创意生长网络）
+- Slogan：A Network Where Ideas Evolve.
 
-## Product decisions
-- New Ideas default to private drafts; public only after explicit publish.
-- Authors choose a license; license is checked server-side before Fork or Collide.
-- V2.0 collaboration is asynchronous; real-time co-editing is out of scope.
+## 1. 产品愿景
 
-## Baseline
-Existing Flutter + FastAPI + SQLAlchemy project. Reuse `ideas`, `fork_relations`, and `vault_items`; do not rebuild the graph layer.
+让创意不再是孤立内容，而是在人与 AI 的参与下持续碰撞、分支、进化，并形成可追溯的创意关系网络。V2.0 的核心资产是独立 Idea 节点、节点间关系、作者与协作者贡献，以及可控的公开与授权规则。
 
-## Important distinction
-`ideas.status` remains lifecycle/moderation state. Add separate publication status (`draft`, `published`, `archived`) and visibility (`private`, `public`).
+### 产品原则
+- Idea 独立：Fork / Merge / Evolve 均创建新节点，不覆盖父节点。
+- 关系可追溯：关系有方向、类型、时间和来源。
+- 创作权清晰：来源署名、贡献者和授权快照可见。
+- AI 辅助而非替代：AI 输出是候选建议，需用户选择、编辑或确认。
+- 开放但可控：新建草稿默认私有，作者主动发布后才公开。
+- 渐进升级：复用现有 ideas、fork_relations、vault_items，不推倒重建。
+
+## 2. 本次已确认的产品决策
+
+1. 默认可见性：默认私有，发布后公开。
+2. 创意授权：作者自行选择授权方式。
+3. 协作方式：首版先做异步协作，不做实时共同编辑。
+
+## 3. V2.0 范围
+
+### P0：必须交付
+- Idea 私有草稿、编辑、显式发布、撤回/归档。
+- 授权选择、授权展示、Fork/Collide/Evolve 服务端授权校验。
+- 创意血缘查询：Fork / Merge / Evolve，支持双父 Merge。
+- 多人异步协作：创建项目、邀请成员、提交贡献、审核采纳、确认发布。
+- 详情页展示作者、来源、父子关系、授权和贡献者。
+- Explore 只展示已发布公开内容。
+- 服务端权限、审计、通知和自动化测试。
+
+### P1：后续增强
+- 局部创意图谱按需展开（默认上下游 2 层）。
+- Inspired 灵感关联（与严格血缘 DAG 分开处理）。
+- 用户关注、贡献者主页和更完整的通知偏好。
+
+### 暂不纳入
+- Google Docs 式实时协同编辑。
+- Neo4j 等独立图数据库。
+- 版税、知识产权转让和复杂商业授权交易。
+- 一次性加载全局所有创意节点。
+
+## 4. 用户角色与权限
+
+| 角色 | 权限 |
+|---|---|
+| 游客 | 浏览已发布公开 Idea |
+| 注册用户 | 创建私有草稿、管理自己的 Idea、收藏公开 Idea |
+| Idea 作者 | 发布/撤回自己的 Idea、选择授权、设置 Fork 能力 |
+| 协作发起者（Owner） | 创建协作、邀请成员、审核贡献、确认发布 |
+| 协作者（Contributor） | 接受邀请后查看授权范围、提交自己的贡献 |
+| 查看者（Viewer） | 接受邀请后只读访问协作内容 |
+
+### 权限规则
+- 私有草稿仅作者和明确获授权且已接受邀请的协作成员可见。
+- 私有内容不得进入公开搜索、Explore、公开主页或公开图谱。
+- 资源 ID 不构成访问权；所有 API 必须服务端鉴权，不能只靠前端隐藏。
+- 未授权访问私有资源建议返回 404，避免泄露资源是否存在。
+- 接受协作邀请不等于获得源 Idea 的公开传播、Fork 或商业使用权。
+
+## 5. Idea 生命周期与公开策略
+
+现有 `ideas.status` 表示内容生命周期/审核状态（active/fading/faded/rejected），V2.0 不复用它表达公开性。
+
+新增独立状态：
+- `publication_status`: draft / published / archived
+- `visibility`: private / public
+
+状态规则：
+1. 新建 Idea 默认 `draft + private`。
+2. 用户必须主动执行发布操作，明确选择可见性和授权。
+3. 公开内容必须是 `published + public + status=active`。
+4. 草稿不进入 Explore、公开搜索、公开主页或公开图谱。
+5. 撤回公开内容时立即从公开查询中移除并失效缓存；保留历史关系和审计记录。
+6. 归档内容不进入 Explore；作者及授权成员可按策略查看。
+7. 发布和撤回均需服务端权限校验、内容审核和审计记录。
+
+## 6. 创意授权模型
+
+作者自行选择授权方式。建议首批技术选项（法律文案上线前须产品/法务确认）：
+
+| 授权代码（暂定） | 含义 | Fork/改编 |
+|---|---|---|
+| all_rights_reserved | 保留所有权利 | 默认不允许 |
+| attribution | 署名引用 | 不自动允许改编 |
+| attribution_adaptation | 署名后允许改编 | 按条款允许 Fork |
+| custom | 自定义授权说明 | 默认关闭，需人工/规则确认 |
+| legacy_unspecified | 历史授权未明确 | 不自动扩大授权 |
+
+约束：
+- 保存授权代码、文案版本、自定义说明快照和发布时确认记录。
+- Fork/Collide/Evolve 必须在服务端校验源 Idea 授权及作者设置。
+- Merge 有多个父 Idea 时，每个父 Idea 都必须允许该衍生用途。
+- 普通 Fork 权限不默认包含商业使用；授权不等于知识产权转让。
+- 历史记录的 `is_forkable=true` 不自动映射成开放许可证；迁移为 `legacy_unspecified`，待产品确认过渡规则。
+- 已产生衍生节点应保存当时授权快照，避免后续修改授权造成历史归属不清。
+
+## 7. 核心功能需求
+
+### 7.1 创建草稿与发布
+页面元素：300 字内容编辑器、保存草稿、发布设置、可见性选择、授权选择、Fork 开关、条款确认摘要。
+
+交互：新建即保存为私有草稿；用户主动点击发布后展示公开范围和授权说明；未保存退出时提示；发布成功后返回详情页。
+
+验收：游客不能读取草稿；草稿不进入 Explore；未确认有效授权不能公开发布；重复提交不会产生重复发布记录。
+
+### 7.2 Explore
+- 仅展示 `published + public + active` Idea。
+- 可保留当前热门/随机混合策略，但必须去重。
+- 发布、撤回、授权和状态变更需失效公开缓存。
+- 不得通过分页、计数、排序或错误信息泄露私有内容。
+
+### 7.3 Idea 详情与血缘
+- 展示内容、作者、时间、公开状态、授权、Fork 能力。
+- 展示父节点、子节点、关系类型和贡献者。
+- 双父 Merge 必须显示两个父节点。
+- 图谱按需加载，默认上下游 2 层，最大深度/节点数受限。
+- 公开图谱不得返回私有节点 ID、标题或摘要。
+
+### 7.4 Fork
+- 仅允许从已发布公开且授权允许的 Idea Fork。
+- 创建独立新节点，保留父关系、来源作者、授权快照和 Fork 类型。
+- Fork 类型建议：改进、扩展、场景迁移、反向思考。
+- 成功后按通知规则通知原作者。
+- 私有、归档、撤回或授权不允许的 Idea 不得 Fork。
+
+### 7.5 Collide / Merge
+- 用户选择两个有权访问且授权允许的 Idea。
+- AI 最多生成 3 个候选；候选不自动入库。
+- 用户选择并编辑后确认创建新节点。
+- 新节点建立两个父关系，记录 AI 辅助标记、作者和贡献者。
+- 多人碰撞走异步协作流程；单人碰撞可沿用现有确认流程。
+
+### 7.6 多人异步协作
+流程：Owner 创建协作 → 邀请成员 → 成员接受 → 提交建议/贡献 → Owner 审核采纳或拒绝 → AI 可辅助整合 → Owner 编辑最终内容并确认发布。
+
+协作状态：draft / open / reviewing / published / cancelled。
+成员角色：owner / contributor / viewer。
+
+规则：
+- V2.0 不做实时共同编辑。
+- Pending 邀请不授予私有内容访问权。
+- Contributor 只能编辑自己的未锁定贡献。
+- 只有 Owner 可邀请成员、结束协作和确认发布。
+- 发布时记录所有采纳贡献、贡献者、来源 Idea 和 AI 辅助情况。
+- 发布事务须原子创建 Idea、版本、关系、贡献归属和通知。
+
+### 7.7 通知
+至少支持 Fork、协作邀请、贡献提交、贡献采纳/拒绝、协作发布。通知内容及关联资源须按接收者权限过滤。
+
+## 8. 页面优先级
+
+| 页面 | 优先级 | 核心元素 |
+|---|---|---|
+| Explore | P0 | 公开创意流、排序、加载/空态/错误态 |
+| Idea Detail | P0 | 内容、作者、授权、Fork、血缘、贡献者 |
+| Create/Edit Draft | P0 | 编辑器、保存、私有状态 |
+| Publish Settings | P0 | 可见性、授权、Fork 开关、确认 |
+| Fork Create | P0 | 来源摘要、类型、内容、授权提示 |
+| Collide | P0 | 双 Idea、AI 候选、编辑确认 |
+| Collaboration Detail | P0 | 成员、贡献、审核、发布 |
+| Local Lineage | P0 | 父子节点、关系类型、权限过滤 |
+| Profile / Global Universe | P1 | 公开创意、贡献记录、全局发现 |
+| Admin Console | P2 | 举报、审核、治理 |
+
+## 9. 非功能要求
+- 所有权限在服务端执行，默认拒绝。
+- 创建、Fork、协作发布等写操作支持 Idempotency-Key。
+- 关系图防自环和有向环；并发关系写入需事务与锁。
+- PostgreSQL 为生产目标；SQLite 兜底需单独验证迁移、递归查询和并发语义。
+- 图谱查询限制深度、节点数和响应体大小。
+- 公开/私有缓存隔离，权限或发布变更立即失效。
+- 关键授权、发布、撤回和协作审核动作写审计日志。
+- 时间统一 UTC 存储，API 返回 ISO-8601。
+
+## 10. 指标与验收
+
+实验目标（非行业基准）：100 种子用户、300 个公开 Idea、100 次 Fork、30 次 Collide、20 个多人协作创意、二次创造率 20%、30 天留存 20%。
+
+核心指标：Fork Rate、Collaboration Rate、Idea Evolution Depth、Re-creation Rate。
+
+发布阻断验收：
+1. 私有草稿经游客详情、Explore、公开主页、公开图谱均不可访问。
+2. 授权不允许的 Fork/Collide/Evolve 在服务端被拒绝。
+3. 双父 Merge 正确建立并展示两个父关系。
+4. 协作发布的 Idea、关系、版本、贡献归属在一个事务提交。
+5. DAG 防环覆盖自环、简单环和并发写入。
+6. 历史用户、收藏、通知和 Fork 关系迁移后仍可用。
+
+## 11. 待产品负责人确认
+1. 历史公开 Idea：全部默认私有并由作者重新发布，还是设过渡期？
+2. 首批授权选项的正式中文文案及法律文本。
+3. 私有 Idea 是否允许作者邀请协作者查看原始内容（建议允许明确邀请）。
+4. 作者撤回原 Idea 后，已 Fork 的衍生节点是否继续公开（建议保留衍生节点及来源快照，但仍受原授权约束）。
+5. 旧版客户端最低兼容版本和切换窗口。
+
+---
+本文为 V2.0 需求基线草案；未确认事项在对应模块开发前由产品负责人决策。
