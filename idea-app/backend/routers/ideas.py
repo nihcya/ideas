@@ -776,6 +776,14 @@ async def submit_idea_contribution(
     )
     if not contribution.content:
         raise HTTPException(status_code=422, detail={"error": {"code": "EMPTY_CONTRIBUTION", "message": "贡献内容不能为空"}})
+    passed, reason = await audit_content(db, contribution.content)
+    if not passed:
+        await write_audit_log(db, idea.id, contribution.content, False, reason)
+        raise HTTPException(
+            status_code=403,
+            detail={"error": {"code": "AUDIT_FAILED", "message": reason or "贡献内容审核不通过"}},
+        )
+    await write_audit_log(db, idea.id, contribution.content, True, None)
     db.add(contribution)
     await db.commit()
     await db.refresh(contribution)
@@ -853,6 +861,14 @@ async def update_idea_contribution(
     content = req.content.strip()
     if not content:
         raise HTTPException(status_code=422, detail={"error": {"code": "EMPTY_CONTRIBUTION", "message": "贡献内容不能为空"}})
+    passed, reason = await audit_content(db, content)
+    if not passed:
+        await write_audit_log(db, idea.id, content, False, reason)
+        raise HTTPException(
+            status_code=403,
+            detail={"error": {"code": "AUDIT_FAILED", "message": reason or "贡献内容审核不通过"}},
+        )
+    await write_audit_log(db, idea.id, content, True, None)
     item.content = content
     item.note = req.note.strip() if req.note else None
     await db.commit()
