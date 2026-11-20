@@ -203,3 +203,14 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 新增测试覆盖公开、私有及草稿记录隔离。
 - 需在最新 GitHub Actions 中确认新增后端测试和 Flutter analyze/test/build；未通过 CI 前不标记运行验证完成。
 - 未执行 PostgreSQL migrations 001/002/003；未连接生产数据库。
+
+
+## 17. 公开创作者主页与公开版本时间线审计（2026-11-20）
+
+- `/user/:id` 复用公开用户资料和公开贡献记录 API；路由允许未登录访问，不返回私有 Idea 的贡献。
+- 创意详情作者卡片导航到公开主页；主页贡献条目导航到只读公开版本时间线。
+- `GET /ideas/{idea_id}/versions/public` 在 SQL 查询前先确认 Idea 当前为 published + public + active，随后只查询 published 版本。
+- 版本时间线仅暴露版本内容快照、发布时间、变更说明和版本发布时冻结的贡献署名；不包含草稿版本。
+- 贡献署名作者 ID 用于跳转公开主页，不暴露邮箱、认证信息或其他账户资料。
+- 新增后端测试覆盖私有 Idea 的 404 隔离；仍需由 CI 确认新增测试和 Flutter 构建。
+- 未执行 PostgreSQL migrations 001/002/003。
