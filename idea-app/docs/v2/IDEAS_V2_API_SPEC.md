@@ -182,4 +182,4 @@ Persist direct invites independently from collaboration membership. Suggested ta
 
 ### GET /api/ideas/{idea_id}/versions/public
 
-公开只读版本时间线，无需登录。仅当 Idea 当前同时满足 `publication_status=published`、`visibility=public`、`status=active` 时返回数据；只返回 `IdeaVersion.status=published` 的版本和发布时冻结的贡献署名快照。私有、未发布、撤回/非 active Idea 统一返回 404。该接口不提供草稿、编辑、发布或版本差异修改能力。
+公开只读版本时间线，无需登录。仅当 Idea 当前同时满足 `publication_status=published`、`visibility=public`、`status=active` 时返回数据；只返回 `IdeaVersion.status=published` 且 `IdeaVersion.published_at >= Idea.published_at` 的版本和发布时冻结的贡献署名快照；创意转为公开之前的私有版本不会被追溯公开。私有、未发布、撤回/非 active Idea 统一返回 404。该接口不提供草稿、编辑、发布或版本差异修改能力。
