@@ -105,3 +105,13 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - idea_id 为空的历史通知若文案曾内嵌私有内容，当前无法仅凭关联 ID 判断来源，需要历史数据审查/清理。
 - 尚未运行 pytest 或 API 集成测试；SQLAlchemy 相关查询需在测试环境实际执行确认。
 - 通知列表、Vault 统计的数据库层 ACL 过滤已提交，但不能据此声称 API 回归测试通过。
+
+## 9. 通知操作与统计侧信道复审（2026-11-20）
+
+- 通知列表与“标记已读”现统一调用 services/notification_access.py 的 SQL 可见性谓词。撤销私有 Idea 邀请后，旧通知既不会出现在列表，也不能通过已知通知 ID 被标记为已读。
+- 新增 tests/test_notification_access.py，覆盖数据库层分页前过滤、未读数过滤、撤销邀请后隐藏通知不可标记、可见通知可标记等场景。测试文件已提交，尚未运行。
+- Vault 的 forked_by_others 统计现在同时约束父 Idea 当前用户可见，以及子 Idea 已发布、公开、active，避免从统计数推断私有衍生创意的存在。
+- 通知生成端静态审计：当前检索到的 Idea 关联通知由 Fork 路由创建，保存了 idea_id=parent.id；未发现 Spark 或 Evolve 路由创建通知的代码。
+- 历史 idea_id 为空通知仍无法追溯其原始内容来源，需单独审计历史文案或迁移数据。
+
+验证边界：本轮只提交代码和测试；未运行 pytest、SQLite/PostgreSQL 集成测试，也没有 CI workflow run。
