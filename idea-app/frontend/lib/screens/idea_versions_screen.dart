@@ -150,18 +150,39 @@ class _IdeaVersionsScreenState extends ConsumerState<IdeaVersionsScreen> {
         const SizedBox(height: 8),
         ..._versions.where((v) => v['status'] == 'published').map((version) {
           final attrs = (version['attributions'] as List<dynamic>?) ?? [];
-          final names = attrs.map((a) => (a as Map)['author_name']).toSet().join('、');
-          return Card(child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('版本 ' + (version['version_number']?.toString() ?? ''), style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Text(version['content'] as String? ?? ''),
-              if ((version['change_summary'] as String?)?.isNotEmpty == true)
-                Padding(padding: const EdgeInsets.only(top: 6), child: Text(version['change_summary'] as String)),
-              if (names.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text('贡献者：' + names)),
-            ]),
-          ));
+          final publishedAt = version['published_at']?.toString();
+          final isHighlighted = version['id'] == widget.highlightVersionId;
+          return Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: ExpansionTile(
+              initiallyExpanded: isHighlighted,
+              leading: const Icon(Icons.history),
+              title: Text('版本 ' + version['version_number'].toString()),
+              subtitle: Text(publishedAt == null ? '已发布' : '发布时间：' + publishedAt),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              children: [
+                Align(alignment: Alignment.centerLeft, child: Text(version['content'] as String? ?? '', style: Theme.of(context).textTheme.bodyLarge)),
+                if ((version['change_summary'] as String?)?.isNotEmpty == true) ...[
+                  const SizedBox(height: 10),
+                  Align(alignment: Alignment.centerLeft, child: Text('版本说明：' + (version['change_summary'] as String))),
+                ],
+                const Divider(height: 24),
+                Align(alignment: Alignment.centerLeft, child: Text('贡献归属（' + attrs.length.toString() + '）', style: Theme.of(context).textTheme.titleSmall)),
+                if (attrs.isEmpty)
+                  const Align(alignment: Alignment.centerLeft, child: Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('此版本没有关联协作者贡献'))),
+                ...attrs.map((raw) {
+                  final attr = raw as Map;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.person_outline),
+                    title: Text(attr['author_name']?.toString() ?? '协作者'),
+                    subtitle: Text(attr['content']?.toString() ?? ''),
+                    dense: true,
+                  );
+                }),
+              ],
+            ),
+          );
         }),
       ]),
     );
