@@ -7,6 +7,7 @@ import '../screens/vault_screen.dart';
 import '../screens/spark_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/public_user_profile_screen.dart';
+import '../screens/public_idea_timeline_screen.dart';
 import '../screens/idea_detail_screen.dart';
 import '../screens/create_idea_screen.dart';
 import '../screens/publish_idea_screen.dart';
@@ -46,7 +47,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final path = state.uri.path;
       final publicPaths = ['/auth', '/explore', '/user/'];
-      final isPublic = publicPaths.any((p) => path.startsWith(p));
+      final isPublic = publicPaths.any((p) => path.startsWith(p)) ||
+          (path.startsWith('/idea/') && path.endsWith('/timeline'));
 
       // 未登录访问受保护页面 → 跳转登录
       if (!isLoggedIn && !isPublic) {
@@ -96,6 +98,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'publicUserProfile',
         builder: (context, state) => PublicUserProfileScreen(
           userId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/idea/:id/timeline',
+        name: 'publicIdeaTimeline',
+        builder: (context, state) => PublicIdeaTimelineScreen(
+          ideaId: state.pathParameters['id']!,
         ),
       ),
       GoRoute(
