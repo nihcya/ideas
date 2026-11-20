@@ -105,7 +105,8 @@ async def list_public_versions(
             Idea.status == "active",
         )
     )
-    if idea_result.scalar_one_or_none() is None:
+    idea = idea_result.scalar_one_or_none()
+    if idea is None or idea.published_at is None:
         raise _not_found()
 
     result = await db.execute(
@@ -114,7 +115,7 @@ async def list_public_versions(
             IdeaVersion.idea_id == idea_id,
             IdeaVersion.status == "published",
             # Private-era snapshots must not become public retroactively.
-            IdeaVersion.published_at >= idea_result.scalar_one().published_at,
+            IdeaVersion.published_at >= idea.published_at,
         )
         .order_by(IdeaVersion.version_number.desc())
     )
