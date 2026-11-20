@@ -32,6 +32,7 @@ SET publication_status = 'published',
     visibility = 'public',
     license_code = 'legacy_unspecified',
     allow_fork = FALSE,
+    is_forkable = FALSE,
     legacy_license_review_status = 'pending',
     published_at = COALESCE(published_at, created_at)
 WHERE status = 'active';
