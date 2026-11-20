@@ -318,5 +318,6 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 时间线支持 `?version={version_id}` 深链，自动展开并滚动定位到指定版本。
 - [x] 时间线展示版本发布时冻结的署名与贡献内容；署名仍可跳转对应公开主页。
 - [x] 后端回归测试扩展：公开时间线的冻结署名、私有阶段版本过滤、草稿过滤、非 active Idea 404；公开贡献记录分页与非 active Idea 隔离。
+- [x] 新增 ASGI HTTP 层契约测试，直接通过公开 API 验证时间线过滤、冻结署名、贡献流分页与私有内容隔离。
 - [ ] 对最新代码运行 Backend pytest、Flutter test/analyze 和 Android Debug APK CI。
 - [ ] PostgreSQL migrations 001/002/003 仍未执行。
