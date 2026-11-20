@@ -11,7 +11,8 @@ from deps import get_db, get_current_user, get_optional_user
 from models import User, Idea, VaultItem, ForkRelation, Notification, IdeaAccessGrant
 from schemas.idea import (
     IdeaCreate, IdeaForkRequest, CircleData, ExploreResponse,
-    LineageNode, Lineage, IdeaDetail, IdeaResponse, ForkResponse,\n    IdeaPublishRequest, IdeaInviteRequest,
+    LineageNode, Lineage, IdeaDetail, IdeaResponse, ForkResponse,
+    IdeaPublishRequest, IdeaInviteRequest,
 )
 from schemas.common import SuccessResponse
 from services.color_pool import random_color
