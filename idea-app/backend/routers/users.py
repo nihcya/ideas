@@ -31,15 +31,27 @@ async def get_user_profile(
 
     # 统计
     produced_result = await db.execute(
-        select(func.count()).select_from(VaultItem).where(
-            VaultItem.user_id == user.id, VaultItem.is_producer == True
+        select(func.count()).select_from(VaultItem)
+        .join(Idea, Idea.id == VaultItem.idea_id)
+        .where(
+            VaultItem.user_id == user.id,
+            VaultItem.is_producer == True,
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
         )
     )
     produced = produced_result.scalar() or 0
 
     collected_result = await db.execute(
-        select(func.count()).select_from(VaultItem).where(
-            VaultItem.user_id == user.id, VaultItem.is_producer == False
+        select(func.count()).select_from(VaultItem)
+        .join(Idea, Idea.id == VaultItem.idea_id)
+        .where(
+            VaultItem.user_id == user.id,
+            VaultItem.is_producer == False,
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
         )
     )
     collected = collected_result.scalar() or 0
@@ -47,14 +59,24 @@ async def get_user_profile(
     forked_by_result = await db.execute(
         select(func.count()).select_from(ForkRelation)
         .join(Idea, Idea.id == ForkRelation.parent_id)
-        .where(Idea.author_id == user.id)
+        .where(
+            Idea.author_id == user.id,
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
+        )
     )
     forked_by_others = forked_by_result.scalar() or 0
 
     forked_others_result = await db.execute(
         select(func.count()).select_from(ForkRelation)
         .join(Idea, Idea.id == ForkRelation.child_id)
-        .where(Idea.author_id == user.id)
+        .where(
+            Idea.author_id == user.id,
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
+        )
     )
     forked_others = forked_others_result.scalar() or 0
 
@@ -68,7 +90,7 @@ async def get_user_profile(
             Idea.publication_status == "published",
             Idea.visibility == "public",
         )
-        .order_by(VaultItem.added_at.desc())
+        .order_by(VaultItem.created_at.desc())
     )
     circles = []
     for idea, vi in circles_result.all():
