@@ -1,6 +1,7 @@
 -- IDEAS V2.0 additive migration draft
 -- Target: PostgreSQL 16+. Review against deployed schema and rehearse on a backup first.
 -- This is an additive proposal; it does not drop legacy tables or rewrite historical content.
+-- Product decision: keep existing active/public Ideas visible during a configurable license-completion transition.
 -- SQLite fallback needs a separately tested migration.
 
 BEGIN;
@@ -14,12 +15,29 @@ ALTER TABLE ideas
   ADD COLUMN IF NOT EXISTS license_version INTEGER NOT NULL DEFAULT 1,
   ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS allow_fork BOOLEAN NOT NULL DEFAULT FALSE;
+  ADD COLUMN IF NOT EXISTS allow_fork BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS legacy_license_review_status VARCHAR(16) NOT NULL DEFAULT 'not_required',
+  ADD COLUMN IF NOT EXISTS legacy_license_review_notified_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS legacy_license_reviewed_at TIMESTAMPTZ;
 
--- Conservative backfill: do not silently make historical content public or grant rights.
-UPDATE ideas SET publication_status='draft', visibility='private',
-  license_code='legacy_unspecified', allow_fork=FALSE
-WHERE publication_status IS NULL OR visibility IS NULL;
+-- Preserve the pre-V2 public experience for historical active Ideas.
+-- The existing application exposed active Ideas publicly; verify this assumption against
+-- production queries before running the migration. Existing active rows remain public,
+-- but are marked license-review-pending and cannot be used for NEW derivatives.
+UPDATE ideas SET
+  publication_status='published',
+  visibility='public',
+  license_code='legacy_unspecified',
+  allow_fork=FALSE,
+  legacy_license_review_status='pending',
+  published_at=COALESCE(published_at, created_at)
+WHERE status='active';
+
+-- Historical non-active rows remain non-public unless separately reviewed.
+UPDATE ideas SET
+  publication_status='draft', visibility='private', license_code='legacy_unspecified',
+  allow_fork=FALSE, legacy_license_review_status='not_required'
+WHERE status <> 'active';
 
 ALTER TABLE ideas ADD CONSTRAINT ck_ideas_publication_status
   CHECK (publication_status IN ('draft','published','archived')) NOT VALID;
@@ -33,6 +51,9 @@ ALTER TABLE ideas VALIDATE CONSTRAINT ck_ideas_publication_status;
 ALTER TABLE ideas VALIDATE CONSTRAINT ck_ideas_visibility;
 ALTER TABLE ideas VALIDATE CONSTRAINT ck_ideas_license_code;
 ALTER TABLE ideas VALIDATE CONSTRAINT ck_ideas_license_version;
+ALTER TABLE ideas ADD CONSTRAINT ck_ideas_legacy_license_review_status
+  CHECK (legacy_license_review_status IN ('not_required','pending','confirmed','expired')) NOT VALID;
+ALTER TABLE ideas VALIDATE CONSTRAINT ck_ideas_legacy_license_review_status;
 
 CREATE INDEX IF NOT EXISTS idx_ideas_public_explore
   ON ideas (published_at DESC, created_at DESC)
@@ -54,6 +75,10 @@ ALTER TABLE fork_relations VALIDATE CONSTRAINT ck_fork_relation_no_self;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_fork_relation_edge_type
   ON fork_relations (child_id, parent_id, relation_type);
 
+-- Store immutable source-license/attribution snapshots in fork_relations.metadata.
+-- Recommended metadata keys: source_license_code, source_license_version,
+-- source_license_text_snapshot, source_author_id, derivative_created_at,
+-- permitted_uses_snapshot. Do not overwrite this snapshot when the parent license changes.
 -- NOTE: CHECK cannot prevent multi-row cycles. The relation service must perform a
 -- recursive reachability check in a transaction with deterministic locking.
 
@@ -101,6 +126,26 @@ CREATE TABLE IF NOT EXISTS collaboration_members (
   UNIQUE (collaboration_id, user_id)
 );
 CREATE INDEX IF NOT EXISTS idx_collab_members_user_status ON collaboration_members (user_id, invite_status);
+
+-- Direct access grants for private Ideas. Collaboration membership alone does not
+-- automatically grant access to a source Idea; the Idea owner must explicitly invite.
+CREATE TABLE IF NOT EXISTS idea_access_grants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  idea_id UUID NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role VARCHAR(16) NOT NULL CHECK (role IN ('contributor','viewer')),
+  status VARCHAR(16) NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending','accepted','declined','revoked')),
+  invited_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  invited_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  responded_at TIMESTAMPTZ,
+  revoked_at TIMESTAMPTZ,
+  UNIQUE (idea_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_idea_access_grants_user_status
+  ON idea_access_grants (user_id, status);
+CREATE INDEX IF NOT EXISTS idx_idea_access_grants_idea_status
+  ON idea_access_grants (idea_id, status);
 
 CREATE TABLE IF NOT EXISTS collaboration_source_ideas (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -179,6 +224,9 @@ COMMIT;
 -- SELECT publication_status, visibility, license_code, COUNT(*) FROM ideas GROUP BY 1,2,3;
 -- SELECT relation_type, COUNT(*) FROM fork_relations GROUP BY 1;
 -- SELECT COUNT(*) FROM ideas WHERE publication_status='published' AND visibility='public';
+-- SELECT legacy_license_review_status, COUNT(*) FROM ideas GROUP BY 1;
+-- Confirm all pre-existing active Ideas remain publicly readable, but new derivative operations
+-- are blocked until legacy_license_review_status='confirmed'.
 
 -- Operational requirements:
 -- 1) Take backup and rehearse before production.
