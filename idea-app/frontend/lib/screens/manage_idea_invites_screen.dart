@@ -36,6 +36,11 @@ class _ManageIdeaInvitesScreenState
     _invites = ref.read(ideaServiceProvider).getIdeaInvites(widget.ideaId);
   }
 
+  Future<void> _refresh() async {
+    setState(_load);
+    await _invites;
+  }
+
   Future<void> _invite() async {
     final userId = _userIdController.text.trim();
     if (userId.isEmpty) return;
