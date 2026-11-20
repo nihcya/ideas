@@ -256,3 +256,14 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 修复 CI Android 构建基础设施：Gradle Wrapper 从 9.1.0 升级到 Flutter 当前要求的 9.3.1。
 - [x] 最新 CI 后端 pytest：40 passed；Flutter test/analyze 和 Android Debug build 正在执行/等待本轮最终结果。
 - [ ] PostgreSQL migrations 001/002/003 尚未执行，仍需测试库验证事务和约束。
+
+
+## 13.9 版本差异对比（第三阶段，2026-11-20）
+
+- [x] 新增作者专属版本差异 API：比较同一私有 Idea 下两个不同的已发布版本。
+- [x] 差异按字符级片段返回 equal / insert / delete / replace，适配当前 300 字内容上限及无换行短文本。
+- [x] 拒绝比较相同版本、草稿版本、其他 Idea 的版本；非作者请求统一返回 404。
+- [x] Flutter IdeaService 增加版本比较请求。
+- [x] 版本历史卡片增加“与上一版本对比”入口，差异弹窗分别标识新增和删除文本。
+- [ ] 本阶段后端和 Flutter CI 正在执行；尚未标记为通过。
+- [ ] 仍需补充 Flutter UI 交互测试，以及真实 PostgreSQL migration / 并发事务验证。
