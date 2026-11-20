@@ -263,7 +263,11 @@ async def update_version_draft(idea_id: uuid.UUID, version_id: uuid.UUID, req: V
 async def publish_version(idea_id: uuid.UUID, version_id: uuid.UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     idea_result = await db.execute(select(Idea).where(Idea.id == idea_id).with_for_update())
     idea = idea_result.scalar_one_or_none()
-    if idea is None or idea.author_id != user.id or idea.visibility != "private" or idea.status == "rejected" or idea.publication_status == "archived":
+    if idea is None or idea.author_id != user.id:
+        raise _not_found()
+    is_private_working = idea.visibility == "private" and idea.publication_status != "archived" and idea.status != "rejected"
+    is_public_published = idea.visibility == "public" and idea.publication_status == "published" and idea.status == "active"
+    if not (is_private_working or is_public_published):
         raise _not_found()
     version_result = await db.execute(select(IdeaVersion).where(IdeaVersion.id == version_id, IdeaVersion.idea_id == idea_id, IdeaVersion.status == "draft").with_for_update())
     version = version_result.scalar_one_or_none()
