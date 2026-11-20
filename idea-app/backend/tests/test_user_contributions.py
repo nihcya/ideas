@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import pytest
 from starlette.requests import Request
 
-from models import User, Idea, IdeaVersion, IdeaVersionContribution
+from models import User, Idea, IdeaContribution, IdeaVersion, IdeaVersionContribution
 from routers.users import get_user_contributions
 
 
@@ -85,23 +85,38 @@ async def test_profile_contributions_only_include_published_versions_of_public_i
     db_session.add_all([public_version, private_version, draft_version])
     await db_session.flush()
 
+    public_contribution = IdeaContribution(
+        idea_id=public_idea.id, author_id=contributor.id,
+        content="提出公开产品场景建议", status="accepted",
+    )
+    private_contribution = IdeaContribution(
+        idea_id=private_idea.id, author_id=contributor.id,
+        content="私有项目的内部建议", status="accepted",
+    )
+    draft_contribution = IdeaContribution(
+        idea_id=public_idea.id, author_id=contributor.id,
+        content="草稿中的建议", status="accepted",
+    )
+    db_session.add_all([public_contribution, private_contribution, draft_contribution])
+    await db_session.flush()
+
     public_attribution = IdeaVersionContribution(
         version_id=public_version.id,
-        contribution_id=uuid.uuid4(),
+        contribution_id=public_contribution.id,
         author_id_snapshot=contributor.id,
         author_name_snapshot="profile_contributor",
         content_snapshot="提出公开产品场景建议",
     )
     private_attribution = IdeaVersionContribution(
         version_id=private_version.id,
-        contribution_id=uuid.uuid4(),
+        contribution_id=private_contribution.id,
         author_id_snapshot=contributor.id,
         author_name_snapshot="profile_contributor",
         content_snapshot="私有项目的内部建议",
     )
     draft_attribution = IdeaVersionContribution(
         version_id=draft_version.id,
-        contribution_id=uuid.uuid4(),
+        contribution_id=draft_contribution.id,
         author_id_snapshot=contributor.id,
         author_name_snapshot="profile_contributor",
         content_snapshot="草稿中的建议",
