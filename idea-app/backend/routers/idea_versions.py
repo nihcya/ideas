@@ -33,11 +33,23 @@ def _not_found():
     return HTTPException(status_code=404, detail={"error": {"code": "VERSION_NOT_FOUND", "message": "版本不存在或无权访问"}})
 
 
-async def _owned_private_idea(db: AsyncSession, idea_id: uuid.UUID, user: User) -> Idea:
-    # Versioning currently follows the private async-collaboration workflow.
+async def _owned_versionable_idea(db: AsyncSession, idea_id: uuid.UUID, user: User) -> Idea:
+    """Return an author's private working Idea or an active, published public Idea.
+
+    Public versioning never changes the Idea's visibility, publication state, license,
+    or derivative permissions. Private-era snapshots remain author-only on public timelines.
+    """
     result = await db.execute(select(Idea).where(Idea.id == idea_id))
     idea = result.scalar_one_or_none()
-    if idea is None or idea.author_id != user.id or idea.visibility != "private" or idea.status == "rejected" or idea.publication_status == "archived":
+    if idea is None or idea.author_id != user.id or idea.status != "active" and idea.status != "fading" and idea.status != "faded":
+        raise _not_found()
+    is_private_working = idea.visibility == "private" and idea.publication_status != "archived"
+    is_public_published = (
+        idea.visibility == "public"
+        and idea.publication_status == "published"
+        and idea.status == "active"
+    )
+    if not (is_private_working or is_public_published):
         raise _not_found()
     return idea
 
@@ -133,7 +145,7 @@ async def list_public_versions(
 
 @router.get("")
 async def list_versions(idea_id: uuid.UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    await _owned_private_idea(db, idea_id, user)
+    await _owned_versionable_idea(db, idea_id, user)
     result = await db.execute(select(IdeaVersion).where(IdeaVersion.idea_id == idea_id).order_by(IdeaVersion.version_number.desc()))
     versions = result.scalars().all()
     items = []
@@ -151,8 +163,8 @@ async def compare_published_versions(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Compare two immutable published snapshots belonging to the same private Idea."""
-    await _owned_private_idea(db, idea_id, user)
+    """Compare immutable published snapshots belonging to the same author-owned Idea."""
+    await _owned_versionable_idea(db, idea_id, user)
     ids = {version_id, against_version_id}
     if len(ids) != 2:
         raise HTTPException(status_code=422, detail={"error": {"code": "SAME_VERSION", "message": "请选择两个不同版本进行对比"}})
@@ -192,7 +204,11 @@ async def compare_published_versions(
 async def create_version_draft(idea_id: uuid.UUID, req: VersionDraftCreate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     idea_result = await db.execute(select(Idea).where(Idea.id == idea_id).with_for_update())
     idea = idea_result.scalar_one_or_none()
-    if idea is None or idea.author_id != user.id or idea.visibility != "private" or idea.status == "rejected" or idea.publication_status == "archived":
+    if idea is None or idea.author_id != user.id:
+        raise _not_found()
+    is_private_working = idea.visibility == "private" and idea.publication_status != "archived" and idea.status != "rejected"
+    is_public_published = idea.visibility == "public" and idea.publication_status == "published" and idea.status == "active"
+    if not (is_private_working or is_public_published):
         raise _not_found()
     existing = await db.execute(select(IdeaVersion.id).where(IdeaVersion.idea_id == idea_id, IdeaVersion.status == "draft").limit(1))
     if existing.scalar_one_or_none():
@@ -219,7 +235,7 @@ async def create_version_draft(idea_id: uuid.UUID, req: VersionDraftCreate, db: 
 
 @router.patch("/{version_id}")
 async def update_version_draft(idea_id: uuid.UUID, version_id: uuid.UUID, req: VersionDraftUpdate, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    idea = await _owned_private_idea(db, idea_id, user)
+    idea = await _owned_versionable_idea(db, idea_id, user)
     result = await db.execute(select(IdeaVersion).where(IdeaVersion.id == version_id, IdeaVersion.idea_id == idea_id, IdeaVersion.status == "draft").with_for_update())
     version = result.scalar_one_or_none()
     if version is None:
