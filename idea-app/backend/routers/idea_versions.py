@@ -113,6 +113,8 @@ async def list_public_versions(
         .where(
             IdeaVersion.idea_id == idea_id,
             IdeaVersion.status == "published",
+            # Private-era snapshots must not become public retroactively.
+            IdeaVersion.published_at >= idea_result.scalar_one().published_at,
         )
         .order_by(IdeaVersion.version_number.desc())
     )
