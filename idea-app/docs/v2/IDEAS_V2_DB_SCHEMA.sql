@@ -225,7 +225,7 @@ COMMIT;
 -- SELECT relation_type, COUNT(*) FROM fork_relations GROUP BY 1;
 -- SELECT COUNT(*) FROM ideas WHERE publication_status='published' AND visibility='public';
 -- SELECT legacy_license_review_status, COUNT(*) FROM ideas GROUP BY 1;
--- Confirm all pre-existing active Ideas remain publicly readable, but new derivative operations
+-- Legacy license review transition: 90 days from the V2.0 activation/announcement effective date.\n-- Supply one configured global deadline at deployment; do not hard-code a calendar date in this migration.\n-- Expiry handling for unconfirmed Ideas remains a product decision.\n-- Confirm all pre-existing active Ideas remain publicly readable, but new derivative operations
 -- are blocked until legacy_license_review_status='confirmed'.
 
 -- Operational requirements:
