@@ -46,6 +46,9 @@ async def _attach_contributions(db: AsyncSession, version: IdeaVersion, idea_id:
         raise HTTPException(status_code=422, detail={"error": {"code": "DUPLICATE_CONTRIBUTION", "message": "贡献不能重复选择"}})
     if not ids:
         return
+    consumed = await db.execute(select(IdeaVersionContribution.contribution_id).where(IdeaVersionContribution.contribution_id.in_(ids)))
+    if consumed.scalars().all():
+        raise HTTPException(status_code=409, detail={"error": {"code": "CONTRIBUTION_ALREADY_USED", "message": "所选贡献已归属其他已发布版本"}})
     result = await db.execute(
         select(IdeaContribution, User.username)
         .join(User, User.id == IdeaContribution.author_id)
