@@ -230,3 +230,15 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [ ] pytest / flutter test / analyze / build 尚未运行。
 - [ ] 贡献采纳后的版本草稿、版本差异、最终发布事务和贡献署名展示尚未实现。
 - [ ] PostgreSQL Migration 002 尚未执行。
+
+
+## 13.7 版本草稿、发布与贡献归属（第一阶段）
+
+- [x] 新增 IdeaVersion / IdeaVersionContribution ORM 模型与 migration 003。
+- [x] 作者创建版本草稿，保存最终内容快照、变更说明和贡献选择。
+- [x] 作者编辑草稿；草稿中的贡献选择可调整。
+- [x] 作者发布版本：事务内更新版本状态、Idea.content、发布者和时间。
+- [x] 固化贡献作者 ID、用户名、贡献内容快照；数据库唯一约束限制贡献只归属一个版本。
+- [x] 新增版本历史查询 API 和 Flutter 版本管理页面初版。
+- [ ] pytest、Flutter test/analyze/build 尚未运行；migration 003 尚未执行。
+- [ ] 需要在真实 PostgreSQL 测试库验证并发版本号分配、事务回滚和唯一约束。
