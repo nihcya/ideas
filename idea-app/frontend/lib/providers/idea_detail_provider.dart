@@ -79,6 +79,7 @@ class IdeaDetailNotifier extends FamilyAsyncNotifier<IdeaDetail, String> {
         visibility: current.visibility,
         licenseCode: current.licenseCode,
         licenseVersion: current.licenseVersion,
+        accessRole: current.accessRole,
         isForkable: current.isForkable,
       ));
     }
