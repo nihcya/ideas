@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from sqlalchemy import select, update, func
 
@@ -27,12 +29,13 @@ async def _idea(db, author_id, **overrides):
     return idea
 
 
-async def _notification(db, recipient_id, idea_id, content):
+async def _notification(db, recipient_id, idea_id, content, created_at):
     notification = Notification(
         user_id=recipient_id,
         type="forked",
         content=content,
         idea_id=idea_id,
+        created_at=created_at,
     )
     db.add(notification)
     await db.flush()
@@ -65,8 +68,9 @@ async def test_notification_acl_filters_before_pagination_and_hides_revoked_invi
     db_session.add(grant)
     await db_session.flush()
 
-    visible = await _notification(db_session, recipient.id, public_idea.id, "public event")
-    hidden = await _notification(db_session, recipient.id, private_idea.id, "private event")
+    now = datetime.now(timezone.utc)
+    visible = await _notification(db_session, recipient.id, public_idea.id, "public event", now)
+    hidden = await _notification(db_session, recipient.id, private_idea.id, "private event", now + timedelta(seconds=1))
 
     predicate = visible_notification_predicate(recipient.id)
     page = await db_session.execute(
