@@ -3,11 +3,11 @@ import math
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user
-from models import User, Idea, VaultItem, ForkRelation
+from models import User, Idea, VaultItem, ForkRelation, IdeaAccessGrant
 from schemas.vault import (
     VaultStats, VaultCircle, VaultResponse,
     CollectResponse, RemoveResponse,
@@ -56,7 +56,19 @@ async def get_vault(
     result = await db.execute(
         select(Idea, VaultItem)
         .join(VaultItem, VaultItem.idea_id == Idea.id)
-        .where(VaultItem.user_id == user.id, Idea.status != "faded")
+        .where(
+            VaultItem.user_id == user.id,
+            Idea.status != "faded",
+            or_(
+                Idea.author_id == user.id,
+                and_(Idea.publication_status == "published", Idea.visibility == "public", Idea.status == "active"),
+                select(IdeaAccessGrant.id).where(
+                    IdeaAccessGrant.idea_id == Idea.id,
+                    IdeaAccessGrant.user_id == user.id,
+                    IdeaAccessGrant.status == "accepted",
+                ).exists(),
+            ),
+        )
         .order_by(VaultItem.last_touch_at.desc())
         .limit(limit).offset(offset)
     )
