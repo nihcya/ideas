@@ -126,11 +126,16 @@ class _IdeaVersionsScreenState extends ConsumerState<IdeaVersionsScreen> {
           child: Text('暂无已采纳贡献，可先保存不关联贡献的版本')),
         ..._contributions.map((item) {
           final id = item['id'] as String;
+          final publishedVersion = item['published_version'] as Map<String, dynamic>?;
+          final isConsumed = publishedVersion != null;
           return CheckboxListTile(
-            value: _selected.contains(id),
-            onChanged: (value) => setState(() { if (value == true) { _selected.add(id); } else { _selected.remove(id); } }),
+            value: !isConsumed && _selected.contains(id),
+            onChanged: isConsumed ? null : (value) => setState(() { if (value == true) { _selected.add(id); } else { _selected.remove(id); } }),
             title: Text(item['author_username'] as String? ?? '协作者'),
-            subtitle: Text(item['content'] as String? ?? ''),
+            subtitle: Text(
+              (item['content'] as String? ?? '') +
+              (isConsumed ? '（已归属其他版本）' : ''),
+            ),
             controlAffinity: ListTileControlAffinity.leading, contentPadding: EdgeInsets.zero,
           );
         }),
