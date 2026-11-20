@@ -12,6 +12,7 @@ import '../screens/publish_idea_screen.dart';
 import '../screens/idea_invites_screen.dart';
 import '../screens/manage_idea_invites_screen.dart';
 import '../screens/idea_contributions_screen.dart';
+import '../screens/idea_versions_screen.dart';
 import '../screens/fork_guide_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../screens/settings_screen.dart';
@@ -108,6 +109,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ideaId: state.pathParameters['id']!,
           isOwner: state.uri.queryParameters['owner'] == 'true',
         ),
+      ),
+      GoRoute(
+        path: '/idea/:id/versions',
+        name: 'ideaVersions',
+        builder: (context, state) => IdeaVersionsScreen(ideaId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/idea/:id/invites',
