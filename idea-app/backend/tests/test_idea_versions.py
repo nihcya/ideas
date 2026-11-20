@@ -241,7 +241,13 @@ async def test_public_timeline_exposes_only_public_era_published_versions(db_ses
         publication_status="published", visibility="private", status="active",
         published_at=now,
     )
-    db_session.add_all([public_idea, private_idea])
+    inactive_idea = Idea(
+        content="已撤回的公开创意", color_hex="#123456", source="ugc",
+        author_id=owner.id, border_style="gold-thin",
+        publication_status="published", visibility="public", status="faded",
+        published_at=now,
+    )
+    db_session.add_all([public_idea, private_idea, inactive_idea])
     await db_session.flush()
     private_era_version = IdeaVersion(
         idea_id=public_idea.id, version_number=1,
@@ -258,12 +264,6 @@ async def test_public_timeline_exposes_only_public_era_published_versions(db_ses
     public_draft = IdeaVersion(
         idea_id=public_idea.id, version_number=3,
         content_snapshot="不应公开的草稿", status="draft", created_by=owner.id,
-    )
-    inactive_idea = Idea(
-        content="已撤回的公开创意", color_hex="#123456", source="ugc",
-        author_id=owner.id, border_style="gold-thin",
-        publication_status="published", visibility="public", status="faded",
-        published_at=now,
     )
     private_version = IdeaVersion(
         idea_id=private_idea.id, version_number=1,
