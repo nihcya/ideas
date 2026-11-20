@@ -47,6 +47,81 @@ class IdeaService {
     }
   }
 
+  /// 显式发布已有私有草稿。公开发布必须由作者确认授权条款。
+  Future<IdeaResponse> publishIdea({
+    required String ideaId,
+    required String visibility,
+    required String licenseCode,
+    String? licenseCustomText,
+    String licenseVersion = 'v1',
+    bool allowFork = false,
+    bool confirmTerms = false,
+  }) async {
+    try {
+      final res = await _dio.post('/ideas/$ideaId/publish', data: {
+        'visibility': visibility,
+        'license_code': licenseCode,
+        'license_custom_text': licenseCustomText,
+        'license_version': licenseVersion,
+        'allow_fork': allowFork,
+        'confirm_terms': confirmTerms,
+      });
+      return IdeaResponse.fromJson(res.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  /// 撤回公开发布，恢复为私有草稿。
+  Future<void> unpublishIdea(String ideaId) async {
+    try {
+      await _dio.post('/ideas/$ideaId/unpublish');
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  /// 邀请用户访问私有 Idea；接受前不会授予访问权。
+  Future<Map<String, dynamic>> inviteToPrivateIdea({
+    required String ideaId,
+    required String userId,
+    String role = 'viewer',
+  }) async {
+    try {
+      final res = await _dio.post('/ideas/$ideaId/invites', data: {
+        'user_id': userId,
+        'role': role,
+      });
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> acceptPrivateIdeaInvite({
+    required String ideaId,
+    required String inviteId,
+  }) async {
+    try {
+      final res = await _dio.post('/ideas/$ideaId/invites/$inviteId/accept');
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> revokePrivateIdeaInvite({
+    required String ideaId,
+    required String inviteId,
+  }) async {
+    try {
+      final res = await _dio.delete('/ideas/$ideaId/invites/$inviteId');
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
   /// Fork 一个点子（联想引导后提交）
   Future<ForkResponse> forkIdea({
     required String parentId,
