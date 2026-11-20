@@ -130,3 +130,21 @@ Extend notification types with collaboration_invited, contribution_submitted, co
 ## 9. Direct private-Idea access grants
 
 Persist direct invites independently from collaboration membership. Suggested table: idea_access_grants(idea_id, user_id, role, status, invited_by, invited_at, responded_at, revoked_at), unique on (idea_id, user_id). Access is granted only when status=accepted and not revoked. Owner can revoke at any time. Every endpoint that returns Idea content, versions, lineage or attachments must call the same authorization service.
+
+
+## 版本管理 API（第一阶段）
+
+所有接口均要求登录，且仅创意作者可访问；当前版本管理仅开放给 private、未归档、非 rejected 创意。
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/ideas/{idea_id}/versions` | 查询版本历史及贡献署名 |
+| POST | `/ideas/{idea_id}/versions/drafts` | 创建版本草稿 |
+| PATCH | `/ideas/{idea_id}/versions/{version_id}` | 编辑草稿及贡献选择 |
+| POST | `/ideas/{idea_id}/versions/{version_id}/publish` | 发布版本并更新 Idea.content |
+
+创建/编辑草稿请求字段：`content`（1-300 字，作者整合后的最终文本）、`change_summary`（可选，最多 2000 字）、`contribution_ids`（可选，最多 50 个已采纳贡献 UUID）。
+
+发布操作采用事务：锁定 Idea 和 draft version；复核所选贡献仍属于该 Idea 且状态为 accepted；将版本设为 published 并记录发布者/时间；同步更新 Idea.content。贡献归属表保存贡献作者 ID、用户名和贡献内容快照，用户名变更后历史署名不漂移。数据库唯一约束保证一条贡献最多被一个版本消费。
+
+错误语义：404 表示不存在或无权访问；409 表示已有草稿、贡献未采纳/状态变化或版本冲突；422 表示内容为空或贡献 ID 重复；403 表示内容审核未通过。
