@@ -209,7 +209,7 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 
 - `/user/:id` 复用公开用户资料和公开贡献记录 API；路由允许未登录访问，不返回私有 Idea 的贡献。
 - 创意详情作者卡片导航到公开主页；主页贡献条目导航到只读公开版本时间线。
-- `GET /ideas/{idea_id}/versions/public` 在 SQL 查询前先确认 Idea 当前为 published + public + active，随后只查询 published 版本。
+- `GET /ideas/{idea_id}/versions/public` 在 SQL 查询前先确认 Idea 当前为 published + public + active，随后只查询 published 版本，且要求版本发布时间不早于 `Idea.published_at`，避免私有阶段快照被追溯公开。
 - 版本时间线仅暴露版本内容快照、发布时间、变更说明和版本发布时冻结的贡献署名；不包含草稿版本。
 - 贡献署名作者 ID 用于跳转公开主页，不暴露邮箱、认证信息或其他账户资料。
 - 新增后端测试覆盖私有 Idea 的 404 隔离；仍需由 CI 确认新增测试和 Flutter 构建。
