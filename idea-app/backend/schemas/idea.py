@@ -269,3 +269,19 @@ class IdeaPublishRequest(BaseModel):
 class IdeaInviteRequest(BaseModel):
     user_id: str = Field(..., description="被邀请用户 UUID")
     role: Literal["contributor", "viewer"] = "viewer"
+
+
+
+class IdeaContributionCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=3000)
+    note: str | None = Field(None, max_length=1000)
+
+
+class IdeaContributionUpdate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=3000)
+    note: str | None = Field(None, max_length=1000)
+
+
+class IdeaContributionReview(BaseModel):
+    decision: Literal["accepted", "rejected"]
+    review_note: str | None = Field(None, max_length=1000)
