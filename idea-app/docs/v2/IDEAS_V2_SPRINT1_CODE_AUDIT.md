@@ -225,3 +225,12 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 后端回归测试补充冻结署名、私有阶段版本和草稿过滤、非 active Idea 隔离，以及贡献公开列表分页/has_more。
 - 以上代码已提交 PR 分支；最新 CI 尚待执行，不把静态提交视为测试通过。
 - PostgreSQL migrations 001/002/003 未执行；未连接生产数据库。
+
+
+### 18.1 公开发现链路 HTTP 契约测试补充（2026-11-20）
+
+- 新增 `test_public_contribution_api.py`，通过 ASGI HTTP 客户端请求真实 FastAPI 路由，而非只直接调用 Python 路由函数。
+- 公开时间线测试覆盖：公开前版本不可见、草稿不可见、当前非 active Idea 返回 404、冻结署名与冻结贡献文本按发布快照返回。
+- 公开贡献流测试覆盖：分页参数和 `total/has_more` 契约、冻结署名输出、私有 Idea 贡献不泄露。
+- 公开主页前端新增分页加载和版本 ID 深链；深链参数只定位 UI，不改变后端授权边界。
+- 代码已提交 PR 分支；必须等待最新 GitHub Actions 确认 pytest、Flutter test/analyze 和 APK build。未连接生产数据库，未执行 migrations 001/002/003。
