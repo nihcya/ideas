@@ -2,7 +2,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user
@@ -26,29 +26,36 @@ async def get_notifications(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    # Apply resource visibility in SQL before pagination so hidden rows cannot
+    # create short pages or leak ordering/position information.
+    visible_linked_idea = select(Idea.id).where(
+        Idea.id == Notification.idea_id,
+        or_(
+            Idea.author_id == user.id,
+            and_(
+                Idea.publication_status == "published",
+                Idea.visibility == "public",
+                Idea.status == "active",
+            ),
+            select(IdeaAccessGrant.id).where(
+                IdeaAccessGrant.idea_id == Idea.id,
+                IdeaAccessGrant.user_id == user.id,
+                IdeaAccessGrant.status == "accepted",
+            ).exists(),
+        ),
+    ).exists()
+    visible_notification = or_(
+        Notification.idea_id.is_(None),
+        visible_linked_idea,
+    )
+
     result = await db.execute(
         select(Notification)
-        .where(Notification.user_id == user.id)
+        .where(Notification.user_id == user.id, visible_notification)
         .order_by(Notification.created_at.desc())
         .limit(limit).offset(offset)
     )
     rows = result.scalars().all()
-    # Notifications can outlive the access grant that originally exposed an Idea.
-    # Re-check access at read time to avoid disclosing private content after revocation.
-    idea_ids = {n.idea_id for n in rows if n.idea_id is not None}
-    ideas_result = await db.execute(select(Idea).where(Idea.id.in_(idea_ids))) if idea_ids else None
-    ideas_by_id = {
-        idea.id: idea for idea in (ideas_result.scalars().all() if ideas_result else [])
-    }
-    visible_rows = []
-    for notification in rows:
-        if notification.idea_id is None:
-            visible_rows.append(notification)
-            continue
-        idea = ideas_by_id.get(notification.idea_id)
-        if idea is not None and await can_view_idea(db, idea, user.id):
-            visible_rows.append(notification)
-
     notifications = [
         NotificationItem(
             id=str(n.id),
@@ -59,31 +66,16 @@ async def get_notifications(
             created_at=n.created_at,
             read=n.read,
         )
-        for n in visible_rows
+        for n in rows
     ]
     unread_result = await db.execute(
-        select(Notification).where(
-            Notification.user_id == user.id, Notification.read == False
+        select(func.count()).select_from(Notification).where(
+            Notification.user_id == user.id,
+            Notification.read == False,
+            visible_notification,
         )
     )
-    unread_rows = unread_result.scalars().all()
-    unread_idea_ids = {n.idea_id for n in unread_rows if n.idea_id is not None}
-    unread_ideas_result = (
-        await db.execute(select(Idea).where(Idea.id.in_(unread_idea_ids)))
-        if unread_idea_ids else None
-    )
-    unread_ideas = {
-        idea.id: idea
-        for idea in (unread_ideas_result.scalars().all() if unread_ideas_result else [])
-    }
-    unread_count = 0
-    for notification in unread_rows:
-        if notification.idea_id is None:
-            unread_count += 1
-        else:
-            idea = unread_ideas.get(notification.idea_id)
-            if idea is not None and await can_view_idea(db, idea, user.id):
-                unread_count += 1
+    unread_count = unread_result.scalar() or 0
 
     return NotificationsResponse(
         notifications=notifications,
