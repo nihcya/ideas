@@ -237,6 +237,20 @@ async def get_idea_detail(
             title=child_idea.content[:30],
         ))
 
+    access_role = None
+    if user:
+        if idea.author_id == user.id:
+            access_role = "owner"
+        else:
+            grant_result = await db.execute(
+                select(IdeaAccessGrant.role).where(
+                    IdeaAccessGrant.idea_id == idea.id,
+                    IdeaAccessGrant.user_id == user.id,
+                    IdeaAccessGrant.status == "accepted",
+                ).limit(1)
+            )
+            access_role = grant_result.scalar_one_or_none()
+
     return IdeaDetail(
         id=str(idea.id),
         content=idea.content,
@@ -250,6 +264,7 @@ async def get_idea_detail(
         visibility=idea.visibility,
         license_code=idea.license_code,
         license_version=idea.license_version,
+        access_role=access_role,
         is_in_vault=is_in_vault,
         lineage=Lineage(parents=parents, children=children),
     )
