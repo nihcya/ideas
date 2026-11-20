@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Optional
-from sqlalchemy import String, ForeignKey, CheckConstraint, Uuid
+from sqlalchemy import String, ForeignKey, CheckConstraint, Uuid, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 import uuid
 
@@ -24,3 +24,5 @@ class ForkRelation(Base, TimestampMixin):
     )
     relation_type: Mapped[str] = mapped_column(String(10), nullable=False)
     angle: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
+    # Immutable rights/attribution snapshot from the source Idea at derivation time.
+    license_snapshot: Mapped[Optional[dict]] = mapped_column("metadata", JSON, nullable=True)
