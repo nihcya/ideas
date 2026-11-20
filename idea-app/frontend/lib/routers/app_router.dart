@@ -9,6 +9,8 @@ import '../screens/profile_screen.dart';
 import '../screens/idea_detail_screen.dart';
 import '../screens/create_idea_screen.dart';
 import '../screens/publish_idea_screen.dart';
+import '../screens/idea_invites_screen.dart';
+import '../screens/manage_idea_invites_screen.dart';
 import '../screens/fork_guide_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../screens/settings_screen.dart';
@@ -90,6 +92,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/idea/:id',
         name: 'ideaDetail',
         builder: (context, state) => IdeaDetailScreen(
+          ideaId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/invites',
+        name: 'ideaInvites',
+        builder: (context, state) => const IdeaInvitesScreen(),
+      ),
+      GoRoute(
+        path: '/idea/:id/invites',
+        name: 'manageIdeaInvites',
+        builder: (context, state) => ManageIdeaInvitesScreen(
           ideaId: state.pathParameters['id']!,
         ),
       ),
