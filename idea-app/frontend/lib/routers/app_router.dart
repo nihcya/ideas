@@ -6,6 +6,7 @@ import '../screens/explore_screen.dart';
 import '../screens/vault_screen.dart';
 import '../screens/spark_screen.dart';
 import '../screens/profile_screen.dart';
+import '../screens/public_user_profile_screen.dart';
 import '../screens/idea_detail_screen.dart';
 import '../screens/create_idea_screen.dart';
 import '../screens/publish_idea_screen.dart';
@@ -44,7 +45,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (isLoading) return null;
 
       final path = state.uri.path;
-      final publicPaths = ['/auth', '/explore'];
+      final publicPaths = ['/auth', '/explore', '/user/'];
       final isPublic = publicPaths.any((p) => path.startsWith(p));
 
       // 未登录访问受保护页面 → 跳转登录
@@ -89,6 +90,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/auth',
         name: 'auth',
         builder: (context, state) => const AuthScreen(),
+      ),
+      GoRoute(
+        path: '/user/:id',
+        name: 'publicUserProfile',
+        builder: (context, state) => PublicUserProfileScreen(
+          userId: state.pathParameters['id']!,
+        ),
       ),
       GoRoute(
         path: '/idea/:id',
