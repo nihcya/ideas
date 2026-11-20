@@ -106,6 +106,89 @@ class _IdeaVersionsScreenState extends ConsumerState<IdeaVersionsScreen> {
     } finally { if (mounted) setState(() => _saving = false); }
   }
 
+  List<Map<String, dynamic>> get _publishedVersions =>
+      _versions.where((v) => v['status'] == 'published').toList();
+
+  Future<void> _showDiff(
+    Map<String, dynamic> target,
+    Map<String, dynamic> baseline,
+  ) async {
+    try {
+      final result = await ref.read(ideaServiceProvider).compareIdeaVersions(
+        ideaId: widget.ideaId,
+        versionId: target['id'] as String,
+        againstVersionId: baseline['id'] as String,
+      );
+      if (!mounted) return;
+      final segments = (result['segments'] as List<dynamic>? ?? [])
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('版本差异：V${baseline['version_number']} → V${target['version_number']}'),
+          content: SizedBox(
+            width: 560,
+            child: SingleChildScrollView(
+              child: segments.isEmpty
+                  ? const Text('两个版本没有差异')
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: segments.map((segment) {
+                        final type = segment['type'] as String? ?? 'equal';
+                        final oldText = segment['old_text'] as String? ?? '';
+                        final newText = segment['new_text'] as String? ?? '';
+                        if (type == 'equal') {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 3),
+                            child: Text(newText),
+                          );
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (oldText.isNotEmpty)
+                                Text(
+                                  '− $oldText',
+                                  style: TextStyle(
+                                    color: Theme.of(dialogContext).colorScheme.error,
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
+                                ),
+                              if (newText.isNotEmpty)
+                                Text(
+                                  '+ $newText',
+                                  style: TextStyle(
+                                    color: Theme.of(dialogContext).colorScheme.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('关闭'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('获取版本差异失败：$e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -148,10 +231,15 @@ class _IdeaVersionsScreenState extends ConsumerState<IdeaVersionsScreen> {
         const Divider(height: 36),
         Text('版本历史', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
-        ..._versions.where((v) => v['status'] == 'published').map((version) {
+        ..._publishedVersions.asMap().entries.map((entry) {
+          final versionIndex = entry.key;
+          final version = entry.value;
           final attrs = (version['attributions'] as List<dynamic>?) ?? [];
           final publishedAt = version['published_at']?.toString();
           final isHighlighted = version['id'] == widget.highlightVersionId;
+          final previousVersion = versionIndex + 1 < _publishedVersions.length
+              ? _publishedVersions[versionIndex + 1]
+              : null;
           return Card(
             margin: const EdgeInsets.only(bottom: 10),
             child: ExpansionTile(
@@ -161,6 +249,15 @@ class _IdeaVersionsScreenState extends ConsumerState<IdeaVersionsScreen> {
               subtitle: Text(publishedAt == null ? '已发布' : '发布时间：' + publishedAt),
               childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               children: [
+                if (previousVersion != null)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => _showDiff(version, previousVersion),
+                      icon: const Icon(Icons.compare_arrows),
+                      label: Text('与 V${previousVersion['version_number']} 对比'),
+                    ),
+                  ),
                 Align(alignment: Alignment.centerLeft, child: Text(version['content'] as String? ?? '', style: Theme.of(context).textTheme.bodyLarge)),
                 if ((version['change_summary'] as String?)?.isNotEmpty == true) ...[
                   const SizedBox(height: 10),
