@@ -17,7 +17,7 @@ from schemas.idea import (
 from schemas.common import SuccessResponse
 from services.color_pool import random_color
 from services.audit_service import audit_content, write_audit_log
-from services.cache import cache, key_explore_page, key_idea_detail
+from services.cache import cache, key_idea_detail, key_user_vault
 from services.rate_limit import limiter, CREATE_LIMIT
 from services.idea_access import can_view_idea, can_derive_from_idea
 
@@ -456,6 +456,8 @@ async def publish_idea(
         idea.legacy_license_review_status = "confirmed"
         idea.legacy_license_reviewed_at = now
     await db.commit()
+    await cache.delete_pattern("explore:v2:*")
+    await cache.delete(key_idea_detail(str(idea.id)))
     await db.refresh(idea)
     return IdeaResponse(
         id=str(idea.id), content=idea.content, color_hex=idea.color_hex,
@@ -478,6 +480,8 @@ async def unpublish_idea(
     idea.visibility = "private"
     idea.allow_fork = False
     await db.commit()
+    await cache.delete_pattern("explore:v2:*")
+    await cache.delete(key_idea_detail(str(idea.id)))
     return {"unpublished": True, "idea_id": str(idea.id)}
 
 
@@ -527,7 +531,7 @@ async def invite_to_private_idea(
         )
         db.add(grant)
     await db.commit()
-    await db.refresh(grant)
+    await cache.delete(key_idea_detail(str(idea.id)))
     return {"invite_id": str(grant.id), "status": grant.status, "role": grant.role}
 
 
@@ -552,6 +556,8 @@ async def accept_private_idea_invite(
     grant.status = "accepted"
     grant.responded_at = datetime.now(timezone.utc)
     await db.commit()
+    await cache.delete(key_idea_detail(str(idea_id)))
+    await cache.delete(key_user_vault(str(user.id)))
     return {"accepted": True, "idea_id": str(idea_id), "role": grant.role}
 
 
@@ -578,4 +584,5 @@ async def revoke_private_idea_invite(
     grant.status = "revoked"
     grant.revoked_at = datetime.now(timezone.utc)
     await db.commit()
+    await cache.delete(key_idea_detail(str(idea_id)))
     return {"revoked": True, "invite_id": str(invite_id)}
