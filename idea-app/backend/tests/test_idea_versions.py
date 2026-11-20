@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from fastapi import HTTPException
 
-from models import User, Idea, IdeaContribution, IdeaVersion
+from models import User, Idea, IdeaContribution, IdeaVersion, IdeaVersionContribution
 from routers import idea_versions as versions_router
 from routers.idea_versions import VersionDraftCreate, VersionDraftUpdate
 
