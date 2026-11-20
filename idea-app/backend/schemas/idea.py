@@ -101,6 +101,7 @@ class IdeaDetail(BaseModel):
     visibility: Literal["private", "public"] = "private"
     license_code: str | None = None
     license_version: str | None = None
+    access_role: Literal["owner", "contributor", "viewer"] | None = None
     is_in_vault: bool = Field(False, description="当前用户是否已收集")
     lineage: Lineage = Field(..., description="谱系图")
 
