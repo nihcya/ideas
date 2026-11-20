@@ -148,3 +148,11 @@ Persist direct invites independently from collaboration membership. Suggested ta
 发布操作采用事务：锁定 Idea 和 draft version；复核所选贡献仍属于该 Idea 且状态为 accepted；将版本设为 published 并记录发布者/时间；同步更新 Idea.content。贡献归属表保存贡献作者 ID、用户名和贡献内容快照，用户名变更后历史署名不漂移。数据库唯一约束保证一条贡献最多被一个版本消费。
 
 错误语义：404 表示不存在或无权访问；409 表示已有草稿、贡献未采纳/状态变化或版本冲突；422 表示内容为空或贡献 ID 重复；403 表示内容审核未通过。
+
+
+### 版本与贡献反向追溯补充
+
+- `GET /ideas/{idea_id}/contributions` 在原有贡献字段外增加 `published_version`（仅当贡献已归属已发布版本时返回），包含版本 ID、版本号、发布时间和变更说明。
+- 同一响应增加 `attribution_content_snapshot` 与 `attribution_author_name`，用于核对发布时冻结的贡献文本和署名；草稿关联不会向协作者暴露为已发布归属。
+- 版本历史中的每个版本返回 `attributions[]`，包含 contribution_id、author_id、author_name、content。版本详情页展示完整贡献文本快照，而不只是贡献者名字。
+- Flutter 贡献记录可以跳转到具体版本；版本草稿选择器会禁用已经归属已发布版本的贡献。
