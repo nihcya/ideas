@@ -234,6 +234,20 @@ class IdeaService {
     } on DioException catch (e) { throw toApiException(e); }
   }
 
+  Future<Map<String, dynamic>> compareIdeaVersions({
+    required String ideaId,
+    required String versionId,
+    required String againstVersionId,
+  }) async {
+    try {
+      final res = await _dio.get(
+        '/ideas/$ideaId/versions/$versionId/diff',
+        queryParameters: {'against_version_id': againstVersionId},
+      );
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) { throw toApiException(e); }
+  }
+
   Future<Map<String, dynamic>> createIdeaVersionDraft({
     required String ideaId, required String content, String? changeSummary,
     List<String> contributionIds = const [],
