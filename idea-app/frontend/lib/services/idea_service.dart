@@ -234,6 +234,20 @@ class IdeaService {
     } on DioException catch (e) { throw toApiException(e); }
   }
 
+
+  /// 获取公开创意的只读已发布版本时间线。
+  Future<List<Map<String, dynamic>>> getPublicIdeaVersions(String ideaId) async {
+    try {
+      final res = await _dio.get('/ideas/$ideaId/versions/public');
+      final data = res.data as Map<String, dynamic>;
+      return ((data['items'] as List<dynamic>?) ?? [])
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
   Future<Map<String, dynamic>> compareIdeaVersions({
     required String ideaId,
     required String versionId,
