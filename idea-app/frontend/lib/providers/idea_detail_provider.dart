@@ -49,6 +49,11 @@ class IdeaDetailNotifier extends FamilyAsyncNotifier<IdeaDetail, String> {
         forkCount: current.forkCount,
         isInVault: true,
         lineage: current.lineage,
+        publicationStatus: current.publicationStatus,
+        visibility: current.visibility,
+        licenseCode: current.licenseCode,
+        licenseVersion: current.licenseVersion,
+        isForkable: current.isForkable,
       ));
     }
   }
