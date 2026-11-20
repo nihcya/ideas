@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS fork_relations (
     parent_id     UUID NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
     relation_type VARCHAR(10) NOT NULL CHECK (relation_type IN ('fork','merge','evolve')),
     angle         VARCHAR(20) NULL,
+    metadata      JSONB NULL,
     created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
