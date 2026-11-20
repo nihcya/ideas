@@ -136,3 +136,17 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 新增 test_idea_invite_workflow.py，覆盖邀请创建、待处理收件箱、接受、拒绝、撤销和访问权变化。
 - 注意：viewer / contributor 目前是邀请角色标签与 ACL 记录，受邀者接受后均获得私有 Idea 读取权限；异步贡献提交、版本管理和贡献合并尚未实现。
 - 未执行 pytest、Flutter test/analyze/build；上述测试仅已提交，不能视为通过。
+
+## 12. 异步贡献机制静态审计（2026-11-20）
+
+- 新增 idea_contributions，独立保存贡献作者、内容、说明、状态、审核人、审核时间和审核反馈。
+- Contributor 必须接受私有 Idea 的 contributor 邀请才能提交；Viewer 不可提交。
+- 作者可查看全部贡献；Contributor 只能查看自己的贡献，避免成员间未公开提案互相泄露。
+- Contributor 只能编辑/撤回本人 submitted 状态的记录；审核后锁定。
+- 仅 Idea 作者可接受/拒绝贡献。
+- 提交与编辑内容通过现有 audit_content 审核，并写入 AuditLog。
+- 采纳仅改变 contribution 状态，不直接覆盖源 Idea；后续版本管理阶段再纳入版本草稿。
+- Idea Detail 新增 access_role；Flutter 新增异步贡献界面。
+- 新增 test_idea_contributions.py，覆盖贡献提交、作者审核、Viewer 禁止提交和非作者禁止审核；前端模型测试覆盖 access_role。
+- 新增 PostgreSQL 手动迁移 002_idea_contributions.sql；未执行。
+- 未执行 pytest、Flutter test/analyze/build；代码与测试尚未通过运行验证。
