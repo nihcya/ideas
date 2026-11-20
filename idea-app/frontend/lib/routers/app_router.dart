@@ -105,6 +105,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'publicIdeaTimeline',
         builder: (context, state) => PublicIdeaTimelineScreen(
           ideaId: state.pathParameters['id']!,
+          versionId: state.uri.queryParameters['version'],
         ),
       ),
       GoRoute(
