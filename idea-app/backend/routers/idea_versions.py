@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+import difflib
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -98,6 +99,51 @@ async def list_versions(idea_id: uuid.UUID, db: AsyncSession = Depends(get_db), 
         attr_result = await db.execute(select(IdeaVersionContribution).where(IdeaVersionContribution.version_id == version.id))
         items.append(_version_payload(version, attr_result.scalars().all()))
     return {"items": items}
+
+
+@router.get("/{version_id}/diff")
+async def compare_published_versions(
+    idea_id: uuid.UUID,
+    version_id: uuid.UUID,
+    against_version_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Compare two immutable published snapshots belonging to the same private Idea."""
+    await _owned_private_idea(db, idea_id, user)
+    ids = {version_id, against_version_id}
+    if len(ids) != 2:
+        raise HTTPException(status_code=422, detail={"error": {"code": "SAME_VERSION", "message": "请选择两个不同版本进行对比"}})
+    result = await db.execute(
+        select(IdeaVersion).where(
+            IdeaVersion.idea_id == idea_id,
+            IdeaVersion.id.in_(ids),
+            IdeaVersion.status == "published",
+        )
+    )
+    versions = {item.id: item for item in result.scalars().all()}
+    if len(versions) != 2:
+        raise _not_found()
+    target = versions[version_id]
+    baseline = versions[against_version_id]
+    matcher = difflib.SequenceMatcher(
+        a=baseline.content_snapshot,
+        b=target.content_snapshot,
+        autojunk=False,
+    )
+    segments = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        segments.append({
+            "type": tag,
+            "old_text": baseline.content_snapshot[i1:i2],
+            "new_text": target.content_snapshot[j1:j2],
+        })
+    return {
+        "idea_id": str(idea_id),
+        "from_version": {"id": str(baseline.id), "version_number": baseline.version_number},
+        "to_version": {"id": str(target.id), "version_number": target.version_number},
+        "segments": segments,
+    }
 
 
 @router.post("/drafts", status_code=201)
