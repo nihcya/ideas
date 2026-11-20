@@ -13,6 +13,13 @@ from schemas.idea import (
 from services.idea_access import can_view_idea
 
 
+@pytest.fixture(autouse=True)
+def disable_cache_calls(monkeypatch):
+    async def noop_delete(*args, **kwargs):
+        return None
+    monkeypatch.setattr(ideas_router.cache, "delete", noop_delete)
+
+
 async def _user(db, username):
     user = User(username=username, password_hash="test-hash", bio="")
     db.add(user)
