@@ -96,7 +96,11 @@ class IdeaDetail(BaseModel):
     )
     created_at: datetime = Field(..., description="创建时间")
     fork_count: int = Field(0, ge=0, description="被 fork 数")
-    is_forkable: bool = Field(True, description="是否允许 fork")
+    is_forkable: bool = Field(True, description="当前用户是否可从该创意衍生")
+    publication_status: Literal["draft", "published", "archived"] = "draft"
+    visibility: Literal["private", "public"] = "private"
+    license_code: str | None = None
+    license_version: str | None = None
     is_in_vault: bool = Field(False, description="当前用户是否已收集")
     lineage: Lineage = Field(..., description="谱系图")
 
@@ -116,6 +120,10 @@ class IdeaResponse(BaseModel):
     border_style: BorderStyle = Field(
         ..., description="边框样式：gold-thin（自己产生）/ none（收集的）"
     )
+    publication_status: Literal["draft", "published", "archived"] = "draft"
+    visibility: Literal["private", "public"] = "private"
+    license_code: str | None = None
+    allow_fork: bool = False
 
 
 class ForkResponse(BaseModel):
