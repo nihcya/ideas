@@ -35,7 +35,7 @@ class IdeaService {
     }
   }
 
-  /// 发布新点子（直接发布，非 fork/碰撞/演化）
+  /// 新建私有草稿（直接创建，非 fork/碰撞/演化）
   Future<IdeaResponse> createIdea(String content) async {
     try {
       final res = await _dio.post('/ideas', data: {
