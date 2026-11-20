@@ -307,3 +307,16 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] Flutter 创意详情页对作者显示公开创意的版本管理入口。
 - [ ] 对本轮代码变更运行 CI，确认 Backend、Flutter test/analyze 和 Android Debug APK 全部通过。
 - [ ] PostgreSQL migrations 001/002/003 仍未执行。
+
+
+
+### 13.13 公开贡献分页与版本时间线深链（2026-11-20）
+
+- [x] UserService 新增保留 `total/offset/has_more` 的分页响应方法，兼容旧列表调用。
+- [x] 公开创作者主页实现 20 条分页加载更多、加载中/失败/空状态和刷新。
+- [x] 贡献卡片携带对应 `version_id` 跳转到公开版本时间线。
+- [x] 时间线支持 `?version={version_id}` 深链，自动展开并滚动定位到指定版本。
+- [x] 时间线展示版本发布时冻结的署名与贡献内容；署名仍可跳转对应公开主页。
+- [x] 后端回归测试扩展：公开时间线的冻结署名、私有阶段版本过滤、草稿过滤、非 active Idea 404；公开贡献记录分页与非 active Idea 隔离。
+- [ ] 对最新代码运行 Backend pytest、Flutter test/analyze 和 Android Debug APK CI。
+- [ ] PostgreSQL migrations 001/002/003 仍未执行。
