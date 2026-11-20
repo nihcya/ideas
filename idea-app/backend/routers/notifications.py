@@ -101,12 +101,37 @@ async def mark_read(
         except ValueError:
             continue
 
+    # Mark-read must enforce the same current resource ACL as list retrieval.
+    # Otherwise a stale notification ID could still be operated on after access
+    # to its private Idea has been revoked.
+    visible_linked_idea = select(Idea.id).where(
+        Idea.id == Notification.idea_id,
+        or_(
+            Idea.author_id == user.id,
+            and_(
+                Idea.publication_status == "published",
+                Idea.visibility == "public",
+                Idea.status == "active",
+            ),
+            select(IdeaAccessGrant.id).where(
+                IdeaAccessGrant.idea_id == Idea.id,
+                IdeaAccessGrant.user_id == user.id,
+                IdeaAccessGrant.status == "accepted",
+            ).exists(),
+        ),
+    ).exists()
+    visible_notification = or_(
+        Notification.idea_id.is_(None),
+        visible_linked_idea,
+    )
+
     result = await db.execute(
         update(Notification)
         .where(
             Notification.user_id == user.id,
             Notification.id.in_(ids),
             Notification.read == False,
+            visible_notification,
         )
         .values(read=True)
     )
