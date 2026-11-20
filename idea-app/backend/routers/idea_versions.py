@@ -89,6 +89,45 @@ def _version_payload(version: IdeaVersion, attributions: list[IdeaVersionContrib
     }
 
 
+
+
+@router.get("/public")
+async def list_public_versions(
+    idea_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Read-only published version timeline for currently public Ideas."""
+    idea_result = await db.execute(
+        select(Idea).where(
+            Idea.id == idea_id,
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
+        )
+    )
+    if idea_result.scalar_one_or_none() is None:
+        raise _not_found()
+
+    result = await db.execute(
+        select(IdeaVersion)
+        .where(
+            IdeaVersion.idea_id == idea_id,
+            IdeaVersion.status == "published",
+        )
+        .order_by(IdeaVersion.version_number.desc())
+    )
+    versions = result.scalars().all()
+    items = []
+    for version in versions:
+        attr_result = await db.execute(
+            select(IdeaVersionContribution).where(
+                IdeaVersionContribution.version_id == version.id
+            )
+        )
+        items.append(_version_payload(version, attr_result.scalars().all()))
+    return {"items": items}
+
+
 @router.get("")
 async def list_versions(idea_id: uuid.UUID, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     await _owned_private_idea(db, idea_id, user)
