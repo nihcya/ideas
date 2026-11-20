@@ -75,3 +75,18 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 未执行任何 SQL 或数据迁移。
 - 未运行 pytest、Flutter test、build 或部署。
 - 未合并 PR #2 或修改 `main`。
+
+
+## 7. V2 ACL 追加复审（2026-11-20）
+
+本次继续审查 Spark 与通知路由后，发现并修复以下边界：
+
+- `GET /api/notifications`：通知记录可能在私有 Idea 访问权撤销后继续存在。现在按通知关联的 Idea 在读取时重新执行 `can_view_idea`；无法访问或关联 Idea 已不存在的通知不返回。
+- 未读数：改为在全部未读通知中重新核验关联 Idea 的可见性，不再错误地只统计当前分页。
+- `POST /api/ideas/collide`：拒绝将同一个 Idea ID 同时作为两个碰撞来源，返回 422 `DUPLICATE_SOURCE`。
+- `POST /api/spark/submit`：新建 Idea 依赖 ORM 的 `draft/private` 默认值；本次静态检查未发现 Spark 路由直接向其他用户公开读取提交内容的入口。
+
+仍需注意：
+- 通知列表当前是在分页取数后过滤不可见记录，单页返回数量可能少于 limit；后续可优化为数据库层 ACL 过滤。
+- 对于 `idea_id IS NULL` 的历史通知，服务端已无法可靠追溯其原始 Idea，当前按非 Idea 关联通知处理；如历史通知文案曾内嵌私有内容，需要单独的数据清理策略。
+- 本轮为静态代码检查和 GitHub 文件提交；没有运行 pytest、API 集成测试或部署环境验证。
