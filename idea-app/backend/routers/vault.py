@@ -15,6 +15,7 @@ from schemas.vault import (
 from services.cache import cache, key_user_vault
 from services.rate_limit import limiter, DEFAULT_LIMIT
 from routers.ideas import _calc_size_score
+from services.idea_access import can_view_idea
 
 router = APIRouter(prefix="/vault", tags=["vault"])
 
@@ -99,19 +100,7 @@ async def remove_from_vault(
 
     await db.delete(vault_item)
 
-    # 如果点子未被 fork 过，物理删除
-    fork_result = await db.execute(
-        select(func.count()).select_from(ForkRelation).where(
-            (ForkRelation.parent_id == idea_id) | (ForkRelation.child_id == idea_id)
-        )
-    )
-    fork_count = fork_result.scalar() or 0
-    if fork_count == 0:
-        idea_result = await db.execute(select(Idea).where(Idea.id == idea_id))
-        idea = idea_result.scalar_one_or_none()
-        if idea:
-            await db.delete(idea)
-
+    # Removing a VaultItem is a personal collection action, never an Idea deletion.
     await db.commit()
     await cache.delete(key_user_vault(str(user.id)))
     return RemoveResponse(removed=True, idea_id=str(idea_id))
@@ -128,7 +117,7 @@ async def collect_idea(
     # 验证点子存在
     idea_result = await db.execute(select(Idea).where(Idea.id == idea_id))
     idea = idea_result.scalar_one_or_none()
-    if idea is None:
+    if idea is None or not await can_view_idea(db, idea, user.id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}},
