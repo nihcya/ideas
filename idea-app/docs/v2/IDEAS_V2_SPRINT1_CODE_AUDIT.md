@@ -1,0 +1,77 @@
+# IDEAS V2.0 — Sprint 1 源码基线审计
+
+> 审计分支：`feature/ideas-v2-foundation`  
+> 审计基线：PR #2 head `dce39532165a77d10c06fd9e2fb5a79e3060d252`  
+> 范围：后端 ORM、FastAPI 路由、Pydantic schemas、数据库初始化、SQL schema 与现有测试。  
+> 本文是代码静态审计记录；未连接生产数据库，未执行应用测试或迁移。
+
+## 1. 结论
+
+当前代码尚未具备安全引入「默认私有 + 显式发布 + 授权约束衍生 + 私有邀请」的条件。主要原因不是单一字段缺失，而是读取入口、衍生入口、缓存和数据库迁移策略均以“所有 active Idea 可公开访问”为前提。
+
+Sprint 1 应先建立统一的 Idea 可见性/授权服务，再逐个接入所有读取和写入路由。不能只在 Explore 页面加过滤。
+
+## 2. 已确认的代码事实与风险
+
+| 优先级 | 文件 | 现状 | V2.0 改造要求 |
+|---|---|---|---|
+| P0 | `backend/models/idea.py` | Idea 没有 publication_status、visibility、license 等字段；`status` 是 active/fading/faded/rejected 内容状态 | 新增独立发布、可见性、授权及撤回字段；不复用 status |
+| P0 | `backend/routers/ideas.py` | Explore 仅按 status=active 查询；详情仅排除 rejected；未校验作者/访问授权 | 所有查询统一过滤公开或当前用户有权访问的 Idea |
+| P0 | `backend/routers/ideas.py` | Explore 缓存键仅含 offset，且未区分用户/权限 | 公开内容与用户私有内容分开缓存；或权限查询不缓存；禁止跨用户缓存泄露 |
+| P0 | `backend/routers/ideas.py` | Fork 只检查父节点存在、status 和 is_forkable | 检查调用者读权限、父节点发布状态、授权状态、许可是否允许衍生；写入来源授权快照 |
+| P0 | `backend/routers/evolve.py` | Collide/Evolve 生成与确认入口直接按 ID 读取父 Idea，未执行访问控制或授权检查 | AI 预览与确认入库均执行权限校验；确认时再次校验并保存每个父节点授权快照 |
+| P0 | `backend/routers/vault.py` | collect 仅检查 Idea 存在；可收藏未授权私有内容 | collect 必须验证当前用户访问权限 |
+| P0 | `backend/routers/vault.py` | 移除仓库时，在无血缘关系时会物理删除 Idea | 区分“从我的仓库移除”和“作者撤回/归档”；不得因单个 VaultItem 删除而物理删除创意 |
+| P1 | `backend/routers/users.py` | 用户公开资料的 circles 从 VaultItem 读取，未过滤公开可见性 | 公开 profile 只返回公开且可展示的 Idea；私有内容仅对有权用户可见 |
+| P1 | `backend/models/fork_relation.py` | 仅存 child/parent/type/angle，无授权快照 | 增加 JSON metadata 或独立快照表；快照应记录来源授权版本、作者、时间和允许用途 |
+| P1 | `backend/models/__init__.py` | 尚无 IdeaAccessGrant 模型 | 新增邀请/授权成员模型，pending 不授予访问权，接受后生效，可撤销 |
+| P1 | `backend/schemas/idea.py` | 创建请求仅有 content；响应无 publication/visibility/license 字段 | 增加发布与授权 schemas；服务端默认 draft/private，不能信任客户端默认值 |
+| P1 | `backend/database.py` | SQLite 启动使用 metadata.create_all；PostgreSQL 启动不执行 schema migration | 引入版本化迁移；SQLite 和 PostgreSQL 分别验证升级路径；启动时不静默执行破坏性迁移 |
+| P1 | `backend/db/schema.sql` | 当前 SQL schema 与 ORM 为静态初始建表定义，无 V2.0 迁移历史 | 维护可审查、可回滚的增量迁移，不直接覆盖生产 schema |
+| P2 | `backend/tests/` | 当前测试主要覆盖并发与缓存，没有私有权限、授权和衍生权限测试 | 增加匿名/作者/受邀者/无关用户矩阵、授权过期、撤回父节点、缓存隔离、并发邀请测试 |
+
+## 3. 必须覆盖的入口
+
+### 读取入口
+- `GET /api/ideas/explore`
+- `GET /api/ideas/{idea_id}`
+- `GET /api/vault`
+- `GET /api/users/{user_id}`
+- 血缘图中的父节点和子节点查询
+- 任何通过 ID 直接读取 Idea 内容的内部服务或后续接口
+
+### 衍生/收藏入口
+- `POST /api/ideas/fork`
+- `POST /api/ideas/collide`
+- `POST /api/ideas/collide/confirm`
+- `POST /api/ideas/evolve`
+- `POST /api/ideas/evolve/confirm`
+- `POST /api/vault/{idea_id}/collect`
+
+Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户在权限被撤销后仍使用旧预览结果入库。
+
+## 4. 数据库与迁移阻塞项
+
+1. 仓库当前未发现 Alembic 迁移目录或版本化迁移机制。
+2. SQLite 的 `create_all` 只创建缺失表，不会为既有表补列。
+3. PostgreSQL 启动路径没有执行 schema migration。
+4. V2.0 SQL 草案不能直接作为生产迁移执行；需先验证 FK、索引、默认值、JSON 类型、约束命名和重复执行行为。
+5. 必须核实生产环境中 Explore、详情、用户主页等查询的真实公开条件，不能仅凭 `status=active` 推断历史内容全部公开。
+6. 历史授权过渡期与到期处理仍是产品决策；代码应配置化，不应写死 90 天。
+
+## 5. 推荐实施顺序
+
+1. 建立可见性与授权领域模型：Idea 发布字段、IdeaAccessGrant、来源授权快照。
+2. 建立统一服务：`can_view_idea`、`can_derive_from_idea`、`can_manage_idea`，并统一 404/403 语义，避免泄露私有资源是否存在。
+3. 建立迁移：PostgreSQL 版本化迁移 + SQLite 既有库升级脚本；先 dry-run/备份/核验，再执行。
+4. 先封闭读取入口和缓存隔离，再接入 Fork/Collide/Evolve/Collect。
+5. 实现发布、撤回、邀请/接受/撤销 API。
+6. 补充权限矩阵、授权快照、DAG 和回归测试。
+7. 最后接 Flutter 页面与 API client，保证旧客户端兼容窗口。
+
+## 6. 本轮未执行事项
+
+- 未连接或读取生产数据库。
+- 未执行任何 SQL 或数据迁移。
+- 未运行 pytest、Flutter test、build 或部署。
+- 未合并 PR #2 或修改 `main`。
