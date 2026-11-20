@@ -62,7 +62,7 @@ async def get_vault(
     forked_by_result = await db.execute(
         select(func.count()).select_from(ForkRelation)
         .join(Idea, Idea.id == ForkRelation.parent_id)
-        .where(Idea.author_id == user.id)
+        .where(Idea.author_id == user.id, visible_to_user)
     )
     forked_by_others = forked_by_result.scalar() or 0
 
