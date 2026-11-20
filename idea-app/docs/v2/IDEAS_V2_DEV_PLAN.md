@@ -295,3 +295,15 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [ ] 本阶段新增 Flutter 页面和 API 的最新 CI 尚待确认。
 - [ ] 贡献记录目前每次请求默认展示前 20 条；前端“加载更多”分页交互尚未实现。
 - [ ] PostgreSQL migrations 001/002/003 仍未执行。
+
+
+
+### 13.12 公开创意持续版本管理（产品决策确认：2026-11-20）
+
+- [x] 产品负责人确认公开创意作者可在发布后持续创建、编辑和发布新版本。
+- [x] 后端版本管理权限边界调整：作者可管理私有工作态创意，以及 active + published + public 创意；其他用户统一 404。
+- [x] 公开版本发布只更新 Idea.content 与版本快照，不改变 visibility、publication_status、license、allow_fork 或 Idea.published_at。
+- [x] 版本列表与差异对比保持作者专属；公开时间线仍只展示创意公开后发布的版本，私有阶段版本不追溯公开。
+- [x] Flutter 创意详情页对作者显示公开创意的版本管理入口。
+- [ ] 对本轮代码变更运行 CI，确认 Backend、Flutter test/analyze 和 Android Debug APK 全部通过。
+- [ ] PostgreSQL migrations 001/002/003 仍未执行。
