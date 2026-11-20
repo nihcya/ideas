@@ -2,7 +2,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select, func, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user
@@ -61,7 +61,29 @@ async def get_notifications(
         )
         for n in visible_rows
     ]
-    unread_count = sum(1 for n in visible_rows if not n.read)
+    unread_result = await db.execute(
+        select(Notification).where(
+            Notification.user_id == user.id, Notification.read == False
+        )
+    )
+    unread_rows = unread_result.scalars().all()
+    unread_idea_ids = {n.idea_id for n in unread_rows if n.idea_id is not None}
+    unread_ideas_result = (
+        await db.execute(select(Idea).where(Idea.id.in_(unread_idea_ids)))
+        if unread_idea_ids else None
+    )
+    unread_ideas = {
+        idea.id: idea
+        for idea in (unread_ideas_result.scalars().all() if unread_ideas_result else [])
+    }
+    unread_count = 0
+    for notification in unread_rows:
+        if notification.idea_id is None:
+            unread_count += 1
+        else:
+            idea = unread_ideas.get(notification.idea_id)
+            if idea is not None and await can_view_idea(db, idea, user.id):
+                unread_count += 1
 
     return NotificationsResponse(
         notifications=notifications,
