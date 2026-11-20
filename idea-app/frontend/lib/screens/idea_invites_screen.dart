@@ -24,6 +24,11 @@ class _IdeaInvitesScreenState extends ConsumerState<IdeaInvitesScreen> {
     _pending = ref.read(ideaServiceProvider).getPendingIdeaInvites();
   }
 
+  Future<void> _refresh() async {
+    setState(_load);
+    await _pending;
+  }
+
   Future<void> _respond(
     Map<String, dynamic> invite, {
     required bool accept,
@@ -74,7 +79,7 @@ class _IdeaInvitesScreenState extends ConsumerState<IdeaInvitesScreen> {
             return const Center(child: Text('暂时没有待处理的创意邀请'));
           }
           return RefreshIndicator(
-            onRefresh: () async => setState(_load),
+            onRefresh: _refresh,
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: items.length,
