@@ -188,6 +188,7 @@ class _IdeaContributionsScreenState
                 ...items.map((item) {
                   final status = item['status'] as String? ?? '';
                   final id = item['id'] as String;
+                  final publishedVersion = item['published_version'] as Map<String, dynamic>?;
                   return Card(
                     margin: const EdgeInsets.only(bottom: 10),
                     child: Padding(
@@ -235,8 +236,6 @@ class _IdeaContributionsScreenState
                               ],
                             ),
                           ],
-                          final publishedVersion =
-                              item['published_version'] as Map<String, dynamic>?;
                           if (publishedVersion != null) ...[
                             const SizedBox(height: 10),
                             Row(
