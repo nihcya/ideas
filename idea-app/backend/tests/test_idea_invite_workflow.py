@@ -92,3 +92,37 @@ async def test_private_invite_can_be_declined(monkeypatch, db_session):
     )
     assert declined["declined"] is True
     assert await can_view_idea(db_session, idea, invitee.id) is False
+
+
+
+@pytest.mark.asyncio
+async def test_pending_invite_cannot_be_accepted_after_idea_becomes_public(monkeypatch, db_session):
+    from fastapi import HTTPException
+    from models import IdeaAccessGrant
+
+    async def noop_delete(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(ideas_router.cache, "delete", noop_delete)
+    owner = await _user(db_session, "invite_stale_owner")
+    invitee = await _user(db_session, "invite_stale_invitee")
+    idea = await _private_idea(db_session, owner.id)
+    created = await ideas_router.invite_to_private_idea(
+        idea.id,
+        IdeaInviteRequest(user_id=str(invitee.id), role="viewer"),
+        db_session,
+        owner,
+    )
+    invite_id = uuid.UUID(created["invite_id"])
+
+    idea.visibility = "public"
+    await db_session.flush()
+    with pytest.raises(HTTPException) as exc:
+        await ideas_router.accept_private_idea_invite(
+            idea.id, invite_id, db_session, invitee
+        )
+    assert exc.value.status_code == 409
+
+    grant = await db_session.get(IdeaAccessGrant, invite_id)
+    assert grant.status == "pending"
+    assert await can_view_idea(db_session, idea, invitee.id) is True
