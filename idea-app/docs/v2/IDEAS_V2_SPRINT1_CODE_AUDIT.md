@@ -192,3 +192,14 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 新增后端测试覆盖有效差异、草稿不可比较和非作者不可访问。
 - 最新代码已触发 GitHub Actions；该轮 CI 尚未完成，不能据此宣称差异功能已通过测试。
 - 所有 PostgreSQL migrations 001/002/003 仍未执行；未连接生产数据库。
+
+
+## 16. 贡献者公开主页记录审计（2026-11-20）
+
+- 新增 `GET /api/users/{user_id}/contributions`，以 `IdeaVersionContribution` 的冻结署名为数据源。
+- SQL 查询同时约束版本为 published、Idea 为 published + public + active；私有创意、草稿版本和撤回/非 active 内容不进入公开结果。
+- 返回贡献文本快照、作者名快照、版本号、版本快照内容和发布时间；避免使用当前可变贡献正文覆盖历史署名。
+- Flutter 当前“我”主页新增贡献记录列表，支持打开对应 Idea；加载、空态和错误态均有处理。
+- 新增测试覆盖公开、私有及草稿记录隔离。
+- 需在最新 GitHub Actions 中确认新增后端测试和 Flutter analyze/test/build；未通过 CI 前不标记运行验证完成。
+- 未执行 PostgreSQL migrations 001/002/003；未连接生产数据库。
