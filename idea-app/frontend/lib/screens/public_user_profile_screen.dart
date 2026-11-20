@@ -151,7 +151,7 @@ class PublicUserProfileScreen extends ConsumerWidget {
                           trailing: const Icon(Icons.chevron_right),
                           onTap: ideaId.isEmpty
                               ? null
-                              : () => context.push('/idea/$ideaId'),
+                              : () => context.push('/idea/$ideaId/timeline'),
                         ),
                       );
                     }).toList(),
