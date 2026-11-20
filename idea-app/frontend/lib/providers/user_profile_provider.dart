@@ -25,3 +25,9 @@ class UserProfileNotifier extends FamilyAsyncNotifier<UserProfile, String> {
 final userProfileProvider =
     AsyncNotifierProvider.family<UserProfileNotifier, UserProfile, String>(
         UserProfileNotifier.new);
+
+/// 用户已公开贡献记录；仅展示已发布公开版本中的署名。
+final userContributionsProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>((ref, userId) {
+  return ref.read(userServiceProvider).getUserContributions(userId);
+});
