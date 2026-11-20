@@ -260,6 +260,32 @@ async def _migrate_sqlite_columns() -> None:
                 await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
                 print(f"[database] Migrated: {table}.{column} added")
 
+        # One-time legacy backfill for existing SQLite databases. Fresh databases have no
+        # rows at this point; newly-created Ideas after this marker keep draft/private defaults.
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS app_schema_migrations "
+            "(version VARCHAR(120) PRIMARY KEY, applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+        ))
+        applied = await conn.execute(text(
+            "SELECT version FROM app_schema_migrations WHERE version = '001_idea_visibility_and_acl'"
+        ))
+        if applied.scalar_one_or_none() is None:
+            await conn.execute(text("""
+                UPDATE ideas
+                SET publication_status = 'published',
+                    visibility = 'public',
+                    license_code = 'legacy_unspecified',
+                    allow_fork = 0,
+                    is_forkable = 0,
+                    legacy_license_review_status = 'pending',
+                    published_at = COALESCE(published_at, created_at)
+                WHERE status = 'active'
+            """))
+            await conn.execute(text(
+                "INSERT INTO app_schema_migrations(version) VALUES ('001_idea_visibility_and_acl')"
+            ))
+            print("[database] SQLite legacy Idea visibility backfill applied")
+
 
 async def _ensure_today_spark_question() -> None:
     """PG 环境启动时确保当日「今日一点」题目存在。
