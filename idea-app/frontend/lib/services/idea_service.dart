@@ -122,6 +122,39 @@ class IdeaService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getPendingIdeaInvites() async {
+    try {
+      final res = await _dio.get('/ideas/invites/inbox');
+      return ((res.data as Map<String, dynamic>)['items'] as List<dynamic>)
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getIdeaInvites(String ideaId) async {
+    try {
+      final res = await _dio.get('/ideas/$ideaId/invites');
+      return ((res.data as Map<String, dynamic>)['items'] as List<dynamic>)
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  Future<void> declinePrivateIdeaInvite({
+    required String ideaId,
+    required String inviteId,
+  }) async {
+    try {
+      await _dio.post('/ideas/$ideaId/invites/$inviteId/decline');
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
   /// Fork 一个点子（联想引导后提交）
   Future<ForkResponse> forkIdea({
     required String parentId,
