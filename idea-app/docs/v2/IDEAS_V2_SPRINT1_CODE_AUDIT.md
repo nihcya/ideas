@@ -181,3 +181,14 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - [ ] 新增反向追溯测试已在 GitHub Actions 通过；后端测试总计 40 passed。
 - [ ] PostgreSQL migration 003 尚未执行。
 - [x] Android Gradle Wrapper 版本已提升至 9.3.1，以满足当前 Flutter SDK 的最低要求；构建结果待 CI 确认。
+
+
+## 15. 版本差异对比第三阶段（2026-11-20）
+
+- 新增 `GET /api/ideas/{idea_id}/versions/{version_id}/diff?against_version_id={uuid}`。
+- 接口仅允许 Idea 作者访问；两端版本必须属于同一 Idea 且均为 published，草稿和不存在/越权资源统一按 404 处理。
+- 使用字符级 SequenceMatcher 返回 equal / insert / delete / replace 片段，避免当前短文本内容均为单行时行级 diff 无法呈现有效差异。
+- Flutter 版本历史为每个非最旧版本提供与上一版本对比入口，并以删除/新增文本区分展示。
+- 新增后端测试覆盖有效差异、草稿不可比较和非作者不可访问。
+- 最新代码已触发 GitHub Actions；该轮 CI 尚未完成，不能据此宣称差异功能已通过测试。
+- 所有 PostgreSQL migrations 001/002/003 仍未执行；未连接生产数据库。
