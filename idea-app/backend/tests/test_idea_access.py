@@ -101,7 +101,7 @@ async def test_private_draft_cannot_be_used_as_derivative_source_even_by_owner(d
 
 
 @pytest.mark.asyncio
-async def test_accepted_invitee_can_derive_from_published_private_idea_when_license_allows(db_session):
+async def test_accepted_invitee_can_view_but_not_derive_private_idea(db_session):
     owner = await _user(db_session, "private_source_owner")
     invitee = await _user(db_session, "private_source_invitee")
     idea = await _idea(
@@ -121,4 +121,4 @@ async def test_accepted_invitee_can_derive_from_published_private_idea_when_lice
     ))
     await db_session.flush()
     assert await can_view_idea(db_session, idea, invitee.id) is True
-    assert await can_derive_from_idea(db_session, idea, invitee.id) is True
+    assert await can_derive_from_idea(db_session, idea, invitee.id) is False
