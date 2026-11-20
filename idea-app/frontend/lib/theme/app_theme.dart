@@ -165,6 +165,21 @@ class AppColors extends ThemeExtension<AppColors> {
   /// 谱系图连接线颜色。
   final Color lineageLine;
 
+  /// 碰撞强调色（碰撞按钮主色，蓝紫）。
+  final Color collideAccent;
+
+  /// 碰撞按钮渐变第二色（浅蓝紫）。
+  final Color collideAccentLight;
+
+  /// 演化强调色（演化按钮主色，绿青）。
+  final Color evolveAccent;
+
+  /// 演化按钮渐变第二色（浅绿青）。
+  final Color evolveAccentLight;
+
+  /// 碰撞↔演化连接线渐变的青色端。
+  final Color linkCyan;
+
   const AppColors({
     required this.background,
     required this.surface,
@@ -177,6 +192,11 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.success,
     required this.forkAccent,
     required this.lineageLine,
+    required this.collideAccent,
+    required this.collideAccentLight,
+    required this.evolveAccent,
+    required this.evolveAccentLight,
+    required this.linkCyan,
   });
 
   static const AppColors dark = AppColors(
@@ -191,6 +211,11 @@ class AppColors extends ThemeExtension<AppColors> {
     success: Color(0xFF4ECDC4),
     forkAccent: Color(0xFFB5A8E8),
     lineageLine: Color(0xFF6B6B70),
+    collideAccent: Color(0xFF6C5CE7),
+    collideAccentLight: Color(0xFFA29BFE),
+    evolveAccent: Color(0xFF00B894),
+    evolveAccentLight: Color(0xFF55EFC4),
+    linkCyan: Color(0xFF00CEC9),
   );
 
   static const AppColors light = AppColors(
@@ -205,6 +230,11 @@ class AppColors extends ThemeExtension<AppColors> {
     success: Color(0xFF4ECDC4),
     forkAccent: Color(0xFFB5A8E8),
     lineageLine: Color(0xFF6B6B70),
+    collideAccent: Color(0xFF6C5CE7),
+    collideAccentLight: Color(0xFFA29BFE),
+    evolveAccent: Color(0xFF00B894),
+    evolveAccentLight: Color(0xFF55EFC4),
+    linkCyan: Color(0xFF00CEC9),
   );
 
   static AppColors forBrightness(Brightness b) =>
@@ -227,6 +257,11 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? success,
     Color? forkAccent,
     Color? lineageLine,
+    Color? collideAccent,
+    Color? collideAccentLight,
+    Color? evolveAccent,
+    Color? evolveAccentLight,
+    Color? linkCyan,
   }) {
     return AppColors(
       background: background ?? this.background,
@@ -240,6 +275,11 @@ class AppColors extends ThemeExtension<AppColors> {
       success: success ?? this.success,
       forkAccent: forkAccent ?? this.forkAccent,
       lineageLine: lineageLine ?? this.lineageLine,
+      collideAccent: collideAccent ?? this.collideAccent,
+      collideAccentLight: collideAccentLight ?? this.collideAccentLight,
+      evolveAccent: evolveAccent ?? this.evolveAccent,
+      evolveAccentLight: evolveAccentLight ?? this.evolveAccentLight,
+      linkCyan: linkCyan ?? this.linkCyan,
     );
   }
 
@@ -258,6 +298,13 @@ class AppColors extends ThemeExtension<AppColors> {
       success: Color.lerp(success, other.success, t)!,
       forkAccent: Color.lerp(forkAccent, other.forkAccent, t)!,
       lineageLine: Color.lerp(lineageLine, other.lineageLine, t)!,
+      collideAccent: Color.lerp(collideAccent, other.collideAccent, t)!,
+      collideAccentLight:
+          Color.lerp(collideAccentLight, other.collideAccentLight, t)!,
+      evolveAccent: Color.lerp(evolveAccent, other.evolveAccent, t)!,
+      evolveAccentLight:
+          Color.lerp(evolveAccentLight, other.evolveAccentLight, t)!,
+      linkCyan: Color.lerp(linkCyan, other.linkCyan, t)!,
     );
   }
 }

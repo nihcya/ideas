@@ -175,6 +175,9 @@ async def lifespan(app: FastAPI):
     # API Key 加密密钥校验
     if settings.app_env == "prod" and not settings.llm_key_encryption_key:
         raise RuntimeError("[FATAL] LLM_KEY_ENCRYPTION_KEY 未设置，生产环境拒绝启动")
+    # 生产环境禁止 Mock 模式（无全局 DeepSeek Key 时审核恒为 pass，等于内容裸奔）
+    if settings.app_env == "prod" and not settings.is_deepseek_configured:
+        raise RuntimeError("[FATAL] DEEPSEEK_API_KEY 未设置，生产环境禁止 Mock 模式，拒绝启动")
 
     print("[startup] initializing database...")
     await init_engine()

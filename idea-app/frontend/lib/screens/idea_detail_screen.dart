@@ -132,13 +132,13 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
         RadialMenuItem(
           label: '碰撞',
           icon: Icons.bolt,
-          color: const Color(0xFF6C5CE7),
+          color: AppColors.of(context).collideAccent,
           onTap: () => _startCollide(context),
         ),
         RadialMenuItem(
           label: '演化',
           icon: Icons.eco,
-          color: const Color(0xFF00B894),
+          color: AppColors.of(context).evolveAccent,
           onTap: () => _startEvolve(context),
         ),
       ],

@@ -65,7 +65,7 @@ class AuthService {
     }
     // M7: 不在日志中输出 userId/username 明文
     if (kDebugMode) {
-      debugPrint('Auth response parsed: user_id=${json['user_id']}');
+      debugPrint('Auth response parsed');
     }
     return AuthResult.fromJson(json);
   }

@@ -1,0 +1,6 @@
+# 本地安装的 Flutter SDK（沙箱友好位置，勿提交）
+.flutter/
+.pub-cache/
+.flutter-config/
+.flutter-bin/
+.flutter_sdk.zip

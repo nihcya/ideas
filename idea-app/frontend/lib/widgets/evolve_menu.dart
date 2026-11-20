@@ -172,8 +172,10 @@ class _EvolveMenuState extends State<EvolveMenu>
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFF6C5CE7).withValues(alpha: 0.6),
-                        const Color(0xFF00CEC9).withValues(alpha: 0.6),
+                        AppColors.of(context)
+                            .collideAccent
+                            .withValues(alpha: 0.6),
+                        AppColors.of(context).linkCyan.withValues(alpha: 0.6),
                       ],
                     ),
                   ),
@@ -206,7 +208,10 @@ class _EvolveMenuState extends State<EvolveMenu>
                 child: _buildOptionButton(
                   label: '碰撞',
                   icon: Icons.bolt,
-                  colors: const [Color(0xFF6C5CE7), Color(0xFFA29BFE)],
+                  colors: [
+                    AppColors.of(context).collideAccent,
+                    AppColors.of(context).collideAccentLight,
+                  ],
                   onTap: _onCollide,
                 ),
               ),
@@ -217,7 +222,10 @@ class _EvolveMenuState extends State<EvolveMenu>
                 child: _buildOptionButton(
                   label: '演化',
                   icon: Icons.eco,
-                  colors: const [Color(0xFF00B894), Color(0xFF55EFC4)],
+                  colors: [
+                    AppColors.of(context).evolveAccent,
+                    AppColors.of(context).evolveAccentLight,
+                  ],
                   onTap: _onEvolve,
                 ),
               ),

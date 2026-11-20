@@ -59,6 +59,9 @@ class CountdownRingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CountdownRingPainter oldDelegate) {
-    return progress != oldDelegate.progress || color != oldDelegate.color;
+    return progress != oldDelegate.progress ||
+        color != oldDelegate.color ||
+        backgroundColor != oldDelegate.backgroundColor ||
+        strokeWidth != oldDelegate.strokeWidth;
   }
 }
