@@ -169,3 +169,15 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 首次 `flutter analyze` 因项目现存 62 条 info 级提示返回非零；未发现 warning/error 级输出。CI 已调整为 `flutter analyze --no-fatal-infos`，保留 warning/error 失败门槛，正在重新执行。
 - Android Debug build 尚待该轮 Flutter analyze 通过后执行。
 - PostgreSQL migration 003 未执行。
+
+
+## 14. 版本历史与贡献归属反向追溯审计（2026-11-20）
+
+- [x] 贡献列表通过左连接版本归属，仅对已发布版本暴露归属关系；草稿阶段关联不会显示为正式归属。
+- [x] 版本历史返回冻结的贡献作者名与贡献内容快照。
+- [x] 协作者只能在自己的贡献列表看到自己的贡献及其已发布归属；作者可以查看该 Idea 全部贡献。
+- [x] Flutter 版本历史展示每条署名与贡献文本，贡献卡片提供版本跳转。
+- [x] 已消费贡献不能再次进入新版本草稿选择。
+- [ ] 需要在 CI 中执行新增反向追溯测试，确认 SQLite 外连接行为。
+- [ ] PostgreSQL migration 003 尚未执行。
+- [x] Android Gradle Wrapper 版本已提升至 9.3.1，以满足当前 Flutter SDK 的最低要求；构建结果待 CI 确认。
