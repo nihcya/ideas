@@ -243,3 +243,21 @@ class EvolveConfirmResponse(BaseModel):
     border_style: BorderStyle = Field(
         ..., description="边框样式：gold-thin（自己产生）/ none（收集的）"
     )
+
+
+
+class IdeaPublishRequest(BaseModel):
+    """Explicit author confirmation required before public publication."""
+    visibility: Literal["public", "private"] = "public"
+    license_code: Literal[
+        "all_rights_reserved", "attribution", "attribution_adaptation", "custom"
+    ]
+    license_custom_text: str | None = Field(None, max_length=5000)
+    license_version: str = Field("v1", min_length=1, max_length=32)
+    allow_fork: bool = False
+    confirm_terms: bool = True
+
+
+class IdeaInviteRequest(BaseModel):
+    user_id: str = Field(..., description="被邀请用户 UUID")
+    role: Literal["contributor", "viewer"] = "viewer"
