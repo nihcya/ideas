@@ -141,3 +141,24 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - `legacy_license_review_status=pending` 的历史公开 Idea 可读但不能新建衍生节点；作者补充并确认授权后转为 `confirmed`，再按新授权策略开放相应操作。
 - 作者撤回父 Idea 后，子节点不级联删除。按每条来源关系保存的授权快照决定是否可继续公开和再衍生；快照缺失/含糊时先限制公开传播并进入人工审核。
 - 私有 Idea 的直接访问 ACL 与协作项目成员表分离。所有内容、版本、附件、评论和血缘查询必须统一执行 ACL 检查。
+
+
+## 13. Sprint 1 实施进展（2026-11-20）
+
+已提交到本功能分支：
+- [x] Idea ORM 增加 publication_status、visibility、license、allow_fork 和 legacy review 字段。
+- [x] 新增 IdeaAccessGrant 模型及统一查看/衍生权限服务。
+- [x] Explore、详情和血缘查询增加权限过滤；Explore 缓存按用户、limit、offset 隔离。
+- [x] Fork、Collide、Evolve 在执行前校验授权，并保存来源授权快照。
+- [x] 新增发布、撤回、私有 Idea 邀请、接受和撤销 API。
+- [x] Vault 收藏校验访问权；移除 VaultItem 不再物理删除 Idea；Vault 列表和计数过滤已撤销的私有访问。
+- [x] 新增 PostgreSQL 手动迁移脚本及 SQLite 既有库增量列迁移/一次性历史回填逻辑。
+- [x] 新增权限服务测试用例（尚未执行）。
+
+仍待完成：
+- [ ] 审查 PostgreSQL migration 与线上 schema/data 的差异，执行前完成备份和 preflight。
+- [ ] 执行 pytest 并修复失败用例；补充 API 级越权、缓存隔离、撤销和并发测试。
+- [ ] 补齐 Spark、通知、其他直接读取入口的权限审查。
+- [ ] Flutter API client、创建/发布页面和详情授权 UI 改造。
+- [ ] 法律授权文案、90 天通知节奏和到期处理规则确认。
+- [ ] 在实际部署环境验证 PostgreSQL/SQLite 升级、回滚和旧客户端兼容。
