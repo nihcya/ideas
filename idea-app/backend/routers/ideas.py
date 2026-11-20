@@ -8,11 +8,11 @@ from sqlalchemy import select, func, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user, get_optional_user
-from models import User, Idea, VaultItem, ForkRelation, Notification, IdeaAccessGrant
+from models import User, Idea, VaultItem, ForkRelation, Notification, IdeaAccessGrant, IdeaContribution
 from schemas.idea import (
     IdeaCreate, IdeaForkRequest, CircleData, ExploreResponse,
     LineageNode, Lineage, IdeaDetail, IdeaResponse, ForkResponse,
-    IdeaPublishRequest, IdeaInviteRequest,
+    IdeaPublishRequest, IdeaInviteRequest,\n    IdeaContributionCreate, IdeaContributionUpdate, IdeaContributionReview,
 )
 from schemas.common import SuccessResponse
 from services.color_pool import random_color
@@ -700,3 +700,204 @@ async def revoke_private_idea_invite(
     await cache.delete(key_idea_detail(str(idea_id)))
     await cache.delete(key_user_vault(str(grant.user_id)))
     return {"revoked": True, "invite_id": str(invite_id)}
+
+# ============================================================
+# Private Idea async contributions
+# ============================================================
+
+async def _get_private_collaboration_idea(db: AsyncSession, idea_id: uuid.UUID) -> Idea:
+    result = await db.execute(select(Idea).where(Idea.id == idea_id))
+    idea = result.scalar_one_or_none()
+    if (
+        idea is None
+        or idea.visibility != "private"
+        or idea.status == "rejected"
+        or idea.publication_status == "archived"
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail={"error": {"code": "IDEA_NOT_FOUND", "message": "私有创意不存在或不可协作"}},
+        )
+    return idea
+
+
+async def _require_accepted_contributor(
+    db: AsyncSession, idea_id: uuid.UUID, user_id: uuid.UUID
+) -> IdeaAccessGrant:
+    result = await db.execute(
+        select(IdeaAccessGrant).where(
+            IdeaAccessGrant.idea_id == idea_id,
+            IdeaAccessGrant.user_id == user_id,
+            IdeaAccessGrant.status == "accepted",
+            IdeaAccessGrant.role == "contributor",
+        )
+    )
+    grant = result.scalar_one_or_none()
+    if grant is None:
+        raise HTTPException(
+            status_code=403,
+            detail={"error": {"code": "CONTRIBUTOR_ACCESS_REQUIRED", "message": "需要接受协作者邀请后才能提交贡献"}},
+        )
+    return grant
+
+
+@router.post("/{idea_id}/contributions", status_code=201)
+async def submit_idea_contribution(
+    idea_id: uuid.UUID,
+    req: IdeaContributionCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    idea = await _get_private_collaboration_idea(db, idea_id)
+    if idea.author_id == user.id:
+        raise HTTPException(status_code=400, detail={"error": {"code": "OWNER_CANNOT_CONTRIBUTE", "message": "创意作者请直接编辑自己的创意"}})
+    await _require_accepted_contributor(db, idea_id, user.id)
+    contribution = IdeaContribution(
+        idea_id=idea_id,
+        author_id=user.id,
+        content=req.content.strip(),
+        note=req.note.strip() if req.note else None,
+        status="submitted",
+    )
+    if not contribution.content:
+        raise HTTPException(status_code=422, detail={"error": {"code": "EMPTY_CONTRIBUTION", "message": "贡献内容不能为空"}})
+    db.add(contribution)
+    await db.commit()
+    await db.refresh(contribution)
+    return {
+        "id": str(contribution.id),
+        "idea_id": str(idea_id),
+        "author_id": str(user.id),
+        "content": contribution.content,
+        "note": contribution.note,
+        "status": contribution.status,
+        "created_at": contribution.created_at,
+    }
+
+
+@router.get("/{idea_id}/contributions")
+async def list_idea_contributions(
+    idea_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    idea = await _get_private_collaboration_idea(db, idea_id)
+    if idea.author_id == user.id:
+        condition = True
+    else:
+        await _require_accepted_contributor(db, idea_id, user.id)
+        condition = IdeaContribution.author_id == user.id
+    query = (
+        select(IdeaContribution, User)
+        .join(User, User.id == IdeaContribution.author_id)
+        .where(IdeaContribution.idea_id == idea_id)
+    )
+    if condition is not True:
+        query = query.where(condition)
+    query = query.order_by(IdeaContribution.created_at.desc())
+    result = await db.execute(query)
+    return {
+        "items": [
+            {
+                "id": str(item.id),
+                "author_id": str(item.author_id),
+                "author_username": author.username,
+                "content": item.content,
+                "note": item.note,
+                "status": item.status,
+                "created_at": item.created_at,
+                "reviewed_at": item.reviewed_at,
+                "review_note": item.review_note if idea.author_id == user.id or item.author_id == user.id else None,
+            }
+            for item, author in result.all()
+        ]
+    }
+
+
+@router.patch("/{idea_id}/contributions/{contribution_id}")
+async def update_idea_contribution(
+    idea_id: uuid.UUID,
+    contribution_id: uuid.UUID,
+    req: IdeaContributionUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    idea = await _get_private_collaboration_idea(db, idea_id)
+    await _require_accepted_contributor(db, idea_id, user.id)
+    result = await db.execute(
+        select(IdeaContribution).where(
+            IdeaContribution.id == contribution_id,
+            IdeaContribution.idea_id == idea_id,
+            IdeaContribution.author_id == user.id,
+            IdeaContribution.status == "submitted",
+        )
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail={"error": {"code": "CONTRIBUTION_NOT_EDITABLE", "message": "待审核贡献不存在或已锁定"}})
+    content = req.content.strip()
+    if not content:
+        raise HTTPException(status_code=422, detail={"error": {"code": "EMPTY_CONTRIBUTION", "message": "贡献内容不能为空"}})
+    item.content = content
+    item.note = req.note.strip() if req.note else None
+    await db.commit()
+    return {"updated": True, "id": str(item.id), "status": item.status}
+
+
+@router.delete("/{idea_id}/contributions/{contribution_id}")
+async def withdraw_idea_contribution(
+    idea_id: uuid.UUID,
+    contribution_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await _get_private_collaboration_idea(db, idea_id)
+    result = await db.execute(
+        select(IdeaContribution).where(
+            IdeaContribution.id == contribution_id,
+            IdeaContribution.idea_id == idea_id,
+            IdeaContribution.author_id == user.id,
+            IdeaContribution.status == "submitted",
+        )
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail={"error": {"code": "CONTRIBUTION_NOT_WITHDRAWABLE", "message": "待审核贡献不存在或已锁定"}})
+    item.status = "withdrawn"
+    await db.commit()
+    return {"withdrawn": True, "id": str(item.id)}
+
+
+@router.post("/{idea_id}/contributions/{contribution_id}/review")
+async def review_idea_contribution(
+    idea_id: uuid.UUID,
+    contribution_id: uuid.UUID,
+    req: IdeaContributionReview,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    idea = await _get_private_collaboration_idea(db, idea_id)
+    if idea.author_id != user.id:
+        raise HTTPException(status_code=404, detail={"error": {"code": "CONTRIBUTION_NOT_FOUND", "message": "贡献不存在"}})
+    result = await db.execute(
+        select(IdeaContribution).where(
+            IdeaContribution.id == contribution_id,
+            IdeaContribution.idea_id == idea_id,
+            IdeaContribution.status == "submitted",
+        )
+    )
+    item = result.scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail={"error": {"code": "CONTRIBUTION_NOT_REVIEWABLE", "message": "待审核贡献不存在或已处理"}})
+    item.status = req.decision
+    item.reviewed_by = user.id
+    item.reviewed_at = datetime.now(timezone.utc)
+    item.review_note = req.review_note.strip() if req.review_note else None
+    await db.commit()
+    return {
+        "reviewed": True,
+        "id": str(item.id),
+        "status": item.status,
+        "reviewed_at": item.reviewed_at,
+    }
+
