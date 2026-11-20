@@ -4,6 +4,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select, func, delete, or_, and_
+from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user
@@ -58,11 +59,20 @@ async def get_vault(
     )
     collected = collected_result.scalar() or 0
 
-    # 被别人 fork 的总数
+    # 只统计公开可见的衍生节点，避免通过父创意的 Fork 计数
+    # 推断其他用户创建了私有衍生创意。
+    child_idea = aliased(Idea)
     forked_by_result = await db.execute(
         select(func.count()).select_from(ForkRelation)
         .join(Idea, Idea.id == ForkRelation.parent_id)
-        .where(Idea.author_id == user.id, visible_to_user)
+        .join(child_idea, child_idea.id == ForkRelation.child_id)
+        .where(
+            Idea.author_id == user.id,
+            visible_to_user,
+            child_idea.publication_status == "published",
+            child_idea.visibility == "public",
+            child_idea.status == "active",
+        )
     )
     forked_by_others = forked_by_result.scalar() or 0
 
