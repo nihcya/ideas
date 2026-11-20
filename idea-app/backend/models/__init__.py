@@ -2,6 +2,7 @@
 from .base import Base, TimestampMixin
 from .user import User
 from .idea import Idea
+from .idea_access_grant import IdeaAccessGrant
 from .vault import VaultItem
 from .fork_relation import ForkRelation
 from .spark import SparkQuestion, SparkDraft, SparkSubmission
@@ -13,6 +14,7 @@ __all__ = [
     "TimestampMixin",
     "User",
     "Idea",
+    "IdeaAccessGrant",
     "VaultItem",
     "ForkRelation",
     "SparkQuestion",
