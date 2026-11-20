@@ -178,6 +178,6 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - [x] 协作者只能在自己的贡献列表看到自己的贡献及其已发布归属；作者可以查看该 Idea 全部贡献。
 - [x] Flutter 版本历史展示每条署名与贡献文本，贡献卡片提供版本跳转。
 - [x] 已消费贡献不能再次进入新版本草稿选择。
-- [ ] 需要在 CI 中执行新增反向追溯测试，确认 SQLite 外连接行为。
+- [ ] 新增反向追溯测试已在 GitHub Actions 通过；后端测试总计 40 passed。
 - [ ] PostgreSQL migration 003 尚未执行。
 - [x] Android Gradle Wrapper 版本已提升至 9.3.1，以满足当前 Flutter SDK 的最低要求；构建结果待 CI 确认。
