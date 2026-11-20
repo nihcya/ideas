@@ -6,7 +6,7 @@ from sqlalchemy import select, update, func, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user
-from models import User, Notification, Idea
+from models import User, Notification, Idea, IdeaAccessGrant
 from services.idea_access import can_view_idea
 from schemas.notification import (
     NotificationItem, NotificationsResponse,
