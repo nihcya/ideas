@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/explore_provider.dart';
 import '../theme/app_theme.dart';
 
-/// 发布新点子页
+/// 新建私有草稿页
 class CreateIdeaScreen extends ConsumerStatefulWidget {
   const CreateIdeaScreen({super.key});
 
@@ -50,7 +50,7 @@ class _CreateIdeaScreenState extends ConsumerState<CreateIdeaScreen> {
     final colors = AppColors.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('发布点子'),
+        title: const Text('新建点子'),
         actions: [
           TextButton(
             onPressed: _submitting ? null : _submit,
@@ -60,7 +60,7 @@ class _CreateIdeaScreenState extends ConsumerState<CreateIdeaScreen> {
                     width: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('发布'),
+                : const Text('保存草稿'),
           ),
         ],
       ),
@@ -72,6 +72,15 @@ class _CreateIdeaScreenState extends ConsumerState<CreateIdeaScreen> {
             Text(
               '让一个点子出生...',
               style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '默认保存为私有草稿，仅自己可见。确认授权后，可在后续发布设置中主动公开。',
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: 12,
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 16),
             Expanded(
