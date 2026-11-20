@@ -259,20 +259,54 @@ async def test_public_timeline_exposes_only_public_era_published_versions(db_ses
         idea_id=public_idea.id, version_number=3,
         content_snapshot="不应公开的草稿", status="draft", created_by=owner.id,
     )
+    inactive_idea = Idea(
+        content="已撤回的公开创意", color_hex="#123456", source="ugc",
+        author_id=owner.id, border_style="gold-thin",
+        publication_status="published", visibility="public", status="faded",
+        published_at=now,
+    )
     private_version = IdeaVersion(
         idea_id=private_idea.id, version_number=1,
         content_snapshot="私有版本快照", status="published",
         created_by=owner.id, published_by=owner.id, published_at=now + timedelta(days=1),
     )
+    inactive_version = IdeaVersion(
+        idea_id=inactive_idea.id, version_number=1,
+        content_snapshot="不可再公开读取的历史版本", status="published",
+        created_by=owner.id, published_by=owner.id,
+        published_at=now + timedelta(days=1),
+    )
     db_session.add_all([
         private_era_version, public_era_version, public_draft, private_version,
+        inactive_version,
     ])
+    await db_session.flush()
+    contributor = await _user(db_session, "public_timeline_contributor")
+    contribution = IdeaContribution(
+        idea_id=public_idea.id, author_id=contributor.id,
+        content="原始协作建议", status="accepted",
+    )
+    db_session.add(contribution)
+    await db_session.flush()
+    db_session.add(IdeaVersionContribution(
+        version_id=public_era_version.id,
+        contribution_id=contribution.id,
+        author_id_snapshot=contributor.id,
+        author_name_snapshot="发布时的署名",
+        content_snapshot="发布时冻结的建议文本",
+    ))
     await db_session.commit()
 
     result = await versions_router.list_public_versions(public_idea.id, db_session)
     assert len(result["items"]) == 1
     assert result["items"][0]["version_number"] == 2
     assert result["items"][0]["content"] == "公开之后发布的版本"
+    assert result["items"][0]["attributions"][0]["author_name"] == "发布时的署名"
+    assert result["items"][0]["attributions"][0]["content"] == "发布时冻结的建议文本"
+
+    with pytest.raises(HTTPException) as inactive_error:
+        await versions_router.list_public_versions(inactive_idea.id, db_session)
+    assert inactive_error.value.status_code == 404
 
     with pytest.raises(HTTPException) as private_error:
         await versions_router.list_public_versions(private_idea.id, db_session)
