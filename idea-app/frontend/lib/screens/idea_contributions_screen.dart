@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../providers/api_provider.dart';
 
@@ -233,6 +234,37 @@ class _IdeaContributionsScreenState
                                 ),
                               ],
                             ),
+                          ],
+                          final publishedVersion =
+                              item['published_version'] as Map<String, dynamic>?;
+                          if (publishedVersion != null) ...[
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                const Icon(Icons.link, size: 16),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    '已纳入版本 V${publishedVersion['version_number']}',
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () => context.push(
+                                    '/idea/${widget.ideaId}/versions?version=${publishedVersion['id']}',
+                                  ),
+                                  child: const Text('查看版本与署名'),
+                                ),
+                              ],
+                            ),
+                            if ((item['attribution_content_snapshot'] as String?)?.isNotEmpty == true)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  '版本署名内容：${item['attribution_content_snapshot']}',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ),
                           ],
                           if ((item['review_note'] as String?)?.isNotEmpty == true)
                             Padding(
