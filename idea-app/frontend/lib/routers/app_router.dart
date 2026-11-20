@@ -11,6 +11,7 @@ import '../screens/create_idea_screen.dart';
 import '../screens/publish_idea_screen.dart';
 import '../screens/idea_invites_screen.dart';
 import '../screens/manage_idea_invites_screen.dart';
+import '../screens/idea_contributions_screen.dart';
 import '../screens/fork_guide_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../screens/settings_screen.dart';
@@ -99,6 +100,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/invites',
         name: 'ideaInvites',
         builder: (context, state) => const IdeaInvitesScreen(),
+      ),
+      GoRoute(
+        path: '/idea/:id/contributions',
+        name: 'ideaContributions',
+        builder: (context, state) => IdeaContributionsScreen(
+          ideaId: state.pathParameters['id']!,
+          isOwner: state.uri.queryParameters['owner'] == 'true',
+        ),
       ),
       GoRoute(
         path: '/idea/:id/invites',
