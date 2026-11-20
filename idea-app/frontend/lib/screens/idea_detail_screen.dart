@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../models/idea.dart';
 import '../providers/idea_detail_provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/vault_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/evolve_menu.dart';
@@ -27,9 +28,26 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final asyncDetail = ref.watch(ideaDetailProvider(widget.ideaId));
+    final authState = ref.watch(authStateProvider);
+    final currentUserId = authState.maybeWhen(
+      authenticated: (user) => user.id,
+      orElse: () => null,
+    );
+    final loadedDetail = asyncDetail.valueOrNull;
+    final canPublish = loadedDetail != null &&
+        loadedDetail.author.id == currentUserId &&
+        loadedDetail.publicationStatus == 'draft';
     return Scaffold(
       appBar: AppBar(
         title: const Text('点子'),
+        actions: [
+          if (canPublish)
+            IconButton(
+              tooltip: '发布设置',
+              icon: const Icon(Icons.public),
+              onPressed: () => context.push('/idea/${widget.ideaId}/publish'),
+            ),
+        ],
         // 当导航栈无可返回页面时（如从每日一题 pushReplacement 跳转来），
         // 手动提供返回按钮，回到探索页
         leading: Navigator.canPop(context)
