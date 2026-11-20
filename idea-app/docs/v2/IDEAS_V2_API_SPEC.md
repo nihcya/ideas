@@ -172,3 +172,14 @@ Persist direct invites independently from collaboration membership. Suggested ta
 - 仅返回 `IdeaVersion.status=published` 且关联 Idea 同时满足 `publication_status=published`、`visibility=public`、`status=active` 的署名。
 - 私有 Idea 的贡献、版本草稿中的贡献关联、未公开/撤回/非 active Idea 的记录不出现在公开主页。
 - 署名使用版本发布时冻结的作者名和贡献内容，不回读可变的贡献正文来重写历史。
+
+
+## 公开创作者主页与版本时间线
+
+### GET /api/users/{user_id}/contributions
+
+公开查询指定用户在当前仍公开的创意中，已正式纳入已发布版本的贡献署名记录。支持 `limit`（1–100，默认 20）和 `offset`（默认 0），响应包含 `items`、`total`、`limit`、`offset`、`has_more`。只返回冻结的贡献内容和作者名快照；所属 Idea 必须同时满足 published + public + active。
+
+### GET /api/ideas/{idea_id}/versions/public
+
+公开只读版本时间线，无需登录。仅当 Idea 当前同时满足 `publication_status=published`、`visibility=public`、`status=active` 时返回数据；只返回 `IdeaVersion.status=published` 的版本和发布时冻结的贡献署名快照。私有、未发布、撤回/非 active Idea 统一返回 404。该接口不提供草稿、编辑、发布或版本差异修改能力。
