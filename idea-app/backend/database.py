@@ -98,6 +98,8 @@ async def _init_sqlite_schema() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     print("[database] SQLite schema created via SQLAlchemy create_all")
+    # create_all does not ALTER existing tables; apply additive column upgrades before queries.
+    await _migrate_sqlite_columns()
 
     # 插入初始数据（幂等）
     await _seed_initial_data()
@@ -236,6 +238,18 @@ async def _migrate_sqlite_columns() -> None:
     migrations = [
         ("users", "llm_api_url", "VARCHAR(255) DEFAULT ''"),
         ("users", "llm_api_key", "VARCHAR(255) DEFAULT ''"),
+        ("ideas", "publication_status", "VARCHAR(16) NOT NULL DEFAULT 'draft'"),
+        ("ideas", "visibility", "VARCHAR(16) NOT NULL DEFAULT 'private'"),
+        ("ideas", "license_code", "VARCHAR(32)"),
+        ("ideas", "license_text_snapshot", "TEXT"),
+        ("ideas", "license_version", "VARCHAR(32)"),
+        ("ideas", "allow_fork", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("ideas", "published_at", "DATETIME"),
+        ("ideas", "archived_at", "DATETIME"),
+        ("ideas", "legacy_license_review_status", "VARCHAR(16) NOT NULL DEFAULT 'not_required'"),
+        ("ideas", "legacy_license_review_notified_at", "DATETIME"),
+        ("ideas", "legacy_license_reviewed_at", "DATETIME"),
+        ("fork_relations", "metadata", "JSON"),
     ]
     async with engine.begin() as conn:
         for table, column, ddl in migrations:
