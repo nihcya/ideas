@@ -23,6 +23,8 @@ async def can_view_idea(
     user_id: uuid.UUID | None,
 ) -> bool:
     """Return whether a user may read an Idea. Pending invites grant no access."""
+    if idea.status == "rejected":
+        return False
     if is_public_idea(idea):
         return True
     if user_id is None:
