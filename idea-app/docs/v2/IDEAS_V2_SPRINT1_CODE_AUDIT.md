@@ -124,3 +124,15 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 详情页展示公开状态和授权信息，衍生操作按钮由后端 is_forkable 控制，避免仅凭客户端假设展示可用操作。
 - 新增 Flutter 模型解析测试；未执行 flutter test、flutter analyze 或 build。
 - 邀请成员 UI、撤回发布入口、API 服务测试、旧客户端行为和真实设备验证仍未完成。
+
+## 11. 私有创意邀请流程静态审计（2026-11-20）
+
+- 新增 GET /ideas/invites/inbox：只返回当前用户待处理、仍为私有且未被拒绝的创意邀请。
+- 新增 GET /ideas/{idea_id}/invites：仅创意所有者可查看邀请状态，且仅限私有创意。
+- 新增 POST /ideas/{idea_id}/invites/{invite_id}/decline。
+- 接受邀请时重新检查创意仍为 private 且未 rejected，防止公开状态变化后接受过期邀请。
+- 撤销邀请后清理受邀者 Vault 缓存；接受后清理相关缓存。
+- Flutter 新增邀请收件箱、管理协作者页和入口。
+- 新增 test_idea_invite_workflow.py，覆盖邀请创建、待处理收件箱、接受、拒绝、撤销和访问权变化。
+- 注意：viewer / contributor 目前是邀请角色标签与 ACL 记录，受邀者接受后均获得私有 Idea 读取权限；异步贡献提交、版本管理和贡献合并尚未实现。
+- 未执行 pytest、Flutter test/analyze/build；上述测试仅已提交，不能视为通过。
