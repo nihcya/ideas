@@ -157,6 +157,7 @@ class IdeaDetail {
   final String visibility;
   final String? licenseCode;
   final String? licenseVersion;
+  final String? accessRole;
   final bool isForkable;
 
   const IdeaDetail({
@@ -172,6 +173,7 @@ class IdeaDetail {
     this.visibility = 'private',
     this.licenseCode,
     this.licenseVersion,
+    this.accessRole,
     this.isForkable = false,
   });
 
@@ -195,6 +197,7 @@ class IdeaDetail {
       visibility: json['visibility'] as String? ?? 'private',
       licenseCode: json['license_code'] as String?,
       licenseVersion: json['license_version'] as String?,
+      accessRole: json['access_role'] as String?,
       isForkable: json['is_forkable'] as bool? ?? false,
     );
   }
