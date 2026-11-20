@@ -4,11 +4,16 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/api_provider.dart';
 
-/// 公开创意的只读版本时间线。
+/// 公开创意的只读版本时间线；支持从贡献记录深链定位到对应版本。
 class PublicIdeaTimelineScreen extends ConsumerStatefulWidget {
   final String ideaId;
+  final String? versionId;
 
-  const PublicIdeaTimelineScreen({super.key, required this.ideaId});
+  const PublicIdeaTimelineScreen({
+    super.key,
+    required this.ideaId,
+    this.versionId,
+  });
 
   @override
   ConsumerState<PublicIdeaTimelineScreen> createState() =>
@@ -17,7 +22,9 @@ class PublicIdeaTimelineScreen extends ConsumerStatefulWidget {
 
 class _PublicIdeaTimelineScreenState
     extends ConsumerState<PublicIdeaTimelineScreen> {
+  final ScrollController _scrollController = ScrollController();
   List<Map<String, dynamic>> _versions = [];
+  final Map<String, GlobalKey> _versionKeys = {};
   bool _loading = true;
   bool _failed = false;
 
@@ -25,6 +32,12 @@ class _PublicIdeaTimelineScreenState
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -37,10 +50,28 @@ class _PublicIdeaTimelineScreenState
           .read(ideaServiceProvider)
           .getPublicIdeaVersions(widget.ideaId);
       if (!mounted) return;
+      _versionKeys
+        ..clear()
+        ..addEntries(versions.map((version) {
+          final id = version['id']?.toString() ?? '';
+          return MapEntry(id, GlobalKey());
+        }));
       setState(() {
         _versions = versions;
         _loading = false;
       });
+      if (widget.versionId != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final targetContext = _versionKeys[widget.versionId]?.currentContext;
+          if (targetContext != null && mounted) {
+            Scrollable.ensureVisible(
+              targetContext,
+              duration: const Duration(milliseconds: 250),
+              alignment: 0.12,
+            );
+          }
+        });
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -78,10 +109,13 @@ class _PublicIdeaTimelineScreenState
               : _versions.isEmpty
                   ? const Center(child: Text('该创意暂时没有已发布的版本记录'))
                   : ListView.builder(
+                      controller: _scrollController,
                       padding: const EdgeInsets.all(16),
                       itemCount: _versions.length,
                       itemBuilder: (context, index) {
                         final version = _versions[index];
+                        final versionId = version['id']?.toString() ?? '';
+                        final isTarget = widget.versionId == versionId;
                         final number =
                             version['version_number']?.toString() ?? '-';
                         final content = version['content'] as String? ?? '';
@@ -92,10 +126,14 @@ class _PublicIdeaTimelineScreenState
                         final attributions =
                             (version['attributions'] as List<dynamic>?) ?? [];
                         return Card(
+                          key: _versionKeys[versionId],
                           margin: const EdgeInsets.only(bottom: 12),
                           child: ExpansionTile(
-                            initiallyExpanded: index == 0,
-                            leading: const Icon(Icons.history),
+                            initiallyExpanded:
+                                isTarget || (widget.versionId == null && index == 0),
+                            leading: Icon(
+                              isTarget ? Icons.my_location : Icons.history,
+                            ),
                             title: Text('版本 V$number'),
                             subtitle: Text(
                               publishedAt.isEmpty
@@ -143,8 +181,7 @@ class _PublicIdeaTimelineScreenState
                                     item['author_id']?.toString() ?? '';
                                 return ListTile(
                                   contentPadding: EdgeInsets.zero,
-                                  leading:
-                                      const Icon(Icons.person_outline),
+                                  leading: const Icon(Icons.person_outline),
                                   title: Text(
                                     item['author_name']?.toString() ?? '协作者',
                                   ),
