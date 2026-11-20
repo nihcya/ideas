@@ -5,7 +5,8 @@ import '../providers/api_provider.dart';
 
 class IdeaVersionsScreen extends ConsumerStatefulWidget {
   final String ideaId;
-  const IdeaVersionsScreen({super.key, required this.ideaId});
+  final String? highlightVersionId;
+  const IdeaVersionsScreen({super.key, required this.ideaId, this.highlightVersionId});
 
   @override
   ConsumerState<IdeaVersionsScreen> createState() => _IdeaVersionsScreenState();
