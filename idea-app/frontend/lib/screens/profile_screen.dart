@@ -65,6 +65,7 @@ class ProfileScreen extends ConsumerWidget {
           produced: 0,
           collected: 0,
           forkedByOthers: 0,
+          contributions: asyncContributions,
           onLogout: () => _logout(context, ref),
         ),
       ),
@@ -170,6 +171,7 @@ class _ProfileBody extends StatelessWidget {
                 final contribution =
                     item['contribution_content'] as String? ?? '';
                 final ideaContent = item['idea_content'] as String? ?? '';
+                final ideaId = item['idea_id'] as String? ?? '';
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   child: ListTile(
@@ -198,7 +200,7 @@ class _ProfileBody extends StatelessWidget {
                       ),
                     ),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () => context.push('/idea/${item['idea_id']}'),
+                    onTap: ideaId.isEmpty ? null : () => context.push('/idea/$ideaId'),
                   ),
                 );
               }).toList(),
