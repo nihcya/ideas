@@ -244,3 +244,15 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] Flutter test：通过（2026-11-20）。
 - [ ] Flutter analyze（配置为不因既有 info 提示失败）和 Android Debug build 正在重新验证；migration 003 尚未执行。
 - [ ] 需要在真实 PostgreSQL 测试库验证并发版本号分配、事务回滚和唯一约束。
+
+
+## 13.8 版本历史与贡献反向追溯（第二阶段）
+
+- [x] 贡献列表 API 返回贡献对应的已发布版本信息和冻结署名快照。
+- [x] 版本历史展开查看最终内容、发布时间、变更说明和逐条贡献快照。
+- [x] 贡献记录跳转到具体版本并自动展开。
+- [x] 已被已发布版本消费的贡献在新草稿选择器中禁用。
+- [x] 增加贡献反向追溯 API 回归测试。
+- [x] 修复 CI Android 构建基础设施：Gradle Wrapper 从 9.1.0 升级到 Flutter 当前要求的 9.3.1。
+- [ ] 最新 CI 需要重新验证后端 pytest、Flutter test/analyze 和 Android Debug build。
+- [ ] PostgreSQL migrations 001/002/003 尚未执行，仍需测试库验证事务和约束。
