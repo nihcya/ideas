@@ -1,9 +1,10 @@
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 from fastapi import HTTPException
 
-from models import User, Idea, IdeaContribution
+from models import User, Idea, IdeaContribution, IdeaVersion
 from routers import idea_versions as versions_router
 from routers.idea_versions import VersionDraftCreate, VersionDraftUpdate
 
@@ -178,3 +179,47 @@ async def test_contribution_list_links_to_published_version_and_preserves_snapsh
     assert linked["published_version"]["change_summary"] == "采纳协作者建议"
     assert linked["attribution_content_snapshot"] == "原始贡献文本"
     assert linked["attribution_author_name"] == "version_trace_author"
+
+
+@pytest.mark.asyncio
+async def test_diff_compares_only_published_versions_of_owned_idea(db_session):
+    owner = await _user(db_session, "version_diff_owner")
+    other = await _user(db_session, "version_diff_other")
+    idea = await _idea(db_session, owner)
+    now = datetime.now(timezone.utc)
+    old = IdeaVersion(
+        idea_id=idea.id, version_number=1, content_snapshot="创意原始内容",
+        change_summary="初始版本", status="published", created_by=owner.id,
+        published_by=owner.id, published_at=now,
+    )
+    new = IdeaVersion(
+        idea_id=idea.id, version_number=2, content_snapshot="创意新增校园场景",
+        change_summary="增加校园场景", status="published", created_by=owner.id,
+        published_by=owner.id, published_at=now,
+    )
+    draft = IdeaVersion(
+        idea_id=idea.id, version_number=3, content_snapshot="未发布草稿",
+        status="draft", created_by=owner.id,
+    )
+    db_session.add_all([old, new, draft])
+    await db_session.commit()
+
+    result = await versions_router.compare_published_versions(
+        idea.id, new.id, old.id, db_session, owner
+    )
+    assert result["from_version"]["version_number"] == 1
+    assert result["to_version"]["version_number"] == 2
+    assert any(segment["type"] in ("replace", "insert") and "校园场景" in segment["new_text"]
+               for segment in result["segments"])
+
+    with pytest.raises(HTTPException) as draft_error:
+        await versions_router.compare_published_versions(
+            idea.id, draft.id, old.id, db_session, owner
+        )
+    assert draft_error.value.status_code == 404
+
+    with pytest.raises(HTTPException) as acl_error:
+        await versions_router.compare_published_versions(
+            idea.id, new.id, old.id, db_session, other
+        )
+    assert acl_error.value.status_code == 404
