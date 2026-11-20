@@ -6,7 +6,8 @@ from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user
-from models import User, Notification
+from models import User, Notification, Idea
+from services.idea_access import can_view_idea
 from schemas.notification import (
     NotificationItem, NotificationsResponse,
     MarkReadRequest, MarkReadResponse,
@@ -31,6 +32,23 @@ async def get_notifications(
         .order_by(Notification.created_at.desc())
         .limit(limit).offset(offset)
     )
+    rows = result.scalars().all()
+    # Notifications can outlive the access grant that originally exposed an Idea.
+    # Re-check access at read time to avoid disclosing private content after revocation.
+    idea_ids = {n.idea_id for n in rows if n.idea_id is not None}
+    ideas_result = await db.execute(select(Idea).where(Idea.id.in_(idea_ids))) if idea_ids else None
+    ideas_by_id = {
+        idea.id: idea for idea in (ideas_result.scalars().all() if ideas_result else [])
+    }
+    visible_rows = []
+    for notification in rows:
+        if notification.idea_id is None:
+            visible_rows.append(notification)
+            continue
+        idea = ideas_by_id.get(notification.idea_id)
+        if idea is not None and await can_view_idea(db, idea, user.id):
+            visible_rows.append(notification)
+
     notifications = [
         NotificationItem(
             id=str(n.id),
@@ -41,15 +59,9 @@ async def get_notifications(
             created_at=n.created_at,
             read=n.read,
         )
-        for n in result.scalars().all()
+        for n in visible_rows
     ]
-
-    unread_result = await db.execute(
-        select(func.count()).select_from(Notification).where(
-            Notification.user_id == user.id, Notification.read == False
-        )
-    )
-    unread_count = unread_result.scalar() or 0
+    unread_count = sum(1 for n in visible_rows if not n.read)
 
     return NotificationsResponse(
         notifications=notifications,
