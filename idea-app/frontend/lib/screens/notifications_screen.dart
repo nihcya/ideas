@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/notification.dart';
 import '../providers/notifications_provider.dart';
@@ -26,7 +27,16 @@ class NotificationsScreen extends ConsumerWidget {
     final asyncList = ref.watch(notificationsProvider);
     final colors = AppColors.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('通知')),
+      appBar: AppBar(
+        title: const Text('通知'),
+        actions: [
+          IconButton(
+            tooltip: '创意邀请',
+            icon: const Icon(Icons.mail_outline),
+            onPressed: () => context.push('/invites'),
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: () => _refresh(ref),
         child: asyncList.when(
