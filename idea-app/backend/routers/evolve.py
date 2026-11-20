@@ -236,7 +236,7 @@ async def evolve_confirm(
             "license_text_snapshot": parent.license_text_snapshot,
             "license_version": parent.license_version,
             "source_author_id": str(parent.author_id) if parent.author_id else None,
-            "captured_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+            "captured_at": datetime.now(timezone.utc).isoformat(),
             "allow_fork": parent.allow_fork,
         },
     )
