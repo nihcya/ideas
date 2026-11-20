@@ -226,6 +226,48 @@ class IdeaService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getIdeaVersions(String ideaId) async {
+    try {
+      final res = await _dio.get('/ideas/$ideaId/versions');
+      return ((res.data as Map<String, dynamic>)['items'] as List<dynamic>)
+          .map((item) => Map<String, dynamic>.from(item as Map)).toList();
+    } on DioException catch (e) { throw toApiException(e); }
+  }
+
+  Future<Map<String, dynamic>> createIdeaVersionDraft({
+    required String ideaId, required String content, String? changeSummary,
+    List<String> contributionIds = const [],
+  }) async {
+    try {
+      final res = await _dio.post('/ideas/$ideaId/versions/drafts', data: {
+        'content': content, 'change_summary': changeSummary,
+        'contribution_ids': contributionIds,
+      });
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) { throw toApiException(e); }
+  }
+
+  Future<void> updateIdeaVersionDraft({
+    required String ideaId, required String versionId, required String content,
+    String? changeSummary, List<String> contributionIds = const [],
+  }) async {
+    try {
+      await _dio.patch('/ideas/$ideaId/versions/$versionId', data: {
+        'content': content, 'change_summary': changeSummary,
+        'contribution_ids': contributionIds,
+      });
+    } on DioException catch (e) { throw toApiException(e); }
+  }
+
+  Future<Map<String, dynamic>> publishIdeaVersion({
+    required String ideaId, required String versionId,
+  }) async {
+    try {
+      final res = await _dio.post('/ideas/$ideaId/versions/$versionId/publish');
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) { throw toApiException(e); }
+  }
+
   /// Fork 一个点子（联想引导后提交）
   Future<ForkResponse> forkIdea({
     required String parentId,
