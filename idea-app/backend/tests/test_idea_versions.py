@@ -302,11 +302,21 @@ async def test_public_idea_owner_can_create_and_publish_versions_without_changin
     )
     assert draft["status"] == "draft"
 
+    await versions_router.update_version_draft(
+        idea.id,
+        uuid.UUID(draft["id"]),
+        VersionDraftUpdate(
+            content="公开创意迭代后的最终版本",
+            change_summary="作者更新公开阶段草稿",
+        ),
+        db_session,
+        owner,
+    )
     published = await versions_router.publish_version(
         idea.id, uuid.UUID(draft["id"]), db_session, owner
     )
     assert published["published"] is True
-    assert idea.content == "公开创意的后续版本"
+    assert idea.content == "公开创意迭代后的最终版本"
     assert idea.visibility == "public"
     assert idea.publication_status == "published"
     assert idea.status == "active"
