@@ -8,7 +8,7 @@ from sqlalchemy import select, func, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user, get_optional_user
-from models import User, Idea, VaultItem, ForkRelation, Notification, IdeaAccessGrant, IdeaContribution
+from models import User, Idea, VaultItem, ForkRelation, Notification, IdeaAccessGrant, IdeaContribution, IdeaVersion, IdeaVersionContribution
 from schemas.idea import (
     IdeaCreate, IdeaForkRequest, CircleData, ExploreResponse,
     LineageNode, Lineage, IdeaDetail, IdeaResponse, ForkResponse,
@@ -812,8 +812,17 @@ async def list_idea_contributions(
         await _require_accepted_contributor(db, idea_id, user.id)
         condition = IdeaContribution.author_id == user.id
     query = (
-        select(IdeaContribution, User)
+        select(IdeaContribution, User, IdeaVersion, IdeaVersionContribution)
         .join(User, User.id == IdeaContribution.author_id)
+        .outerjoin(
+            IdeaVersionContribution,
+            IdeaVersionContribution.contribution_id == IdeaContribution.id,
+        )
+        .outerjoin(
+            IdeaVersion,
+            (IdeaVersion.id == IdeaVersionContribution.version_id)
+            & (IdeaVersion.status == "published"),
+        )
         .where(IdeaContribution.idea_id == idea_id)
     )
     if condition is not True:
@@ -832,8 +841,23 @@ async def list_idea_contributions(
                 "created_at": item.created_at,
                 "reviewed_at": item.reviewed_at,
                 "review_note": item.review_note if idea.author_id == user.id or item.author_id == user.id else None,
+                "published_version": (
+                    {
+                        "id": str(version.id),
+                        "version_number": version.version_number,
+                        "published_at": version.published_at,
+                        "change_summary": version.change_summary,
+                    }
+                    if version is not None else None
+                ),
+                "attribution_content_snapshot": (
+                    attribution.content_snapshot if version is not None and attribution is not None else None
+                ),
+                "attribution_author_name": (
+                    attribution.author_name_snapshot if version is not None and attribution is not None else None
+                ),
             }
-            for item, author in result.all()
+            for item, author, version, attribution in result.all()
         ]
     }
 
