@@ -26,6 +26,7 @@ class _PublicUserProfileScreenState
   bool _loadingMore = false;
   bool _hasMore = false;
   String? _contributionError;
+  int _requestGeneration = 0;
 
   @override
   void initState() {
@@ -44,6 +45,7 @@ class _PublicUserProfileScreenState
   Future<void> _loadContributions({bool reset = false}) async {
     if (_loadingMore || (_loadingContributions && !reset)) return;
     if (reset) {
+      _requestGeneration += 1;
       setState(() {
         _loadingContributions = true;
         _contributionError = null;
@@ -58,13 +60,14 @@ class _PublicUserProfileScreenState
       });
     }
 
+    final generation = _requestGeneration;
     try {
       final page = await ref.read(userServiceProvider).getUserContributionsPage(
             widget.userId,
             limit: _pageSize,
             offset: reset ? 0 : _offset,
           );
-      if (!mounted) return;
+      if (!mounted || generation != _requestGeneration) return;
       final items = List<Map<String, dynamic>>.from(page['items'] as List);
       setState(() {
         _contributions.addAll(items);
@@ -74,7 +77,7 @@ class _PublicUserProfileScreenState
         _loadingMore = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _requestGeneration) return;
       setState(() {
         _contributionError = '贡献记录暂时无法加载';
         _loadingContributions = false;
