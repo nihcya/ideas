@@ -43,11 +43,12 @@ class _PublicUserProfileScreenState
   }
 
   Future<void> _loadContributions({bool reset = false}) async {
-    if (_loadingMore || (_loadingContributions && !reset)) return;
+    if ((_loadingMore || _loadingContributions) && !reset) return;
     if (reset) {
       _requestGeneration += 1;
       setState(() {
         _loadingContributions = true;
+        _loadingMore = false;
         _contributionError = null;
         _offset = 0;
         _hasMore = false;
