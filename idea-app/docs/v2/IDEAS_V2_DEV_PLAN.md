@@ -212,6 +212,6 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] Flutter 新增邀请收件箱，支持接受和拒绝。
 - [x] Flutter 新增私有创意协作者管理页，支持按用户 ID 邀请、查看状态和撤销访问权。
 - [x] 详情页和通知页增加入口。
-- [x] 新增后端邀请生命周期测试，覆盖 pending → accepted → revoked、declined 和访问权变化。
+- [x] 新增后端邀请生命周期测试，覆盖 pending → accepted → revoked、declined、访问权变化，以及创意转为公开后拒绝接受过期邀请。
 - [ ] pytest / Flutter test / analyze / build 尚未运行。
 - [ ] 当前邀请角色用于区分 viewer / contributor 访问级别，但完整异步贡献提交、版本记录和贡献合并工作流仍未实现。
