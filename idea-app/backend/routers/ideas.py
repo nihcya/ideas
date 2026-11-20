@@ -246,6 +246,10 @@ async def get_idea_detail(
         created_at=idea.created_at,
         fork_count=idea.fork_count,
         is_forkable=idea.is_forkable and await can_derive_from_idea(db, idea, user.id if user else None),
+        publication_status=idea.publication_status,
+        visibility=idea.visibility,
+        license_code=idea.license_code,
+        license_version=idea.license_version,
         is_in_vault=is_in_vault,
         lineage=Lineage(parents=parents, children=children),
     )
@@ -306,6 +310,10 @@ async def create_idea(
         author_id=str(idea.author_id),
         created_at=idea.created_at,
         border_style=idea.border_style,
+        publication_status=idea.publication_status,
+        visibility=idea.visibility,
+        license_code=idea.license_code,
+        allow_fork=idea.allow_fork,
     )
 
 
@@ -464,6 +472,10 @@ async def publish_idea(
         id=str(idea.id), content=idea.content, color_hex=idea.color_hex,
         source=idea.source, author_id=str(idea.author_id),
         created_at=idea.created_at, border_style=idea.border_style,
+        publication_status=idea.publication_status,
+        visibility=idea.visibility,
+        license_code=idea.license_code,
+        allow_fork=idea.allow_fork,
     )
 
 
