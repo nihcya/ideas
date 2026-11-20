@@ -64,7 +64,7 @@ async def get_user_profile(
         .join(VaultItem, VaultItem.idea_id == Idea.id)
         .where(
             VaultItem.user_id == user.id,
-            Idea.status != "faded",
+            Idea.status == "active",
             Idea.publication_status == "published",
             Idea.visibility == "public",
         )
