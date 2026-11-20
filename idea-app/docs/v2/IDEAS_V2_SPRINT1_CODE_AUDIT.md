@@ -150,3 +150,14 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 新增 test_idea_contributions.py，覆盖贡献提交、作者审核、Viewer 禁止提交和非作者禁止审核；前端模型测试覆盖 access_role。
 - 新增 PostgreSQL 手动迁移 002_idea_contributions.sql；未执行。
 - 未执行 pytest、Flutter test/analyze/build；代码与测试尚未通过运行验证。
+
+
+## 13. 版本管理静态审计（第一阶段）
+
+- 新增版本 ORM 和 PostgreSQL migration 003；不回填历史版本，避免伪造历史快照。
+- 版本管理 API 仅允许私有创意作者访问；协作者无版本发布权限。
+- 草稿创建/编辑时校验贡献属于当前 Idea 且状态为 accepted；作者提交最终文本，不由系统拼接贡献内容。
+- 发布时锁定 Idea 与 draft version，复核贡献状态，在同一事务更新版本和 Idea.content。
+- 署名保存 author_id、用户名和贡献文本快照；数据库唯一约束限制 contribution_id 只能归属一个版本。
+- 版本发布不修改 visibility、license 或 allow_fork。
+- 静态审查不能替代 pytest / PostgreSQL 并发测试；migration 003 未执行，所有自动化测试仍待实际运行。
