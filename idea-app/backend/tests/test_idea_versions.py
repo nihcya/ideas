@@ -140,3 +140,41 @@ async def test_published_version_is_locked_and_contribution_cannot_be_reused(db_
             db_session, owner,
         )
     assert reused.value.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_contribution_list_links_to_published_version_and_preserves_snapshot(db_session):
+    owner = await _user(db_session, "version_trace_owner")
+    contributor = await _user(db_session, "version_trace_author")
+    idea = await _idea(db_session, owner)
+    contribution = IdeaContribution(
+        idea_id=idea.id,
+        author_id=contributor.id,
+        content="原始贡献文本",
+        status="accepted",
+    )
+    db_session.add(contribution)
+    await db_session.commit()
+
+    draft = await versions_router.create_version_draft(
+        idea.id,
+        VersionDraftCreate(
+            content="发布后的创意版本",
+            change_summary="采纳协作者建议",
+            contribution_ids=[contribution.id],
+        ),
+        db_session,
+        owner,
+    )
+    await versions_router.publish_version(
+        idea.id, uuid.UUID(draft["id"]), db_session, owner
+    )
+
+    from routers.ideas import list_idea_contributions
+
+    result = await list_idea_contributions(idea.id, db_session, owner)
+    linked = next(item for item in result["items"] if item["id"] == str(contribution.id))
+    assert linked["published_version"]["version_number"] == 1
+    assert linked["published_version"]["change_summary"] == "采纳协作者建议"
+    assert linked["attribution_content_snapshot"] == "原始贡献文本"
+    assert linked["attribution_author_name"] == "version_trace_author"
