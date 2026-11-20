@@ -29,18 +29,32 @@ async def get_vault(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # 统计
+    # 只统计当前用户仍有权访问的条目，避免撤销邀请后从计数侧信道泄露私有内容。
+    visible_to_user = or_(
+        Idea.author_id == user.id,
+        and_(
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
+        ),
+        select(IdeaAccessGrant.id).where(
+            IdeaAccessGrant.idea_id == Idea.id,
+            IdeaAccessGrant.user_id == user.id,
+            IdeaAccessGrant.status == "accepted",
+        ).exists(),
+    )
+
     produced_result = await db.execute(
-        select(func.count()).select_from(VaultItem).where(
-            VaultItem.user_id == user.id, VaultItem.is_producer == True
-        )
+        select(func.count()).select_from(VaultItem)
+        .join(Idea, Idea.id == VaultItem.idea_id)
+        .where(VaultItem.user_id == user.id, VaultItem.is_producer == True, visible_to_user)
     )
     produced = produced_result.scalar() or 0
 
     collected_result = await db.execute(
-        select(func.count()).select_from(VaultItem).where(
-            VaultItem.user_id == user.id, VaultItem.is_producer == False
-        )
+        select(func.count()).select_from(VaultItem)
+        .join(Idea, Idea.id == VaultItem.idea_id)
+        .where(VaultItem.user_id == user.id, VaultItem.is_producer == False, visible_to_user)
     )
     collected = collected_result.scalar() or 0
 
