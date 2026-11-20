@@ -56,13 +56,13 @@ async def explore(
     user: User | None = Depends(get_optional_user),
 ):
     # 尝试缓存
-    cache_key = key_explore_page(offset)
+    cache_key = "explore:v2:" + (str(user.id) if user else "anon") + ":" + str(limit) + ":" + str(offset)
     cached = await cache.get(cache_key)
     if cached:
         return ExploreResponse(**cached)
 
     # 缓存击穿防护：用互斥锁，只让一个请求查库，其他请求短暂轮询等待
-    lock_key = f"explore:lock:{offset}"
+    lock_key = "explore:lock:v2:" + (str(user.id) if user else "anon") + ":" + str(limit) + ":" + str(offset)
     lock_token = await cache.acquire_lock(lock_key, ttl=10)
 
     if lock_token is None:
