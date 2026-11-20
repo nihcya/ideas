@@ -183,3 +183,15 @@ Persist direct invites independently from collaboration membership. Suggested ta
 ### GET /api/ideas/{idea_id}/versions/public
 
 公开只读版本时间线，无需登录。仅当 Idea 当前同时满足 `publication_status=published`、`visibility=public`、`status=active` 时返回数据；只返回 `IdeaVersion.status=published` 且 `IdeaVersion.published_at >= Idea.published_at` 的版本和发布时冻结的贡献署名快照；创意转为公开之前的私有版本不会被追溯公开。私有、未发布、撤回/非 active Idea 统一返回 404。该接口不提供草稿、编辑、发布或版本差异修改能力。
+
+
+
+## 公开创意持续版本管理（2026-11-20 产品决策）
+
+版本管理 API 在保持作者专属访问的前提下，支持两类创意：
+- 私有工作态创意：沿用现有未归档、非 rejected 的私有创意规则。
+- 公开创意：必须同时满足 `visibility=public`、`publication_status=published`、`status=active`。
+
+公开创意作者可调用版本列表、创建草稿、编辑草稿、发布版本和版本差异接口。非作者统一返回 404。公开版本发布仅更新 `Idea.content` 和版本快照，不改变可见性、发布状态、授权字段或衍生权限字段。
+
+公开只读时间线仍只返回 `IdeaVersion.status=published` 且 `IdeaVersion.published_at >= Idea.published_at` 的版本；转为公开之前发布的私有阶段版本不追溯公开。公开创意被撤回、归档或状态不再 active 后，版本写入接口拒绝操作。
