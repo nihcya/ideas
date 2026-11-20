@@ -113,7 +113,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/idea/:id/versions',
         name: 'ideaVersions',
-        builder: (context, state) => IdeaVersionsScreen(ideaId: state.pathParameters['id']!),
+        builder: (context, state) => IdeaVersionsScreen(ideaId: state.pathParameters['id']!, highlightVersionId: state.uri.queryParameters['version']),
       ),
       GoRoute(
         path: '/idea/:id/invites',
