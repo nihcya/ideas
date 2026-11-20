@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/vault_provider.dart';
+import '../providers/user_profile_provider.dart';
 import '../theme/app_theme.dart';
 
 /// 个人主页：思维森林
@@ -27,6 +28,7 @@ class ProfileScreen extends ConsumerWidget {
     }
 
     final asyncVault = ref.watch(vaultProvider);
+    final asyncContributions = ref.watch(userContributionsProvider(user.id));
     return Scaffold(
       appBar: AppBar(
         title: const Text('我'),
@@ -47,6 +49,7 @@ class ProfileScreen extends ConsumerWidget {
           produced: vault.stats.produced,
           collected: vault.stats.collected,
           forkedByOthers: vault.stats.forkedByOthers,
+          contributions: asyncContributions,
           onLogout: () => _logout(context, ref),
         ),
         loading: () => _ProfileBody(
@@ -54,6 +57,7 @@ class ProfileScreen extends ConsumerWidget {
           produced: 0,
           collected: 0,
           forkedByOthers: 0,
+          contributions: asyncContributions,
           onLogout: () => _logout(context, ref),
         ),
         error: (e, st) => _ProfileBody(
@@ -82,6 +86,7 @@ class _ProfileBody extends StatelessWidget {
   final int produced;
   final int collected;
   final int forkedByOthers;
+  final AsyncValue<List<Map<String, dynamic>>> contributions;
   final VoidCallback onLogout;
 
   const _ProfileBody({
@@ -89,6 +94,7 @@ class _ProfileBody extends StatelessWidget {
     required this.produced,
     required this.collected,
     required this.forkedByOthers,
+    required this.contributions,
     required this.onLogout,
   });
 
@@ -142,7 +148,75 @@ class _ProfileBody extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 32),
+
+        const SizedBox(height: 28),
+        const Text(
+          '贡献记录',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+        contributions.when(
+          data: (items) {
+            if (items.isEmpty) {
+              return Text(
+                '还没有公开展示的贡献记录',
+                style: TextStyle(color: colors.textSecondary, fontSize: 13),
+              );
+            }
+            return Column(
+              children: items.map((item) {
+                final versionNumber = item['version_number'] ?? '-';
+                final summary = item['change_summary'] as String? ?? '';
+                final contribution =
+                    item['contribution_content'] as String? ?? '';
+                final ideaContent = item['idea_content'] as String? ?? '';
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    title: Text(
+                      '版本 V$versionNumber · $ideaContent',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (summary.isNotEmpty) Text(summary),
+                          const SizedBox(height: 4),
+                          Text(
+                            '贡献：$contribution',
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/idea/${item['idea_id']}'),
+                  ),
+                );
+              }).toList(),
+            );
+          },
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(12),
+              child: CircularProgressIndicator(),
+            ),
+          ),
+          error: (error, stack) => Text(
+            '贡献记录暂时无法加载',
+            style: TextStyle(color: colors.textSecondary, fontSize: 13),
+          ),
+        ),
+
+        const SizedBox(height: 24),
         ListTile(
           leading: const Icon(Icons.notifications_outlined),
           title: const Text('通知'),
