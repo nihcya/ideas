@@ -36,11 +36,6 @@ class _ManageIdeaInvitesScreenState
     _invites = ref.read(ideaServiceProvider).getIdeaInvites(widget.ideaId);
   }
 
-  Future<void> _refresh() async {
-    setState(_load);
-    await _invites;
-  }
-
   Future<void> _invite() async {
     final userId = _userIdController.text.trim();
     if (userId.isEmpty) return;
@@ -100,7 +95,16 @@ class _ManageIdeaInvitesScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('管理协作者')),
+      appBar: AppBar(
+        title: const Text('管理协作者'),
+        actions: [
+          IconButton(
+            tooltip: '刷新',
+            icon: const Icon(Icons.refresh),
+            onPressed: () => setState(_load),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
