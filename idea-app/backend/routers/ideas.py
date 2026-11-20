@@ -245,7 +245,7 @@ async def get_idea_detail(
         author=author,
         created_at=idea.created_at,
         fork_count=idea.fork_count,
-        is_forkable=idea.is_forkable,
+        is_forkable=idea.is_forkable and await can_derive_from_idea(db, idea, user.id if user else None),
         is_in_vault=is_in_vault,
         lineage=Lineage(parents=parents, children=children),
     )
@@ -451,6 +451,7 @@ async def publish_idea(
     idea.license_text_snapshot = req.license_custom_text
     idea.license_version = req.license_version
     idea.allow_fork = req.allow_fork
+    idea.is_forkable = req.allow_fork
     idea.published_at = now
     if idea.legacy_license_review_status == "pending":
         idea.legacy_license_review_status = "confirmed"
@@ -479,6 +480,7 @@ async def unpublish_idea(
     idea.publication_status = "draft"
     idea.visibility = "private"
     idea.allow_fork = False
+    idea.is_forkable = False
     await db.commit()
     await cache.delete_pattern("explore:v2:*")
     await cache.delete(key_idea_detail(str(idea.id)))
