@@ -48,7 +48,7 @@ async def can_derive_from_idea(
     """Only explicitly licensed public Ideas may be used as derivative sources."""
     if not await can_view_idea(db, idea, user_id):
         return False
-    if not is_public_idea(idea):
+    if idea.publication_status != "published" or idea.status != "active":
         return False
     if idea.legacy_license_review_status in ("pending", "expired"):
         return False
