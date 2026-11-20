@@ -39,7 +39,8 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
     final canPublish = isOwner && loadedDetail.publicationStatus == 'draft';
     final canManageInvites = isOwner && loadedDetail.visibility == 'private';
     final canManageVersions = isOwner && loadedDetail.visibility == 'private';
-    final canViewPublicTimeline = loadedDetail.publicationStatus == 'published' &&
+    final canViewPublicTimeline = loadedDetail != null &&
+        loadedDetail.publicationStatus == 'published' &&
         loadedDetail.visibility == 'public';
     final canCollaborate = loadedDetail != null &&
         loadedDetail.visibility == 'private' &&
