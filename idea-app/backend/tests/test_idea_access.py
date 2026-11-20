@@ -86,8 +86,24 @@ async def test_legacy_public_idea_remains_readable_but_not_derivable_while_pendi
 
 
 @pytest.mark.asyncio
-async def test_private_idea_cannot_be_used_as_derivative_source_even_by_owner(db_session):
+async def test_private_draft_cannot_be_used_as_derivative_source_even_by_owner(db_session):
     owner = await _user(db_session, "private_derivative_owner")
+    idea = await _idea(
+        db_session,
+        owner.id,
+        publication_status="draft",
+        visibility="private",
+        license_code="attribution_adaptation",
+        allow_fork=True,
+    )
+    assert await can_view_idea(db_session, idea, owner.id) is True
+    assert await can_derive_from_idea(db_session, idea, owner.id) is False
+
+
+@pytest.mark.asyncio
+async def test_accepted_invitee_can_derive_from_published_private_idea_when_license_allows(db_session):
+    owner = await _user(db_session, "private_source_owner")
+    invitee = await _user(db_session, "private_source_invitee")
     idea = await _idea(
         db_session,
         owner.id,
@@ -96,5 +112,13 @@ async def test_private_idea_cannot_be_used_as_derivative_source_even_by_owner(db
         license_code="attribution_adaptation",
         allow_fork=True,
     )
-    assert await can_view_idea(db_session, idea, owner.id) is True
-    assert await can_derive_from_idea(db_session, idea, owner.id) is False
+    db_session.add(IdeaAccessGrant(
+        idea_id=idea.id,
+        user_id=invitee.id,
+        role="contributor",
+        status="accepted",
+        invited_by=owner.id,
+    ))
+    await db_session.flush()
+    assert await can_view_idea(db_session, idea, invitee.id) is True
+    assert await can_derive_from_idea(db_session, idea, invitee.id) is True
