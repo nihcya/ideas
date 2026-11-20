@@ -12,7 +12,8 @@ from models import User, Idea, VaultItem, ForkRelation, Notification, IdeaAccess
 from schemas.idea import (
     IdeaCreate, IdeaForkRequest, CircleData, ExploreResponse,
     LineageNode, Lineage, IdeaDetail, IdeaResponse, ForkResponse,
-    IdeaPublishRequest, IdeaInviteRequest,\n    IdeaContributionCreate, IdeaContributionUpdate, IdeaContributionReview,
+    IdeaPublishRequest, IdeaInviteRequest,
+    IdeaContributionCreate, IdeaContributionUpdate, IdeaContributionReview,
 )
 from schemas.common import SuccessResponse
 from services.color_pool import random_color
