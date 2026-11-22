@@ -63,6 +63,9 @@ class Idea(Base, TimestampMixin):
     legacy_license_review_status: Mapped[str] = mapped_column(
         String(16), nullable=False, default="not_required", server_default="not_required", index=True
     )
+    legacy_license_review_due_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     legacy_license_review_notified_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
