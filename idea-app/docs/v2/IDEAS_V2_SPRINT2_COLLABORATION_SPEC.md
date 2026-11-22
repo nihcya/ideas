@@ -1,6 +1,6 @@
 # IDEAS V2.0 Sprint 2 — First-class asynchronous collaboration
 
-Status: workspace foundation, initial Flutter workspace UI, and owner-controlled atomic publication are implemented; exact-head CI and additional PostgreSQL race coverage remain in progress.
+Status: workspace foundation, owner-controlled atomic publication, user search/invite selection, member leave and owner archive are implemented; exact-head CI and remaining PostgreSQL race coverage are in progress.
 
 ## Product boundary
 
@@ -30,7 +30,7 @@ PostgreSQL migration: 004_collaborations.sql. It requires 001, 002 and 003 and i
 | POST | /api/collaborations/{id}/members | Owner invites contributor/viewer |
 | POST | /api/collaborations/{id}/accept | Invitee accepts; grants workspace membership only |
 | POST | /api/collaborations/{id}/decline | Invitee declines |
-| DELETE | /api/collaborations/{id}/members/{user_id} | Owner revokes member or pending invitation |
+| GET | /api/collaborations/{id}/members/search?q= | Owner searches invite candidates by username; excludes current/pending/accepted members |\n| DELETE | /api/collaborations/{id}/members/{user_id} | Owner revokes member or pending invitation |\n| DELETE | /api/collaborations/{id}/leave | Accepted non-owner leaves and immediately loses access |\n| POST | /api/collaborations/{id}/archive | Owner archives workspace; subsequent writes are rejected |
 | GET | /api/collaborations/{id} | Accepted members only; contributors see own proposals, owner sees all |
 | POST | /api/collaborations/{id}/contributions | Owner/contributor submits attributed proposal |
 | PATCH | /api/collaborations/{id}/contributions/{contribution_id} | Author edits own submitted proposal |
@@ -68,3 +68,11 @@ A private publication creates a private draft Idea unless the owner explicitly c
 ## Verification
 
 Initial HTTP tests cover creation, pending invite denial, accept, viewer write denial, and the fact that workspace membership does not expose a private source Idea. PostgreSQL migration 004 is included in migration-order tests. Additional required tests: revocation-vs-write, accept-vs-revoke, publish-vs-source-unpublish, multi-parent rights intersection, atomic rollback, and frozen attribution.
+
+## Member lifecycle additions
+
+- Migration 007 adds an explicit left membership state; leaving is distinct from owner revocation and is recorded as an append-only member_left event.
+- Candidate search is owner-only, requires at least two non-whitespace characters, and returns only the user ID and username needed to send an invitation.
+- Archive is owner-only and idempotent. It preserves workspace history and published output while freezing further contributions, reviews, invitations, and publication.
+- Workspace row locking serializes member leave and archive with write operations using the same workspace-first lock order.
+- HTTP and Flutter widget tests cover candidate enumeration boundaries, invite selection, leave/revocation, and archive read-only behavior.
