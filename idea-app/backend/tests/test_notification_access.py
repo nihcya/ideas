@@ -4,7 +4,10 @@ import pytest
 from sqlalchemy import select, update, func
 from httpx import ASGITransport, AsyncClient
 
-from models import (\n    User, Idea, IdeaAccessGrant, Notification, NotificationPreference,\n    Collaboration, CollaborationMember,\n)
+from models import (
+    User, Idea, IdeaAccessGrant, Notification, NotificationPreference,
+    Collaboration, CollaborationMember,
+)
 from deps import get_current_user, get_db
 from main import app
 from services.notification_preferences import add_notification_if_enabled
