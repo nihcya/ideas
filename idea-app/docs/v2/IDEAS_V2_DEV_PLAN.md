@@ -639,3 +639,12 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 举报提交与审核动作写入 SecurityEvent；Flutter Idea 详情页增加举报入口，Settings 页只对 allowlisted admin 显示管理入口。
 - [x] 新增 Flutter AdminReportsScreen，支持状态筛选、转处理中、完成/驳回和下架操作；新增后端 API 和管理员 UI 测试。
 - [ ] Migration 010、管理员 allowlist、举报状态机和 Flutter UI exact-head CI 待通过。
+
+
+### 16.2 Sprint 4 — 创作者关注（2026-11-22）
+
+- [x] 新增 UserFollow 模型与 Migration 011，建立唯一关注关系并禁止自我关注。
+- [x] 新增关注/取消关注 API，以及公开粉丝列表、关注列表。
+- [x] 创作者主页返回粉丝数、关注数、当前用户关注状态和是否本人。
+- [x] 新增 Flutter 关注状态与关注/取消关注入口（待补充页面 Widget 测试与 exact-head CI）。
+- [x] 新增后端关注闭环测试和 PostgreSQL Migration 011 约束验证。
