@@ -175,6 +175,7 @@ async def test_collaboration_publish_atomically_creates_idea_version_lineage_and
     )
     db_session.add(source)
     await db_session.commit()
+    owner = await db_session.get(User, owner_id)
 
     async def allow_audit(*args, **kwargs):
         return True, ""
@@ -324,7 +325,7 @@ async def test_collaboration_publish_uses_intersection_of_all_parent_rights(db_s
         content="不允许衍生的父创意",
         color_hex="#654321",
         source="ugc",
-        author_id=owner.id,
+        author_id=owner_id,
         border_style="gold-thin",
         publication_status="published",
         visibility="public",
@@ -360,6 +361,7 @@ async def test_collaboration_publish_uses_intersection_of_all_parent_rights(db_s
         ),
     ])
     await db_session.commit()
+    owner = await db_session.get(User, owner_id)
 
     async def allow_audit(*args, **kwargs):
         return True, ""
