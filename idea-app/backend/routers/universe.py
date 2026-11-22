@@ -310,6 +310,7 @@ async def get_idea_graph(
         "depth": depth,
         "direction": direction,
         "include_inspired": include_inspired,
+        "can_manage_associations": bool(viewer_id is not None and root.author_id == viewer_id),
         "nodes": list(nodes.values()),
         "edges": edges,
         "truncated": truncated,
