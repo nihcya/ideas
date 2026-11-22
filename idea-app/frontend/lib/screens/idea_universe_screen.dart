@@ -72,6 +72,7 @@ class _IdeaUniverseScreenState extends ConsumerState<IdeaUniverseScreen> {
       return;
     }
 
+    final generation = _requestGeneration;
     setState(() => _expandingNodes.add(nodeId));
     try {
       final expanded = await ref.read(universeServiceProvider).getGraph(
@@ -80,7 +81,7 @@ class _IdeaUniverseScreenState extends ConsumerState<IdeaUniverseScreen> {
             direction: _direction,
             includeInspired: _includeInspired,
           );
-      if (!mounted || _graph == null) return;
+      if (!mounted || _graph == null || generation != _requestGeneration) return;
 
       final mergedNodes = <String, Map<String, dynamic>>{
         for (final raw in (_graph!['nodes'] as List<dynamic>? ?? []))
