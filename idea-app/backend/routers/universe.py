@@ -10,9 +10,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user, get_optional_user
-from models import Idea, User, ForkRelation, IdeaAssociation, IdeaAccessGrant
+from models import Idea, User, ForkRelation, IdeaAssociation, IdeaAccessGrant, IdeaAccessGrant
 from schemas.idea_association import IdeaAssociationCreate
-from services.idea_access import can_view_idea
+from services.idea_access import can_view_idea, is_public_idea
 
 router = APIRouter(prefix="/ideas", tags=["universe"])
 
@@ -273,6 +273,27 @@ async def get_idea_graph(
                 idea.id: (idea, author or "匿名")
                 for idea, author in neighbor_result.all()
             }
+
+        visible_ids = set()
+        private_candidate_ids = []
+        for candidate_id, (candidate_idea, _) in neighbor_map.items():
+            if candidate_idea.status == "rejected":
+                continue
+            if is_public_idea(candidate_idea) or (
+                viewer_id is not None and candidate_idea.author_id == viewer_id
+            ):
+                visible_ids.add(candidate_id)
+            elif viewer_id is not None:
+                private_candidate_ids.append(candidate_id)
+        if viewer_id is not None and private_candidate_ids:
+            grant_result = await db.execute(
+                select(IdeaAccessGrant.idea_id).where(
+                    IdeaAccessGrant.idea_id.in_(private_candidate_ids),
+                    IdeaAccessGrant.user_id == viewer_id,
+                    IdeaAccessGrant.status == "accepted",
+                )
+            )
+            visible_ids.update(grant_result.scalars().all())
 
         next_frontier = set()
         for candidate in candidates:
