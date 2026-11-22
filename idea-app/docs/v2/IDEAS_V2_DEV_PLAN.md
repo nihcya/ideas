@@ -356,3 +356,11 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 最新代码 head b784036c5166e3cdc3ea2aec94cdbc9ffb2efdd0 的 CI run 45007930008：Backend 51 passed，Flutter test 和 analyze passed；Android Debug APK build 当时仍在执行。
 - [ ] Android Debug APK build 最终结果待确认；以最新文档提交对应 CI 为最终验证依据。
 - [ ] PostgreSQL migrations 001/002/003 仍未执行；当前测试使用 SQLite，不替代 PostgreSQL 并发/迁移验收。
+### 13.17 PostgreSQL 迁移 SQL 静态审查（2026-11-22）
+
+- [x] 修复 Migration 001 的 PL/pgSQL `DO` 块：使用完整的 `DO $$ ... END; $$;` 美元引用和块结束分号。
+- [x] Migration 002 增加对 Migration 001 记录的前置检查；Migration 003 增加对 Migration 001、002 的前置检查，阻止错误顺序执行。
+- [x] 新增 `test_migration_contracts.py`，静态检查事务边界、PL/pgSQL 块结构、迁移依赖、贡献状态约束、外键和版本署名唯一约束。
+- [x] 新增重复 contribution_id 的版本草稿测试，确认请求返回 422，且请求事务回滚后不残留草稿。
+- [ ] 静态契约测试不等于 PostgreSQL 真实执行；仍需在隔离 PostgreSQL 16 测试库验证 001→002→003、重复执行保护、回滚与约束行为。
+- [ ] 当前没有连接生产数据库；migrations 001/002/003 未执行。
