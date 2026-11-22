@@ -101,6 +101,24 @@ async def test_recursive_graph_depth_and_inspired_edges_are_separate_from_lineag
             assert without_inspired.status_code == 200
             assert all(edge["type"] != "inspired" for edge in without_inspired.json()["edges"])
 
+            ancestors_only = await client.get(
+                f"/api/ideas/{root.id}/graph",
+                params={"depth": 3, "direction": "ancestors"},
+            )
+            assert ancestors_only.status_code == 200
+            ancestor_ids = {node["id"] for node in ancestors_only.json()["nodes"]}
+            assert ancestor_ids == {str(parent.id), str(root.id)}
+            assert all(edge["target"] == str(root.id) for edge in ancestors_only.json()["edges"])
+
+            descendants_only = await client.get(
+                f"/api/ideas/{root.id}/graph",
+                params={"depth": 3, "direction": "descendants", "include_inspired": False},
+            )
+            assert descendants_only.status_code == 200
+            descendant_ids = {node["id"] for node in descendants_only.json()["nodes"]}
+            assert descendant_ids == {str(root.id), str(child.id), str(grandchild.id)}
+            assert all(edge["source"] in descendant_ids for edge in descendants_only.json()["edges"])
+
             too_deep = await client.get(
                 f"/api/ideas/{root.id}/graph", params={"depth": 4}
             )
