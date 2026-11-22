@@ -156,6 +156,7 @@ async def explore(
 @router.get("/search")
 async def search_ideas(
     q: str = Query(..., min_length=2, max_length=80),
+    limit: int = Query(20, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
     user: User | None = Depends(get_optional_user),
 ):
@@ -190,12 +191,13 @@ async def search_ideas(
             or_(*visible_conditions),
         )
         .order_by(Idea.created_at.desc())
-        .limit(50)
+        .limit(limit)
     )
     items = [
         {
             "id": str(idea.id),
             "content": idea.content,
+            "title": idea.content[:60],
             "color_hex": idea.color_hex,
             "author": author or "匿名",
             "visibility": idea.visibility,
