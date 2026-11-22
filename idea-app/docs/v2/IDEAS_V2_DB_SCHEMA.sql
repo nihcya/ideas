@@ -280,3 +280,9 @@ CREATE INDEX IF NOT EXISTS idx_idea_version_contributions_version
 -- uniquely linking an accepted workspace proposal to the existing immutable
 -- IdeaVersionContribution attribution pipeline.
 -- Workspace membership is not an IdeaAccessGrant and never grants access to a private source Idea.
+
+
+-- IDEAS V2 Sprint 3: Inspired associations are separate from strict ForkRelation lineage.
+-- Canonical executable migration: migrations/006_idea_associations.sql
+-- Table: idea_associations(source_idea_id, target_idea_id, relation_type='inspired', created_by, note).
+-- These rows never participate in license inheritance or derivative-right checks.
