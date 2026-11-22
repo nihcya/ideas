@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from sqlalchemy import select
+from sqlalchemy import select, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Notification, NotificationPreference
@@ -50,3 +50,15 @@ async def add_notification_if_enabled(
     )
     db.add(notification)
     return notification
+
+
+
+def notification_preference_predicate(user_id: uuid.UUID):
+    """Hide notification types explicitly disabled by this user; absent rows default on."""
+    return ~exists(
+        select(1).where(
+            NotificationPreference.user_id == user_id,
+            NotificationPreference.notification_type == Notification.type,
+            NotificationPreference.enabled.is_(False),
+        )
+    )
