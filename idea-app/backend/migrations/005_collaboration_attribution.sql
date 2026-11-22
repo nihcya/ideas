@@ -19,9 +19,9 @@ ALTER TABLE idea_contributions
   ADD COLUMN source_collaboration_contribution_id UUID
   REFERENCES collaboration_contributions(id) ON DELETE RESTRICT;
 
-CREATE UNIQUE INDEX uq_idea_contribution_collaboration_source
-  ON idea_contributions(source_collaboration_contribution_id)
-  WHERE source_collaboration_contribution_id IS NOT NULL;
+ALTER TABLE idea_contributions
+  ADD CONSTRAINT uq_idea_contribution_collaboration_source
+  UNIQUE(source_collaboration_contribution_id);
 
 INSERT INTO app_schema_migrations(version) VALUES ('005_collaboration_attribution');
 
