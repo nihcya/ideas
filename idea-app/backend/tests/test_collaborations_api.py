@@ -1,5 +1,7 @@
 """HTTP contracts for first-class asynchronous collaboration workspaces."""
+import uuid
 import pytest
+from sqlalchemy import select
 from httpx import ASGITransport, AsyncClient
 
 from deps import get_current_user, get_db
@@ -216,7 +218,7 @@ async def test_collaboration_publish_atomically_creates_idea_version_lineage_and
             payload = published.json()
             output_id = payload["idea_id"]
 
-            output = await db_session.get(Idea, output_id)
+            output = await db_session.get(Idea, uuid.UUID(output_id))
             assert output is not None
             assert output.publication_status == "published"
             assert output.visibility == "public"
