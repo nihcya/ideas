@@ -646,5 +646,5 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 新增 UserFollow 模型与 Migration 011，建立唯一关注关系并禁止自我关注。
 - [x] 新增关注/取消关注 API，以及公开粉丝列表、关注列表。
 - [x] 创作者主页返回粉丝数、关注数、当前用户关注状态和是否本人。
-- [x] 新增 Flutter 关注状态与关注/取消关注入口（待补充页面 Widget 测试与 exact-head CI）。
+- [x] 新增 Flutter 关注状态与关注/取消关注入口，并增加 PublicUserProfile Widget 测试；exact-head CI 待完成。
 - [x] 新增后端关注闭环测试和 PostgreSQL Migration 011 约束验证。
