@@ -355,10 +355,14 @@ async def get_collaboration(
         contribution_query = contribution_query.where(CollaborationContribution.author_id == user.id)
     contribution_query = contribution_query.order_by(CollaborationContribution.created_at.desc()).limit(100)
     contributions = (await db.execute(contribution_query)).scalars().all()
+    event_query = select(CollaborationEvent).where(
+        CollaborationEvent.collaboration_id == collaboration_id
+    )
+    if member.role != "owner":
+        # A contributor must not infer other members' proposal IDs or invitation targets.
+        event_query = event_query.where(CollaborationEvent.actor_id == user.id)
     events = (await db.execute(
-        select(CollaborationEvent).where(
-            CollaborationEvent.collaboration_id == collaboration_id
-        ).order_by(CollaborationEvent.created_at.desc()).limit(100)
+        event_query.order_by(CollaborationEvent.created_at.desc()).limit(100)
     )).scalars().all()
     return {
         "id": str(workspace.id),
