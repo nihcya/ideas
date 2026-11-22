@@ -134,7 +134,10 @@ FROM app_schema_migrations
 WHERE version IN (
   '001_idea_visibility_and_acl',
   '002_idea_contributions',
-  '003_idea_versions_and_attribution'
+  '003_idea_versions_and_attribution',
+  '004_collaborations',
+  '005_collaboration_attribution',
+  '006_idea_associations'
 )
 ORDER BY version;
 
@@ -170,14 +173,24 @@ WHERE status <> 'active'
 SELECT to_regclass('public.idea_access_grants') AS access_grants,
        to_regclass('public.idea_contributions') AS contributions,
        to_regclass('public.idea_versions') AS versions,
-       to_regclass('public.idea_version_contributions') AS version_attributions;
+       to_regclass('public.idea_version_contributions') AS version_attributions,
+       to_regclass('public.collaborations') AS collaborations,
+       to_regclass('public.collaboration_members') AS collaboration_members,
+       to_regclass('public.collaboration_sources') AS collaboration_sources,
+       to_regclass('public.collaboration_contributions') AS collaboration_contributions,
+       to_regclass('public.collaboration_events') AS collaboration_events,
+       to_regclass('public.idea_associations') AS idea_associations;
 
 SELECT conrelid::regclass AS table_name, conname, contype
 FROM pg_constraint
 WHERE conname IN (
   'uq_idea_versions_number',
   'uq_version_contribution_consumed_once',
-  'uq_version_contribution_pair'
+  'uq_version_contribution_pair',
+  'uq_idea_contribution_collaboration_source',
+  'uq_idea_association_pair',
+  'ck_idea_association_no_self',
+  'ck_idea_association_type'
 )
 ORDER BY table_name, conname;
 ```
