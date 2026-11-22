@@ -12,8 +12,9 @@ from services.notification_preferences import add_notification_if_enabled
 async def test_notification_preferences_default_enabled_and_suppress_future_events(db_session):
     user = User(username="notification_pref_user", password_hash="test-hash", bio="")
     db_session.add(user)
-    await db_session.commit()
+    await db_session.flush()
     user_id = user.id
+    await db_session.commit()
 
     async def override_db():
         yield db_session
