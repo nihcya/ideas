@@ -102,6 +102,11 @@ async def search_visible_ideas(
     user: User | None = Depends(get_optional_user),
 ):
     """Search only Ideas the current viewer is already allowed to read."""
+    if len(q.strip()) < 2:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": {"code": "QUERY_TOO_SHORT", "message": "搜索关键词至少需要 2 个字符"}},
+        )
     visible_predicates = [
         and_(
             Idea.publication_status == "published",
