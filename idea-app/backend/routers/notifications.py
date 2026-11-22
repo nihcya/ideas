@@ -20,7 +20,6 @@ from schemas.notification_preference import (
     NotificationPreferencesResponse,
     NotificationPreferencesUpdateRequest,
 )
-from services.notification_preferences import NOTIFICATION_TYPES
 from services.rate_limit import limiter, DEFAULT_LIMIT
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
