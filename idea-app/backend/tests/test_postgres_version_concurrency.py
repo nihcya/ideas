@@ -288,3 +288,117 @@ async def test_concurrent_publish_requests_publish_version_once(monkeypatch):
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
         await engine.dispose()
+
+
+
+@pytest.mark.asyncio
+async def test_concurrent_update_and_publish_same_draft_are_serialized(monkeypatch):
+    """An update racing publication either lands before the snapshot or is rejected after it."""
+    dsn = os.getenv("IDEAS_VERSION_CONCURRENCY_TEST_DSN")
+    if not dsn:
+        pytest.skip("IDEAS_VERSION_CONCURRENCY_TEST_DSN is not configured")
+    if dsn.startswith("postgresql://"):
+        dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    async def allow_audit(*args, **kwargs):
+        return True, ""
+
+    async def noop_audit_log(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(versions_router, "audit_content", allow_audit)
+    monkeypatch.setattr(versions_router, "write_audit_log", noop_audit_log)
+
+    engine = create_async_engine(dsn, pool_size=5, max_overflow=0)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+
+        owner_id, idea_id, version_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+        async with sessions() as seed:
+            seed.add(User(
+                id=owner_id,
+                username=f"pgc_{uuid.uuid4().hex[:10]}",
+                password_hash="test-only",
+            ))
+            await seed.flush()
+            seed.add(Idea(
+                id=idea_id,
+                content="发布前的旧内容",
+                color_hex="#123456",
+                source="ugc",
+                author_id=owner_id,
+                border_style="gold-thin",
+                publication_status="draft",
+                visibility="private",
+                status="active",
+            ))
+            await seed.flush()
+            seed.add(IdeaVersion(
+                id=version_id,
+                idea_id=idea_id,
+                version_number=1,
+                content_snapshot="最初草稿内容",
+                status="draft",
+                created_by=owner_id,
+            ))
+            await seed.commit()
+
+        async def update():
+            async with sessions() as session:
+                owner = await session.get(User, owner_id)
+                try:
+                    result = await versions_router.update_version_draft(
+                        idea_id,
+                        version_id,
+                        VersionDraftUpdate(content="并发更新后的草稿内容"),
+                        session,
+                        owner,
+                    )
+                    return ("updated", result["status"])
+                except HTTPException as exc:
+                    await session.rollback()
+                    return ("http_error", exc.status_code)
+
+        async def publish():
+            async with sessions() as session:
+                owner = await session.get(User, owner_id)
+                try:
+                    result = await versions_router.publish_version(
+                        idea_id, version_id, session, owner
+                    )
+                    return ("published", result["idea_content"])
+                except HTTPException as exc:
+                    await session.rollback()
+                    return ("http_error", exc.status_code)
+
+        update_outcome, publish_outcome = await asyncio.gather(update(), publish())
+        assert publish_outcome[0] == "published"
+        assert update_outcome in (
+            ("updated", "draft"),
+            ("http_error", 404),
+        )
+
+        async with sessions() as verify:
+            version = await verify.get(IdeaVersion, version_id)
+            idea = await verify.get(Idea, idea_id)
+            assert version.status == "published"
+            assert version.published_at is not None
+            assert idea.content == version.content_snapshot
+            if update_outcome[0] == "updated":
+                assert version.content_snapshot == "并发更新后的草稿内容"
+            else:
+                assert version.content_snapshot == "最初草稿内容"
+            draft_count = await verify.scalar(
+                select(func.count()).select_from(IdeaVersion).where(
+                    IdeaVersion.idea_id == idea_id,
+                    IdeaVersion.status == "draft",
+                )
+            )
+            assert draft_count == 0
+    finally:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+        await engine.dispose()
