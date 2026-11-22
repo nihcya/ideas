@@ -21,6 +21,7 @@ class _FakeUserService extends UserService {
         stats: UserProfileStats(followers: following ? 1 : 0, following: 3),
         isFollowing: following,
         canFollow: true,
+        circles: const [],
       );
 
   @override
