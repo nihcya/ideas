@@ -6,13 +6,10 @@ from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user
-from models import User, Notification, NotificationPreference, NotificationPreference
+from models import User, Notification, NotificationPreference
 from services.notification_access import visible_notification_predicate
 from services.notification_preferences import (
     NOTIFICATION_TYPES, notification_preference_predicate,
-)
-from schemas.notification_preference import (
-    NotificationPreferencesResponse, NotificationPreferencesUpdateRequest,
 )
 from schemas.notification import (
     NotificationItem, NotificationsResponse,
@@ -59,6 +56,12 @@ async def update_notification_preferences(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    types = [item.notification_type for item in payload.items]
+    if len(types) != len(set(types)):
+        raise HTTPException(
+            status_code=422,
+            detail={"error": {"code": "DUPLICATE_NOTIFICATION_TYPE", "message": "同一通知类型不能重复设置"}},
+        )
     unknown = [
         item.notification_type for item in payload.items
         if item.notification_type not in NOTIFICATION_TYPES
@@ -148,73 +151,6 @@ async def get_notifications(
     )
 
 
-@router.get("/preferences", response_model=NotificationPreferencesResponse)
-@limiter.limit(DEFAULT_LIMIT)
-async def get_notification_preferences(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    result = await db.execute(
-        select(NotificationPreference).where(
-            NotificationPreference.user_id == user.id
-        )
-    )
-    stored = {
-        item.notification_type: item.enabled
-        for item in result.scalars().all()
-    }
-    return NotificationPreferencesResponse(items=[
-        {"notification_type": key, "enabled": stored.get(key, True)}
-        for key in NOTIFICATION_TYPES
-    ])
-
-
-@router.put("/preferences", response_model=NotificationPreferencesResponse)
-@limiter.limit(DEFAULT_LIMIT)
-async def update_notification_preferences(
-    request: Request,
-    payload: NotificationPreferencesUpdateRequest,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    types = [item.notification_type for item in payload.items]
-    if len(types) != len(set(types)):
-        raise HTTPException(status_code=422, detail="同一通知类型不能重复设置")
-    unknown = set(types) - set(NOTIFICATION_TYPES)
-    if unknown:
-        raise HTTPException(status_code=422, detail="包含不支持的通知类型")
-
-    for item in payload.items:
-        row = await db.scalar(
-            select(NotificationPreference).where(
-                NotificationPreference.user_id == user.id,
-                NotificationPreference.notification_type == item.notification_type,
-            ).with_for_update()
-        )
-        if row is None:
-            db.add(NotificationPreference(
-                user_id=user.id,
-                notification_type=item.notification_type,
-                enabled=item.enabled,
-            ))
-        else:
-            row.enabled = item.enabled
-    await db.commit()
-    stored = {
-        item.notification_type: item.enabled
-        for item in (await db.execute(
-            select(NotificationPreference).where(
-                NotificationPreference.user_id == user.id
-            )
-        )).scalars().all()
-    }
-    return NotificationPreferencesResponse(items=[
-        {"notification_type": key, "enabled": stored.get(key, True)}
-        for key in NOTIFICATION_TYPES
-    ])
-
-
 @router.post("/read", response_model=MarkReadResponse)
 @limiter.limit(DEFAULT_LIMIT)
 async def mark_read(
@@ -237,6 +173,7 @@ async def mark_read(
     # Otherwise a stale notification ID could still be operated on after access
     # to its private Idea has been revoked.
     visible_notification = visible_notification_predicate(user.id)
+    enabled_notification = notification_preference_predicate(user.id)
 
     result = await db.execute(
         update(Notification)
@@ -245,6 +182,7 @@ async def mark_read(
             Notification.id.in_(ids),
             Notification.read == False,
             visible_notification,
+            enabled_notification,
         )
         .values(read=True)
     )
