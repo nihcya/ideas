@@ -130,6 +130,102 @@ async def test_recursive_graph_depth_and_inspired_edges_are_separate_from_lineag
 
 
 @pytest.mark.asyncio
+async def test_graph_enforces_max_node_cap_and_reports_truncation(db_session):
+    owner = await _user(db_session, "universe_node_cap_owner")
+    root = _public_idea(owner.id, "节点上限中心")
+    children = [_public_idea(owner.id, f"节点上限子创意 {index}") for index in range(12)]
+    db_session.add_all([root, *children])
+    await db_session.flush()
+    db_session.add_all([
+        ForkRelation(
+            parent_id=root.id,
+            child_id=child.id,
+            relation_type="fork",
+            license_snapshot={"source_author_name": owner.username},
+        )
+        for child in children
+    ])
+    await db_session.commit()
+
+    async def override_db():
+        yield db_session
+
+    async def override_user():
+        return owner
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = override_user
+    app.dependency_overrides[get_optional_user] = override_user
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+            response = await client.get(
+                f"/api/ideas/{root.id}/graph",
+                params={"depth": 1, "direction": "descendants", "max_nodes": 10},
+            )
+        assert response.status_code == 200
+        graph = response.json()
+        assert len(graph["nodes"]) == 10
+        assert graph["truncated"] is True
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_optional_user, None)
+
+
+@pytest.mark.asyncio
+async def test_graph_enforces_max_edge_cap_and_reports_truncation(db_session):
+    owner = await _user(db_session, "universe_edge_cap_owner")
+    root = _public_idea(owner.id, "关系上限中心")
+    children = [_public_idea(owner.id, f"关系上限创意 {index}") for index in range(25)]
+    db_session.add_all([root, *children])
+    await db_session.flush()
+    relations = [
+        ForkRelation(
+            parent_id=root.id,
+            child_id=child.id,
+            relation_type="fork",
+            license_snapshot={"source_author_name": owner.username},
+        )
+        for child in children
+    ]
+    for index, parent in enumerate(children):
+        for child in children[index + 1:]:
+            relations.append(ForkRelation(
+                parent_id=parent.id,
+                child_id=child.id,
+                relation_type="evolve",
+                license_snapshot={"source_author_name": owner.username},
+            ))
+    db_session.add_all(relations)
+    await db_session.commit()
+
+    async def override_db():
+        yield db_session
+
+    async def override_user():
+        return owner
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = override_user
+    app.dependency_overrides[get_optional_user] = override_user
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+            response = await client.get(
+                f"/api/ideas/{root.id}/graph",
+                params={"depth": 2, "direction": "descendants", "max_nodes": 100},
+            )
+        assert response.status_code == 200
+        graph = response.json()
+        assert len(graph["nodes"]) == 26
+        assert len(graph["edges"]) == 300
+        assert graph["truncated"] is True
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_optional_user, None)
+
+
+@pytest.mark.asyncio
 async def test_public_graph_uses_opaque_placeholder_for_restricted_ancestor(db_session):
     owner = await _user(db_session, "universe_public_owner")
     private_owner = await _user(db_session, "universe_private_owner")
