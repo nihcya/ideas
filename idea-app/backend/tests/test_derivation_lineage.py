@@ -116,9 +116,12 @@ async def test_custom_ancestor_requires_explicit_ack_and_is_frozen(db_session, m
     async def allow_audit(*args, **kwargs):
         return True, ""
 
+    async def noop(*args, **kwargs):
+        return None
+
     monkeypatch.setattr(ideas_router, "audit_content", allow_audit)
-    monkeypatch.setattr(ideas_router.cache, "delete_pattern", lambda *a, **k: None)
-    monkeypatch.setattr(ideas_router.cache, "delete", lambda *a, **k: None)
+    monkeypatch.setattr(ideas_router.cache, "delete_pattern", noop)
+    monkeypatch.setattr(ideas_router.cache, "delete", noop)
 
     with pytest.raises(HTTPException) as exc:
         await ideas_router.fork_idea(
