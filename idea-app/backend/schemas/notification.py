@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-NotificationType = Literal["forked", "collected", "spark_updated", "collab_published", "collab_invited", "collab_reviewed"]
+NotificationType = Literal["forked", "collected", "spark_updated", "collab_published", "collab_invited", "collab_reviewed", "legacy_license_reminder"]
 
 
 class NotificationItem(BaseModel):
