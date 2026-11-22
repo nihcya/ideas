@@ -496,3 +496,38 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [ ] 在线共享 Demo 尚未部署：现有 deploy workflow 需要 API_BASE_URL、SERVER_HOST、SERVER_USER、SSH_PRIVATE_KEY 等 GitHub Actions secrets；未确认这些 secrets 和演示服务器状态前，不声称已有公网演示地址。
 - [ ] Demo 默认 Mock AI；若要展示真实模型生成，需在演示环境配置服务端模型 API Key。不得将密钥提交仓库。
 
+
+
+## 14. V2.0 持续开发恢复记录（2026-11-22）
+
+产品负责人明确：暂停演示交付，以完整 V2.0 产品开发完成为目标；按原四个 Sprint 计划持续推进，不再以 Demo 作为阶段验收。PR #2 继续保持 Open，不合并 main。
+
+### Sprint 2 — 独立异步协作空间（进行中）
+- [x] 建立独立 Collaboration / Member / Source / Contribution / Event ORM 模型。
+- [x] 新增 Migration 004，依赖 001/002/003；纳入 PostgreSQL 16 迁移顺序及失败保护测试。
+- [x] 新增协作空间创建、成员邀请/接受/拒绝/撤销、邀请收件箱、成员读取、贡献提交/编辑/撤回/审核 API。
+- [x] Workspace membership 与 Idea ACL 分离；接受协作邀请不授予私有源 Idea 的访问权。
+- [x] 不可访问私有源的成员不会收到源 Idea ID、署名或授权快照；只返回受限占位引用。
+- [x] 新增协作列表和详情 Flutter 页面、API client、Provider、路由及个人主页入口。
+- [x] 新增 HTTP API 回归测试，覆盖待接受拒绝访问、接受后访问、viewer 不可提交和私有来源隔离。
+- [ ] owner-only 原子协作发布：输出 Idea + 初始版本 + 多父关系 + 冻结署名 + 通知 + 事件，事务失败整体回滚。
+- [ ] PostgreSQL 16 并发覆盖：accept-vs-revoke、contribution-write-vs-revoke、review-vs-edit、publish-vs-source-unpublish。
+- [ ] Flutter 协作页面的 widget tests、错误态/空态/分页及成员撤权 UI。
+
+### Sprint 3 — 创意宇宙
+- [ ] 设计并实现 bounded recursive graph API：默认上下游 2 层，最大 3 层，节点数上限和截断标记。
+- [ ] Inspired 灵感关联与 Fork/Merge/Evolve 严格血缘分离，新增独立关系类型和权限策略。
+- [ ] 图谱按需展开、图例、边类型、节点导航、时间线和隐私安全缓存。
+- [ ] PostgreSQL 查询性能、递归环路、节点上限和私有节点不泄露测试。
+
+### Sprint 4 — 社区体验、治理与发布
+- [ ] Explore 分类/授权/关系筛选与排序，公开创作者发现。
+- [ ] 通知类型、通知偏好和通知深链 ACL。
+- [ ] 举报、审核状态机、管理员处置与审计记录。
+- [ ] 安全审计、限流、缓存隔离、结构化日志、监控和告警。
+- [ ] 生产 schema/data preflight、备份恢复演练、灰度发布、回滚演练和上线检查。
+
+### 本轮执行边界
+- CI 仅验证隔离测试库；不连接生产数据库，不执行生产 migrations，不部署线上环境。
+- 90 天历史授权到期未确认的最终处置仍待产品负责人决策。
+- 不做实时聊天/协同编辑、完整项目管理、交易融资、复杂推荐或积分经济。
