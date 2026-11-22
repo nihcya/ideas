@@ -9,6 +9,22 @@ class UserService {
 
   UserService(this._dio);
 
+  Future<void> followUser(String userId) async {
+    try {
+      await _dio.post('/users/$userId/follow');
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  Future<void> unfollowUser(String userId) async {
+    try {
+      await _dio.delete('/users/$userId/follow');
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
   /// 搜索公开创作者；排序和贡献统计仅基于当前公开内容。
   Future<List<Map<String, dynamic>>> searchPublicCreators(
     String query, {
