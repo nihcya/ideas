@@ -228,7 +228,9 @@ async def get_collaboration(
         source_items.append({
             "source_ref": str(source.idea_id) if visible else f"restricted:{source.id}",
             "accessible": visible,
-            "rights_snapshot": source.rights_snapshot,
+            # Never disclose a private source's ID, author, or license snapshot
+            # merely because the viewer joined this collaboration workspace.
+            **({"rights_snapshot": source.rights_snapshot} if visible else {}),
         })
     member_result = await db.execute(
         select(CollaborationMember, User.username)
