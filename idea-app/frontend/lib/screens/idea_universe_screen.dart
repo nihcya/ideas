@@ -193,27 +193,35 @@ class _IdeaUniverseScreenState extends ConsumerState<IdeaUniverseScreen> {
         ),
         if (inspired.isEmpty)
           const ListTile(title: Text('当前图谱没有灵感关联')),
-        ...inspired.map((edge) {
-          final id = edge['id'] as String;
-          return ListTile(
-            leading: const Icon(Icons.lightbulb_outline),
-            title: const Text('灵感关联'),
-            subtitle: Text(edge['note'] as String? ?? '未填写说明'),
-            trailing: IconButton(
-              tooltip: '删除关联',
-              onPressed: _removingAssociations.contains(id)
-                  ? null
-                  : () => _removeInspired(id),
-              icon: _removingAssociations.contains(id)
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.delete_outline),
+        if (inspired.isNotEmpty)
+          SizedBox(
+            height: math.min(inspired.length * 68.0, 240.0).toDouble(),
+            child: ListView.builder(
+              itemCount: inspired.length,
+              itemBuilder: (context, index) {
+                final edge = inspired[index];
+                final id = edge['id'] as String;
+                return ListTile(
+                  leading: const Icon(Icons.lightbulb_outline),
+                  title: const Text('灵感关联'),
+                  subtitle: Text(edge['note'] as String? ?? '未填写说明'),
+                  trailing: IconButton(
+                    tooltip: '删除关联',
+                    onPressed: _removingAssociations.contains(id)
+                        ? null
+                        : () => _removeInspired(id),
+                    icon: _removingAssociations.contains(id)
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.delete_outline),
+                  ),
+                );
+              },
             ),
-          );
-        }),
+          ),
       ],
     );
   }
@@ -440,7 +448,8 @@ class _IdeaUniverseScreenState extends ConsumerState<IdeaUniverseScreen> {
       layers.putIfAbsent(depth, () => []).add(node);
     }
     final maxDepth = layers.keys.fold<int>(0, (a, b) => a > b ? a : b);
-    const width = 900.0;
+    final widestLayer = layers.values.fold<int>(0, (a, layer) => a > layer.length ? a : layer.length);
+    final width = math.max(900.0, widestLayer * 190.0).toDouble();
     final height = 150.0 + (maxDepth + 1) * 190.0;
     final positions = <String, Offset>{};
     for (final entry in layers.entries) {
