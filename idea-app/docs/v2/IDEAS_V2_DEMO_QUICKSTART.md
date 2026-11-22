@@ -44,7 +44,13 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-复制 `.env.example` 为 `.env`，并将数据库配置调整为本地 SQLite（避免连接任何现有 PostgreSQL）：
+先复制环境模板，再将数据库配置调整为本地 SQLite（避免连接任何现有 PostgreSQL）：
+
+```powershell
+Copy-Item .env.example .env
+```
+
+macOS / Linux 使用 `cp .env.example .env`。
 
 ```dotenv
 DATABASE_URL=sqlite+aiosqlite:///./dianzi_demo.db
