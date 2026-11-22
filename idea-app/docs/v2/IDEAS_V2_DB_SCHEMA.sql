@@ -270,3 +270,10 @@ CREATE TABLE IF NOT EXISTS idea_version_contributions (
 
 CREATE INDEX IF NOT EXISTS idx_idea_version_contributions_version
   ON idea_version_contributions (version_id);
+
+
+-- IDEAS V2 Sprint 2: first-class asynchronous collaboration (Migration 004)
+-- Canonical executable migration: migrations/004_collaborations.sql
+-- Tables: collaborations, collaboration_members, collaboration_sources,
+-- collaboration_contributions, collaboration_events.
+-- Workspace membership is not an IdeaAccessGrant and never grants access to a private source Idea.
