@@ -167,6 +167,8 @@ class IdeaDetail {
   final String visibility;
   final String? licenseCode;
   final String? licenseVersion;
+  final String legacyLicenseReviewStatus;
+  final DateTime? legacyLicenseReviewDueAt;
   final String? accessRole;
   final bool isForkable;
 
@@ -183,6 +185,8 @@ class IdeaDetail {
     this.visibility = 'private',
     this.licenseCode,
     this.licenseVersion,
+    this.legacyLicenseReviewStatus = 'not_required',
+    this.legacyLicenseReviewDueAt,
     this.accessRole,
     this.isForkable = false,
   });
@@ -207,6 +211,11 @@ class IdeaDetail {
       visibility: json['visibility'] as String? ?? 'private',
       licenseCode: json['license_code'] as String?,
       licenseVersion: json['license_version'] as String?,
+      legacyLicenseReviewStatus:
+          json['legacy_license_review_status'] as String? ?? 'not_required',
+      legacyLicenseReviewDueAt: json['legacy_license_review_due_at'] == null
+          ? null
+          : DateTime.parse(json['legacy_license_review_due_at'] as String),
       accessRole: json['access_role'] as String?,
       isForkable: json['is_forkable'] as bool? ?? false,
     );
