@@ -21,7 +21,7 @@ from services.deepseek_client import (
     call_collide_ai, call_evolve_ai, SAMPER_ANGLES,
 )
 from services.rate_limit import limiter, AI_LIMIT
-from services.idea_access import can_view_idea, can_derive_from_idea, build_derivation_snapshot
+from services.idea_access import (can_view_idea, can_derive_from_idea, build_derivation_snapshot, requires_custom_license_confirmation)
 
 router = APIRouter(prefix="/ideas", tags=["evolve"])
 
@@ -110,6 +110,18 @@ async def collide_confirm(
             raise HTTPException(status_code=403, detail={"error": {"code": "DERIVATIVE_NOT_ALLOWED", "message": "来源创意授权不允许碰撞衍生"}})
         parents.append(parent)
 
+    if (
+        await requires_custom_license_confirmation(db, parents)
+        and not req.confirm_custom_licenses
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail={"error": {
+                "code": "CUSTOM_LICENSE_CONFIRMATION_REQUIRED",
+                "message": "碰撞来源或其祖先包含自定义授权，请阅读全部条款并明确确认",
+            }},
+        )
+
     # 审核
     passed, reason = await audit_content(db, req.content)
     if not passed:
@@ -136,7 +148,7 @@ async def collide_confirm(
             child_id=new_idea.id,
             parent_id=parent.id,
             relation_type="merge",
-            license_snapshot=await build_derivation_snapshot(db, parent),
+            license_snapshot=await build_derivation_snapshot(\n                db, parent,\n                custom_license_acknowledged=req.confirm_custom_licenses,\n                acknowledged_by=user.id,\n            ),
         )
         db.add(relation)
 
@@ -215,6 +227,17 @@ async def evolve_confirm(
         raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "原点子不存在"}})
     if not await can_derive_from_idea(db, parent, user.id):
         raise HTTPException(status_code=403, detail={"error": {"code": "DERIVATIVE_NOT_ALLOWED", "message": "来源创意授权不允许演化"}})
+    if (
+        await requires_custom_license_confirmation(db, [parent])
+        and not req.confirm_custom_licenses
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail={"error": {
+                "code": "CUSTOM_LICENSE_CONFIRMATION_REQUIRED",
+                "message": "演化来源或其祖先包含自定义授权，请阅读全部条款并明确确认",
+            }},
+        )
 
     # 审核
     passed, reason = await audit_content(db, req.content)
@@ -242,7 +265,7 @@ async def evolve_confirm(
         parent_id=parent.id,
         relation_type="evolve",
         angle=req.angle,
-        license_snapshot=await build_derivation_snapshot(db, parent),
+        license_snapshot=await build_derivation_snapshot(\n            db, parent,\n            custom_license_acknowledged=req.confirm_custom_licenses,\n            acknowledged_by=user.id,\n        ),
     )
     db.add(relation)
 
