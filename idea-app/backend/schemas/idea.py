@@ -61,14 +61,18 @@ class LineageNode(BaseModel):
     """谱系图节点"""
     model_config = ConfigDict(from_attributes=True)
 
-    id: str = Field(..., description="点子ID")
+    # For a withdrawn/private source, id is an opaque lineage key, not the private Idea ID.
+    id: str = Field(..., description="可访问节点为 Idea ID；不可访问的历史来源为不透明谱系键")
     color_hex: str = Field(
         ..., pattern=r"^#[0-9A-Fa-f]{6}$", description="圆圈颜色"
     )
-    author: str = Field(..., description="作者用户名")
+    author: str = Field(..., description="创作时冻结的作者署名")
     title: str = Field(
-        ..., max_length=30, description="点子内容前30字（前端展示用）"
+        ..., max_length=30, description="点子标题；不可访问来源仅显示撤回占位文案"
     )
+    is_navigable: bool = Field(True, description="是否允许打开该 Idea 详情")
+    relation_type: Literal["fork", "merge", "evolve"] | None = None
+    license_snapshot: dict | None = None
 
 
 class Lineage(BaseModel):
