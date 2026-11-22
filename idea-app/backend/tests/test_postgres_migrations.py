@@ -27,6 +27,7 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
             DROP TABLE IF EXISTS notification_preferences CASCADE;
             DROP TABLE IF EXISTS idea_associations CASCADE;
             DROP TABLE IF EXISTS notifications CASCADE;
+            DROP TABLE IF EXISTS notification_preferences CASCADE;
             DROP TABLE IF EXISTS collaboration_events CASCADE;
             DROP TABLE IF EXISTS collaboration_contributions CASCADE;
             DROP TABLE IF EXISTS collaboration_sources CASCADE;
