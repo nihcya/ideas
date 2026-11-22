@@ -67,8 +67,9 @@ class ExploreNotifier extends AsyncNotifier<List<CircleData>> {
       _hasMore = res.hasMore;
       state = AsyncData([...current, ...res.circles]);
     } catch (e, st) {
-      // 加载更多失败时不清空已有数据，仅记录错误
-      state = AsyncError(e, st);
+      // Keep the visible page; the caller surfaces the error as a snackbar.
+      state = AsyncData(current);
+      Error.throwWithStackTrace(e, st);
     }
   }
 
