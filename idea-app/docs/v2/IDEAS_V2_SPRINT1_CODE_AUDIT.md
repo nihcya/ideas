@@ -234,3 +234,13 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 公开贡献流测试覆盖：分页参数和 `total/has_more` 契约、冻结署名输出、私有 Idea 贡献不泄露。
 - 公开主页前端新增分页加载和版本 ID 深链；深链参数只定位 UI，不改变后端授权边界。
 - 代码已提交 PR 分支；必须等待最新 GitHub Actions 确认 pytest、Flutter test/analyze 和 APK build。未连接生产数据库，未执行 migrations 001/002/003。
+
+
+## 19. 私有协作到公开署名 HTTP 端到端验收（2026-11-22）
+
+- 新增 `test_collaboration_e2e_api.py`，使用 HTTPX ASGITransport 访问真实 FastAPI 路由，并在测试依赖层注入隔离的 SQLite session 与测试用户。
+- 覆盖邀请创建、收件箱、pending ACL、接受邀请、详情访问、contributor 提交/编辑、viewer 禁止提交、作者审核采纳。
+- 覆盖作者显式公开 Idea、创建版本草稿并关联已采纳贡献、发布版本、匿名读取公开时间线和冻结署名。
+- 审核服务与缓存清理在测试中 mock；本测试验证路由、schema、ACL、持久化关系和 HTTP 响应契约，不代表真实外部审核服务或生产 Redis/PostgreSQL 验证。
+- 最新 head 的 GitHub Actions 尚待最终结果；在 pytest 通过前不宣称端到端验收通过。
+- PostgreSQL migrations 001/002/003 未执行，未连接生产数据库。
