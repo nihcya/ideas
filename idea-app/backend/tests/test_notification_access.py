@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import select, update, func
 from httpx import ASGITransport, AsyncClient
 
-from models import User, Idea, IdeaAccessGrant, Notification, NotificationPreference
+from models import (\n    User, Idea, IdeaAccessGrant, Notification, NotificationPreference,\n    Collaboration, CollaborationMember,\n)
 from deps import get_current_user, get_db
 from main import app
 from services.notification_preferences import add_notification_if_enabled
@@ -214,3 +214,94 @@ async def test_notification_preferences_filter_feed_and_suppress_future_writes(d
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
+
+
+
+@pytest.mark.asyncio
+async def test_private_collaboration_notifications_follow_membership_acl(db_session):
+    owner = await _user(db_session, "notification_collab_owner")
+    pending_user = await _user(db_session, "notification_collab_pending")
+    accepted_user = await _user(db_session, "notification_collab_accepted")
+    outsider = await _user(db_session, "notification_collab_outsider")
+    workspace = Collaboration(
+        title="私有协作通知 ACL",
+        owner_id=owner.id,
+        status="draft",
+        visibility="private",
+    )
+    db_session.add(workspace)
+    await db_session.flush()
+    db_session.add_all([
+        CollaborationMember(
+            collaboration_id=workspace.id,
+            user_id=owner.id,
+            role="owner",
+            status="accepted",
+            invited_by=owner.id,
+        ),
+        CollaborationMember(
+            collaboration_id=workspace.id,
+            user_id=pending_user.id,
+            role="contributor",
+            status="pending",
+            invited_by=owner.id,
+        ),
+        CollaborationMember(
+            collaboration_id=workspace.id,
+            user_id=accepted_user.id,
+            role="contributor",
+            status="accepted",
+            invited_by=owner.id,
+        ),
+    ])
+    db_session.add_all([
+        Notification(
+            user_id=pending_user.id,
+            type="collab_invited",
+            content="协作邀请",
+            collaboration_id=workspace.id,
+        ),
+        Notification(
+            user_id=accepted_user.id,
+            type="collab_published",
+            content="私有协作成果",
+            collaboration_id=workspace.id,
+        ),
+    ])
+    await db_session.commit()
+
+    pending_rows = (await db_session.execute(
+        select(Notification).where(
+            Notification.user_id == pending_user.id,
+            visible_notification_predicate(pending_user.id),
+        )
+    )).scalars().all()
+    accepted_rows = (await db_session.execute(
+        select(Notification).where(
+            Notification.user_id == accepted_user.id,
+            visible_notification_predicate(accepted_user.id),
+        )
+    )).scalars().all()
+    outsider_rows = (await db_session.execute(
+        select(Notification).where(
+            Notification.user_id == outsider.id,
+            visible_notification_predicate(outsider.id),
+        )
+    )).scalars().all()
+    assert [item.type for item in pending_rows] == ["collab_invited"]
+    assert [item.type for item in accepted_rows] == ["collab_published"]
+    assert outsider_rows == []
+
+    pending_member = await db_session.scalar(select(CollaborationMember).where(
+        CollaborationMember.collaboration_id == workspace.id,
+        CollaborationMember.user_id == pending_user.id,
+    ))
+    pending_member.status = "declined"
+    await db_session.commit()
+    hidden_after_decline = (await db_session.execute(
+        select(Notification).where(
+            Notification.user_id == pending_user.id,
+            visible_notification_predicate(pending_user.id),
+        )
+    )).scalars().all()
+    assert hidden_after_decline == []
