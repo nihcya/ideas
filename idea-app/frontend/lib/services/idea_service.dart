@@ -45,6 +45,23 @@ class IdeaService {
     }
   }
 
+  /// 举报当前可访问的创意。
+  Future<void> reportIdea({
+    required String ideaId,
+    required String reason,
+    String? description,
+  }) async {
+    try {
+      await _dio.post('/reports', data: {
+        'idea_id': ideaId,
+        'reason': reason,
+        'description': description,
+      });
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
   /// 新建私有草稿（直接创建，非 fork/碰撞/演化）
   Future<IdeaResponse> createIdea(String content) async {
     try {
