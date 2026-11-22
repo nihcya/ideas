@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import select
 
 from models import User, Idea, IdeaContribution, IdeaVersion, IdeaVersionContribution
 from routers import idea_versions as versions_router
@@ -378,3 +379,93 @@ async def test_non_owner_cannot_manage_public_idea_versions(db_session):
             db_session, other,
         )
     assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_version_publish_rejects_changed_contribution_without_partial_publish(db_session):
+    owner = await _user(db_session, "version_changed_state_owner")
+    contributor = await _user(db_session, "version_changed_state_author")
+    idea = await _idea(db_session, owner)
+    contribution = IdeaContribution(
+        idea_id=idea.id, author_id=contributor.id,
+        content="先被采纳，后被撤销采纳的贡献", status="accepted",
+    )
+    db_session.add(contribution)
+    await db_session.commit()
+
+    draft = await versions_router.create_version_draft(
+        idea.id,
+        VersionDraftCreate(
+            content="不应发布的版本快照",
+            contribution_ids=[contribution.id],
+        ),
+        db_session,
+        owner,
+    )
+    version_id = uuid.UUID(draft["id"])
+    contribution.status = "rejected"
+    await db_session.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        await versions_router.publish_version(
+            idea.id, version_id, db_session, owner
+        )
+    assert exc.value.status_code == 409
+
+    await db_session.refresh(idea)
+    version = await db_session.get(IdeaVersion, version_id)
+    assert idea.content == "版本管理原始内容"
+    assert version.status == "draft"
+    assert version.published_at is None
+    attribution = await db_session.execute(
+        select(IdeaVersionContribution).where(
+            IdeaVersionContribution.version_id == version_id
+        )
+    )
+    assert len(attribution.scalars().all()) == 1
+
+
+@pytest.mark.asyncio
+async def test_version_publish_commit_failure_rolls_back_all_state(db_session, monkeypatch):
+    owner = await _user(db_session, "version_commit_failure_owner")
+    contributor = await _user(db_session, "version_commit_failure_author")
+    idea = await _idea(db_session, owner)
+    contribution = IdeaContribution(
+        idea_id=idea.id, author_id=contributor.id,
+        content="需要冻结署名的贡献", status="accepted",
+    )
+    db_session.add(contribution)
+    await db_session.commit()
+
+    draft = await versions_router.create_version_draft(
+        idea.id,
+        VersionDraftCreate(
+            content="事务失败时不应写入的新内容",
+            contribution_ids=[contribution.id],
+        ),
+        db_session,
+        owner,
+    )
+    version_id = uuid.UUID(draft["id"])
+
+    async def fail_commit():
+        raise RuntimeError("simulated database commit failure")
+
+    monkeypatch.setattr(db_session, "commit", fail_commit)
+    with pytest.raises(RuntimeError, match="simulated database commit failure"):
+        await versions_router.publish_version(
+            idea.id, version_id, db_session, owner
+        )
+
+    await db_session.rollback()
+    await db_session.refresh(idea)
+    version = await db_session.get(IdeaVersion, version_id)
+    assert idea.content == "版本管理原始内容"
+    assert version.status == "draft"
+    assert version.published_at is None
+    attribution = await db_session.execute(
+        select(IdeaVersionContribution).where(
+            IdeaVersionContribution.version_id == version_id
+        )
+    )
+    assert len(attribution.scalars().all()) == 1
