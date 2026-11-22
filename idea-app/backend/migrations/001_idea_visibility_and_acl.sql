@@ -16,13 +16,13 @@ CREATE TABLE IF NOT EXISTS app_schema_migrations (
   applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-DO $
+DO $migration$
 BEGIN
   IF EXISTS (SELECT 1 FROM app_schema_migrations WHERE version = '001_idea_visibility_and_acl') THEN
     RAISE EXCEPTION 'Migration 001_idea_visibility_and_acl has already been applied';
   END IF;
 END;
-$;
+$migration$;
 
 ALTER TABLE fork_relations ADD COLUMN IF NOT EXISTS metadata JSONB;
 
