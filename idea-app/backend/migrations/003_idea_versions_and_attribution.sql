@@ -5,6 +5,23 @@
 
 BEGIN;
 
+DO $
+BEGIN
+  IF to_regclass('public.app_schema_migrations') IS NULL THEN
+    RAISE EXCEPTION 'Migrations 001 and 002 must be applied first';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM app_schema_migrations
+    WHERE version = '001_idea_visibility_and_acl'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM app_schema_migrations
+    WHERE version = '002_idea_contributions'
+  ) THEN
+    RAISE EXCEPTION 'Migrations 001 and 002 must be applied first';
+  END IF;
+END;
+$;
+
 CREATE TABLE IF NOT EXISTS idea_versions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   idea_id UUID NOT NULL REFERENCES ideas(id) ON DELETE CASCADE,
