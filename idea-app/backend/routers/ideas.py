@@ -133,9 +133,18 @@ async def explore(
             pool = pool_result.scalars().all()
             now = datetime.now(timezone.utc)
             thirty_days_ago = now - timedelta(days=30)
+            def _normalized_last_fork(idea):
+                value = idea.last_fork_at
+                if value is None:
+                    return datetime.min.replace(tzinfo=timezone.utc)
+                return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+
             hot = sorted(
-                [idea for idea in pool if idea.last_fork_at and idea.last_fork_at >= thirty_days_ago],
-                key=lambda idea: (idea.fork_count or 0, idea.last_fork_at),
+                [
+                    idea for idea in pool
+                    if idea.last_fork_at and _normalized_last_fork(idea) >= thirty_days_ago
+                ],
+                key=lambda idea: (idea.fork_count or 0, _normalized_last_fork(idea)),
                 reverse=True,
             )
             hot_ids = {idea.id for idea in hot}
