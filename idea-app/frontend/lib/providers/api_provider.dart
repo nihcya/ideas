@@ -10,6 +10,7 @@ import '../services/notification_service.dart';
 import '../services/settings_service.dart';
 import '../services/spark_service.dart';
 import '../services/user_service.dart';
+import '../services/universe_service.dart';
 import '../services/vault_service.dart';
 import 'auth_provider.dart';
 
@@ -41,6 +42,9 @@ final sparkServiceProvider = Provider<SparkService>((ref) {
 });
 final userServiceProvider = Provider<UserService>((ref) {
   return UserService(ref.read(apiClientProvider));
+});
+final universeServiceProvider = Provider<UniverseService>((ref) {
+  return UniverseService(ref.read(apiClientProvider));
 });
 final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService(ref.read(apiClientProvider));
