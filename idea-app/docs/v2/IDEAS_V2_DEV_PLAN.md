@@ -607,8 +607,8 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] Flutter 邀请成员从手动输入用户 ID 改为搜索并选择用户名；pending invite 在接受前仍不授予访问权。
 - [x] 新增成员主动离开 API；使用独立 left 状态和 member_left 事件，workspace 行锁与写操作统一锁顺序，离开后访问立即返回 404。
 - [x] 新增 owner-only 空间归档 API；归档后 workspace 只读，历史贡献和事件保留，归档操作幂等。
-- [x] 新增 Migration 007 007_collaboration_member_leave.sql，将 left 纳入 PostgreSQL member status 约束；SQLite ORM metadata 同步更新。
+- [x] 新增 Migration 008 008_collaboration_member_leave.sql，将 left 纳入 PostgreSQL member status 约束；SQLite ORM metadata 同步更新。
 - [x] 新增后端 API 测试覆盖候选搜索权限、已邀请成员排除、成员离开撤权、owner 不可离开、归档幂等及归档后写入拒绝。
 - [x] 新增 Flutter widget tests 覆盖邀请搜索/选择和归档状态 UI。
-- [ ] Migration 007 的 PostgreSQL 16 exact-head 验证和 Flutter widget test/analyze/build exact-head CI 待完成。
+- [ ] Migration 008 的 PostgreSQL 16 exact-head 验证和 Flutter widget test/analyze/build exact-head CI 待完成。
 - [ ] 补充 accept-vs-revoke、review-vs-edit、leave/archive-vs-write 的 PostgreSQL 双会话竞争测试；通过后关闭 Sprint 2。
