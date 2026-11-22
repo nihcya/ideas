@@ -271,3 +271,16 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - GitHub Actions 新增独立 `postgres-migrations` job，使用 ephemeral PostgreSQL 16 service container；常规 SQLite pytest 和 Flutter jobs 保持独立。
 - 这项测试只证明迁移在最小测试基线上的语法与约束行为，不覆盖生产数据规模、线上 schema drift、备份恢复、锁等待或真实生产回填风险。
 - 当前最新提交的 PostgreSQL job 尚待首次运行结果；生产数据库未连接，migrations 001/002/003 未执行。
+
+## 23. PostgreSQL 16 migration CI 实际结果（2026-11-22）
+
+- Exact tested head `5dfdc96b192f058287f174693c551551265c1578` 的 CI run `45009294921` 已全部完成：backend 55 passed、1 skipped、1 warning；PostgreSQL 16.16 migration integration 1 passed；Flutter pub get/test/analyze/Android Debug APK build 全部成功。
+- 迁移集成测试使用独立的一次性 CI PostgreSQL 数据库，按 001→002→003 执行；它不代表已在生产数据库执行，也不覆盖生产数据规模、schema drift 或备份恢复。
+
+## 24. PostgreSQL 版本草稿并发测试（2026-11-22）
+
+- 新增 `tests/test_postgres_version_concurrency.py`，使用两个独立 AsyncSession 并发调用真实版本草稿创建路由；使用独立 PostgreSQL 数据库和真实行锁，不以 SQLite 模拟。
+- 预期契约：两个请求竞争同一 Idea 行锁；第一个提交一个 draft，第二个在获得锁后观察到现有 draft 并返回 HTTP 409；最终数据库仅存在一个 draft，版本号为 1。
+- 新增独立 `postgres-version-concurrency` GitHub Actions job，使用 PostgreSQL 16 service container，与 migration job 隔离。
+- 该测试已提交，但其首次 CI 结果尚未确认；不得提前认定并发验证通过。
+- 测试数据库通过 ORM metadata 创建/清理 schema，仅供该 disposable CI job 使用；生产数据库未连接、未改动，migrations 001/002/003 未执行。
