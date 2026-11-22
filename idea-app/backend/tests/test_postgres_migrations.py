@@ -176,6 +176,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
     conn = await asyncpg.connect(dsn)
     try:
         await conn.execute("""
+            DROP TABLE IF EXISTS idea_reports CASCADE;
             DROP TABLE IF EXISTS notification_preferences CASCADE;
             DROP TABLE IF EXISTS idea_associations CASCADE;
             DROP TABLE IF EXISTS notifications CASCADE;
