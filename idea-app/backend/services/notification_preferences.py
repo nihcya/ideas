@@ -14,6 +14,7 @@ NOTIFICATION_TYPES = {
     "collab_published": "协作空间发布了最终成果",
     "collab_invited": "你收到一个协作空间邀请",
     "collab_reviewed": "你的协作贡献已完成审核",
+    "legacy_license_reminder": "历史公开创意的授权补充期限即将结束",
 }
 
 
