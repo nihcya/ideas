@@ -2,7 +2,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user
@@ -63,7 +63,10 @@ async def search_public_creators(
             public_idea_count.label("public_idea_count"),
             public_contribution_count.label("public_contribution_count"),
         )
-        .where(User.username.ilike(f"%{query}%"))
+        .where(
+            User.username.ilike(f"%{query}%"),
+            or_(public_idea_count > 0, public_contribution_count > 0),
+        )
         .order_by(
             public_contribution_count.desc(),
             public_idea_count.desc(),
