@@ -764,6 +764,65 @@ class _DetailBody extends StatelessWidget {
                 ),
                 onTap: onCircleTap,
               ),
+              ...detail.lineage.parents
+                  .where((parent) => parent.licenseSnapshot != null)
+                  .map((parent) {
+                final snapshot = parent.licenseSnapshot!;
+                final licenseCode =
+                    snapshot['license_code'] as String? ?? 'unknown';
+                final customText =
+                    snapshot['license_text_snapshot'] as String?;
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.of(context).surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.of(context).divider),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        parent.title == '已撤回的来源创意'
+                            ? '历史来源授权快照'
+                            : '来源授权快照',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.of(context).textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '来源作者：${parent.author} · 关系：${parent.relationType ?? 'unknown'}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.of(context).textSecondary,
+                        ),
+                      ),
+                      Text(
+                        '授权代码：$licenseCode · 允许继续衍生：${snapshot['allow_fork'] == true ? '是' : '否'}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.of(context).textSecondary,
+                        ),
+                      ),
+                      if (customText != null && customText.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          customText,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.of(context).textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              }),
               const SizedBox(height: 24),
             ],
           ],
