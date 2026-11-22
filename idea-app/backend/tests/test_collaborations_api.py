@@ -305,11 +305,12 @@ async def test_collaboration_publish_atomically_creates_idea_version_lineage_and
 @pytest.mark.asyncio
 async def test_collaboration_publish_uses_intersection_of_all_parent_rights(db_session, monkeypatch):
     owner = await _user(db_session, "merge_rights_owner")
+    owner_id = owner.id
     permissive = Idea(
         content="允许衍生的父创意",
         color_hex="#123456",
         source="ugc",
-        author_id=owner.id,
+        author_id=owner_id,
         border_style="gold-thin",
         publication_status="published",
         visibility="public",
@@ -337,23 +338,24 @@ async def test_collaboration_publish_uses_intersection_of_all_parent_rights(db_s
     await db_session.flush()
     workspace = Collaboration(
         title="多父授权交集",
-        owner_id=owner.id,
+        owner_id=owner_id,
         status="draft",
         visibility="private",
     )
     db_session.add(workspace)
     await db_session.flush()
+    workspace_id = workspace.id
     db_session.add(CollaborationMember(
-        collaboration_id=workspace.id, user_id=owner.id,
-        role="owner", status="accepted", invited_by=owner.id,
+        collaboration_id=workspace_id, user_id=owner.id,
+        role="owner", status="accepted", invited_by=owner_id,
     ))
     db_session.add_all([
         CollaborationSource(
-            collaboration_id=workspace.id, idea_id=permissive.id,
+            collaboration_id=workspace_id, idea_id=permissive.id,
             position=0, rights_snapshot={"source_idea_id": str(permissive.id)},
         ),
         CollaborationSource(
-            collaboration_id=workspace.id, idea_id=restrictive.id,
+            collaboration_id=workspace_id, idea_id=restrictive.id,
             position=1, rights_snapshot={"source_idea_id": str(restrictive.id)},
         ),
     ])
@@ -365,7 +367,7 @@ async def test_collaboration_publish_uses_intersection_of_all_parent_rights(db_s
     monkeypatch.setattr(collaborations_router, "audit_content", allow_audit)
     with pytest.raises(HTTPException) as exc:
         await collaborations_router.publish_collaboration(
-            workspace.id,
+            workspace_id,
             CollaborationPublish(
                 content="尝试绕过限制父创意的合并结果",
                 visibility="public",
@@ -380,7 +382,7 @@ async def test_collaboration_publish_uses_intersection_of_all_parent_rights(db_s
     await db_session.rollback()
     count = await db_session.scalar(select(func.count()).select_from(Idea))
     assert count == 2
-    persisted_workspace = await db_session.get(Collaboration, workspace.id)
+    persisted_workspace = await db_session.get(Collaboration, workspace_id)
     assert persisted_workspace.status == "draft"
     assert persisted_workspace.published_idea_id is None
 
@@ -390,11 +392,12 @@ async def test_collaboration_publish_commit_failure_rolls_back_everything(db_ses
     from datetime import datetime, timezone
 
     owner = await _user(db_session, "rollback_owner")
+    owner_id = owner.id
     source = Idea(
         content="原始公开来源",
         color_hex="#123456",
         source="ugc",
-        author_id=owner.id,
+        author_id=owner_id,
         border_style="gold-thin",
         publication_status="published",
         visibility="public",
@@ -408,16 +411,17 @@ async def test_collaboration_publish_commit_failure_rolls_back_everything(db_ses
     db_session.add(source)
     await db_session.flush()
     workspace = Collaboration(
-        title="原子回滚测试", owner_id=owner.id, status="draft", visibility="private",
+        title="原子回滚测试", owner_id=owner_id, status="draft", visibility="private",
     )
     db_session.add(workspace)
     await db_session.flush()
+    workspace_id = workspace.id
     db_session.add(CollaborationMember(
-        collaboration_id=workspace.id, user_id=owner.id,
-        role="owner", status="accepted", invited_by=owner.id,
+        collaboration_id=workspace_id, user_id=owner.id,
+        role="owner", status="accepted", invited_by=owner_id,
     ))
     db_session.add(CollaborationSource(
-        collaboration_id=workspace.id, idea_id=source.id,
+        collaboration_id=workspace_id, idea_id=source.id,
         position=0, rights_snapshot={"source_idea_id": str(source.id)},
     ))
     await db_session.commit()
@@ -439,7 +443,7 @@ async def test_collaboration_publish_commit_failure_rolls_back_everything(db_ses
 
     with pytest.raises(RuntimeError, match="simulated commit failure"):
         await collaborations_router.publish_collaboration(
-            workspace.id,
+            workspace_id,
             CollaborationPublish(
                 content="事务失败不应留下半成品",
                 visibility="public",
@@ -457,6 +461,6 @@ async def test_collaboration_publish_commit_failure_rolls_back_everything(db_ses
     assert await db_session.scalar(select(func.count()).select_from(ForkRelation)) == 0
     assert await db_session.scalar(select(func.count()).select_from(IdeaVersionContribution)) == 0
     assert await db_session.scalar(select(func.count()).select_from(IdeaContribution)) == 0
-    persisted_workspace = await db_session.get(Collaboration, workspace.id)
+    persisted_workspace = await db_session.get(Collaboration, workspace_id)
     assert persisted_workspace.status == "draft"
     assert persisted_workspace.published_idea_id is None
