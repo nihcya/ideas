@@ -674,7 +674,7 @@ async def accept_private_idea_invite(
             IdeaAccessGrant.idea_id == idea_id,
             IdeaAccessGrant.user_id == user.id,
             IdeaAccessGrant.status == "pending",
-        )
+        ).with_for_update(of=IdeaAccessGrant)
     )
     row = result.one_or_none()
     if row is None:
@@ -705,7 +705,7 @@ async def revoke_private_idea_invite(
         select(IdeaAccessGrant).where(
             IdeaAccessGrant.id == invite_id,
             IdeaAccessGrant.idea_id == idea_id,
-        )
+        ).with_for_update()
     )
     grant = grant_result.scalar_one_or_none()
     if grant is None:
@@ -738,16 +738,22 @@ async def _get_private_collaboration_idea(db: AsyncSession, idea_id: uuid.UUID) 
 
 
 async def _require_accepted_contributor(
-    db: AsyncSession, idea_id: uuid.UUID, user_id: uuid.UUID
+    db: AsyncSession,
+    idea_id: uuid.UUID,
+    user_id: uuid.UUID,
+    *,
+    for_update: bool = False,
 ) -> IdeaAccessGrant:
-    result = await db.execute(
-        select(IdeaAccessGrant).where(
-            IdeaAccessGrant.idea_id == idea_id,
-            IdeaAccessGrant.user_id == user_id,
-            IdeaAccessGrant.status == "accepted",
-            IdeaAccessGrant.role == "contributor",
-        )
+    query = select(IdeaAccessGrant).where(
+        IdeaAccessGrant.idea_id == idea_id,
+        IdeaAccessGrant.user_id == user_id,
+        IdeaAccessGrant.status == "accepted",
+        IdeaAccessGrant.role == "contributor",
     )
+    if for_update:
+        # Serialize write operations against owner-side invite revocation.
+        query = query.with_for_update()
+    result = await db.execute(query)
     grant = result.scalar_one_or_none()
     if grant is None:
         raise HTTPException(
@@ -767,7 +773,7 @@ async def submit_idea_contribution(
     idea = await _get_private_collaboration_idea(db, idea_id)
     if idea.author_id == user.id:
         raise HTTPException(status_code=400, detail={"error": {"code": "OWNER_CANNOT_CONTRIBUTE", "message": "创意作者请直接编辑自己的创意"}})
-    await _require_accepted_contributor(db, idea_id, user.id)
+    await _require_accepted_contributor(db, idea_id, user.id, for_update=True)
     contribution = IdeaContribution(
         idea_id=idea_id,
         author_id=user.id,
@@ -871,14 +877,14 @@ async def update_idea_contribution(
     user: User = Depends(get_current_user),
 ):
     idea = await _get_private_collaboration_idea(db, idea_id)
-    await _require_accepted_contributor(db, idea_id, user.id)
+    await _require_accepted_contributor(db, idea_id, user.id, for_update=True)
     result = await db.execute(
         select(IdeaContribution).where(
             IdeaContribution.id == contribution_id,
             IdeaContribution.idea_id == idea_id,
             IdeaContribution.author_id == user.id,
             IdeaContribution.status == "submitted",
-        )
+        ).with_for_update()
     )
     item = result.scalar_one_or_none()
     if item is None:
@@ -908,14 +914,14 @@ async def withdraw_idea_contribution(
     user: User = Depends(get_current_user),
 ):
     await _get_private_collaboration_idea(db, idea_id)
-    await _require_accepted_contributor(db, idea_id, user.id)
+    await _require_accepted_contributor(db, idea_id, user.id, for_update=True)
     result = await db.execute(
         select(IdeaContribution).where(
             IdeaContribution.id == contribution_id,
             IdeaContribution.idea_id == idea_id,
             IdeaContribution.author_id == user.id,
             IdeaContribution.status == "submitted",
-        )
+        ).with_for_update()
     )
     item = result.scalar_one_or_none()
     if item is None:
@@ -941,7 +947,7 @@ async def review_idea_contribution(
             IdeaContribution.id == contribution_id,
             IdeaContribution.idea_id == idea_id,
             IdeaContribution.status == "submitted",
-        )
+        ).with_for_update()
     )
     item = result.scalar_one_or_none()
     if item is None:
