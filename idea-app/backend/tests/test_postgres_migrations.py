@@ -24,6 +24,11 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
     try:
         # The CI service database is disposable and dedicated to this test.
         await conn.execute("""
+            DROP TABLE IF EXISTS collaboration_events CASCADE;
+            DROP TABLE IF EXISTS collaboration_contributions CASCADE;
+            DROP TABLE IF EXISTS collaboration_sources CASCADE;
+            DROP TABLE IF EXISTS collaboration_members CASCADE;
+            DROP TABLE IF EXISTS collaborations CASCADE;
             DROP TABLE IF EXISTS idea_version_contributions CASCADE;
             DROP TABLE IF EXISTS idea_versions CASCADE;
             DROP TABLE IF EXISTS idea_contributions CASCADE;
@@ -64,6 +69,7 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
             "001_idea_visibility_and_acl.sql",
             "002_idea_contributions.sql",
             "003_idea_versions_and_attribution.sql",
+            "004_collaborations.sql",
         ):
             sql = (MIGRATIONS / name).read_text(encoding="utf-8")
             await conn.execute(sql)
@@ -75,6 +81,7 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
             "001_idea_visibility_and_acl",
             "002_idea_contributions",
             "003_idea_versions_and_attribution",
+            "004_collaborations",
         }
 
         active = await conn.fetchrow(
@@ -143,6 +150,11 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
     conn = await asyncpg.connect(dsn)
     try:
         await conn.execute("""
+            DROP TABLE IF EXISTS collaboration_events CASCADE;
+            DROP TABLE IF EXISTS collaboration_contributions CASCADE;
+            DROP TABLE IF EXISTS collaboration_sources CASCADE;
+            DROP TABLE IF EXISTS collaboration_members CASCADE;
+            DROP TABLE IF EXISTS collaborations CASCADE;
             DROP TABLE IF EXISTS idea_version_contributions CASCADE;
             DROP TABLE IF EXISTS idea_versions CASCADE;
             DROP TABLE IF EXISTS idea_contributions CASCADE;
@@ -165,6 +177,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         migration_001 = (MIGRATIONS / "001_idea_visibility_and_acl.sql").read_text(encoding="utf-8")
         migration_002 = (MIGRATIONS / "002_idea_contributions.sql").read_text(encoding="utf-8")
         migration_003 = (MIGRATIONS / "003_idea_versions_and_attribution.sql").read_text(encoding="utf-8")
+        migration_004 = (MIGRATIONS / "004_collaborations.sql").read_text(encoding="utf-8")
 
         async def expect_migration_failure(sql):
             with pytest.raises(asyncpg.PostgresError):
@@ -195,9 +208,14 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         markers = await conn.fetch("SELECT version FROM app_schema_migrations ORDER BY version")
         assert [row["version"] for row in markers] == ["001_idea_visibility_and_acl"]
 
+        # Migration 004 must not run before the complete prior schema exists.
+        await expect_migration_failure(migration_004)
+        assert await conn.fetchval("SELECT to_regclass('public.collaborations')") is None
+
         # After the prerequisite is applied, the remaining migrations succeed.
         await conn.execute(migration_002)
         await conn.execute(migration_003)
+        await conn.execute(migration_004)
         markers = await conn.fetch("SELECT version FROM app_schema_migrations ORDER BY version")
         assert {row["version"] for row in markers} == {
             "001_idea_visibility_and_acl",
@@ -212,6 +230,11 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         except asyncpg.PostgresError:
             pass
         await conn.execute("""
+            DROP TABLE IF EXISTS collaboration_events CASCADE;
+            DROP TABLE IF EXISTS collaboration_contributions CASCADE;
+            DROP TABLE IF EXISTS collaboration_sources CASCADE;
+            DROP TABLE IF EXISTS collaboration_members CASCADE;
+            DROP TABLE IF EXISTS collaborations CASCADE;
             DROP TABLE IF EXISTS idea_version_contributions CASCADE;
             DROP TABLE IF EXISTS idea_versions CASCADE;
             DROP TABLE IF EXISTS idea_contributions CASCADE;
