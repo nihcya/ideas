@@ -72,16 +72,23 @@ class CircleData {
 
 /// 谱系图节点
 class LineageNode {
+  /// Navigable Idea ID, or an opaque lineage key for a withdrawn source.
   final String id;
   final String colorHex; // 格式：#RRGGBB
   final String author;
-  final String title; // 点子内容前 30 字
+  final String title;
+  final bool isNavigable;
+  final String? relationType;
+  final Map<String, dynamic>? licenseSnapshot;
 
   const LineageNode({
     required this.id,
     required this.colorHex,
     required this.author,
     required this.title,
+    this.isNavigable = true,
+    this.relationType,
+    this.licenseSnapshot,
   });
 
   Color get color => Color(int.parse('0xFF${colorHex.substring(1)}'));
@@ -92,6 +99,9 @@ class LineageNode {
       colorHex: json['color_hex'] as String,
       author: json['author'] as String? ?? '',
       title: json['title'] as String? ?? '',
+      isNavigable: json['is_navigable'] as bool? ?? true,
+      relationType: json['relation_type'] as String?,
+      licenseSnapshot: json['license_snapshot'] as Map<String, dynamic>?,
     );
   }
 }
