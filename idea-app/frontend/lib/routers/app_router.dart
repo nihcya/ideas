@@ -51,7 +51,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final path = state.uri.path;
       final publicPaths = ['/auth', '/explore', '/user/'];
       final isPublic = publicPaths.any((p) => path.startsWith(p)) ||
-          (path.startsWith('/idea/') && path.endsWith('/timeline'));
+          (path.startsWith('/idea/') &&
+              (path.endsWith('/timeline') || path.endsWith('/universe')));
 
       // 未登录访问受保护页面 → 跳转登录
       if (!isLoggedIn && !isPublic) {
