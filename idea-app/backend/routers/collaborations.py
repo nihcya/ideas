@@ -152,6 +152,26 @@ async def create_collaboration(
         ))
     await _event(db, workspace.id, user.id, "collaboration_created", {"source_count": len(sources)})
     await db.commit()
+    published_idea = (
+        await db.get(Idea, workspace.published_idea_id)
+        if workspace.published_idea_id else None
+    )
+    published_result = None
+    if published_idea is not None:
+        published_result = {
+            "content": published_idea.content,
+            "visibility": published_idea.visibility,
+            "license_code": published_idea.license_code,
+            "license_text_snapshot": published_idea.license_text_snapshot,
+            "allow_fork": published_idea.allow_fork,
+            "published_at": published_idea.published_at,
+            # Private result IDs are only exposed to the workspace owner.
+            "idea_id": (
+                str(published_idea.id)
+                if published_idea.visibility == "public" or workspace.owner_id == user.id
+                else None
+            ),
+        }
     return {
         "id": str(workspace.id),
         "title": workspace.title,
@@ -381,6 +401,7 @@ async def get_collaboration(
         "events": [{"id": str(e.id), "actor_id": str(e.actor_id) if e.actor_id else None,
                     "event_type": e.event_type, "payload": e.payload, "created_at": e.created_at}
                    for e in events],
+        "published_result": published_result,
     }
 
 
