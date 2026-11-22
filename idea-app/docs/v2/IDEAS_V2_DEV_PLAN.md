@@ -429,3 +429,16 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] Exact code head CI run [45016633454](https://github.com/nihcya/ideas/actions/runs/45016633454)：Backend、PostgreSQL migrations、PostgreSQL concurrency 全部通过；Flutter pub get/test/analyze 通过，APK build 当时仍在执行。
 - [ ] 上述协作锁修复后的最新代码 head 28cb40736fd31a4716fce4129bb58034aec79642 正由 run [45016696437](https://github.com/nihcya/ideas/actions/runs/45016696437) 验证；以该 exact-head 结果为准。
 - [ ] 生产数据库未连接；migrations 001/002/003 未执行。
+
+
+### 13.26 DAG 来源撤回、授权快照与衍生事务竞争（2026-11-22）
+
+- [x] Fork / Evolve / Collide 确认创建时重新校验来源权限，并锁定来源 Idea 行；Collide 对两个来源按 UUID 固定顺序加锁，避免 A+B 与 B+A 请求产生反向锁顺序。
+- [x] 作者发布/撤回公开状态时锁定 Idea 行，与衍生创建共享同一行锁，避免来源授权检查与关系写入之间发生撤权竞态。
+- [x] Collide confirm 拒绝重复来源 ID，避免一个创意被重复作为两个父节点。
+- [x] Fork / Evolve / Collide 的关系快照冻结 source_idea_id、source_author_id、source_author_name、license_code、license_text_snapshot、license_version、captured_at、allow_fork。
+- [x] 来源撤回后，衍生创意详情保留来源节点和作者署名；不再向无权访问来源的衍生作者暴露来源正文。
+- [x] 新增回归测试：来源撤回后仍保留谱系署名；Collide 重复父节点返回 422。
+- [x] PostgreSQL 16 新增 fork-vs-unpublish 独立会话竞争测试，验证 Fork 先取得来源锁时撤回必须等待；最终关系携带完整授权/署名快照。
+- [x] CI run [45018288819](https://github.com/nihcya/ideas/actions/runs/45018288819)：Backend **57 passed, 9 skipped**；PostgreSQL version/concurrency **7 passed**；PostgreSQL migrations passed；Flutter test/analyze passed；APK build 当时仍在执行。
+- [ ] 生产数据库未连接；migrations 001/002/003 未执行。物理删除源 Idea 的数据保留行为仍不在本轮范围；当前产品撤回通过 unpublish 转为 private/draft，不做物理删除。
