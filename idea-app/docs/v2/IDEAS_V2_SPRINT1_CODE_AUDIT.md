@@ -371,3 +371,12 @@ PR 最新文档/代码 head 的 CI run [45018438622](https://github.com/nihcya/i
 - 回归测试覆盖多代 custom 快照传播、custom 未确认拒绝、Collide/Evolve 显式确认、多父任一来源受限拒绝，以及发布不能扩大祖先授权。
 - 该实现不新增数据库列或 migration；授权链保存在既有 ForkRelation JSON metadata 中。
 - exact-head CI 运行 [45023866140](https://github.com/nihcya/ideas/actions/runs/45023866140) 包含新增回归测试；在四个 job 全部完成前不记录全绿。生产 migrations 001/002/003 未执行。
+
+## 35. 授权继承修复与 exact-head CI 验收（2026-11-22）
+
+- 本轮首次 CI 暴露 Python 源码中误写入的字面量 `\\n`，导致 ideas.py 语法错误；已修复 Fork、Collide、Evolve 授权快照调用及回归测试 import。
+- 新增回归覆盖后，Backend pytest **63 passed, 9 skipped, 1 warning**。
+- PostgreSQL 16 version/concurrency **7 passed, 1 warning**；PostgreSQL migrations job success。
+- Flutter test、analyze、Android Debug APK build 均 success。
+- Exact-head CI run [45024074019](https://github.com/nihcya/ideas/actions/runs/45024074019) 四个 job 全部通过。
+- 本轮没有新增 migration；生产 PostgreSQL 未连接，migrations 001/002/003 未执行。
