@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/api_provider.dart';
+import '../services/collaboration_service.dart';
 
 class CollaborationListScreen extends ConsumerStatefulWidget {
   const CollaborationListScreen({super.key});
@@ -186,105 +187,15 @@ class _CollaborationDetailScreenState extends ConsumerState<CollaborationDetailS
   }
 
   Future<void> _invite() async {
-    final controller = TextEditingController();
-    var candidates = <Map<String, dynamic>>[];
-    var searching = false;
-    String? searchError;
     final service = ref.read(collaborationServiceProvider);
-
-    Future<void> search(StateSetter setDialogState, BuildContext dialogContext) async {
-      final query = controller.text.trim();
-      if (query.length < 2) {
-        setDialogState(() => searchError = '至少输入 2 个字符');
-        return;
-      }
-      setDialogState(() {
-        searching = true;
-        searchError = null;
-      });
-      try {
-        final result = await service.searchMembers(widget.collaborationId, query);
-        if (!dialogContext.mounted) return;
-        setDialogState(() {
-          candidates = result;
-          searching = false;
-        });
-      } catch (e) {
-        if (!dialogContext.mounted) return;
-        setDialogState(() {
-          searching = false;
-          searchError = e.toString();
-        });
-      }
-    }
-
     final selected = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('邀请协作者'),
-          content: SizedBox(
-            width: 420,
-            height: 380,
-            child: Column(
-              children: [
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: (_) => search(setDialogState, dialogContext),
-                  decoration: InputDecoration(
-                    labelText: '按用户名搜索',
-                    hintText: '输入至少 2 个字符',
-                    suffixIcon: IconButton(
-                      tooltip: '搜索',
-                      onPressed: searching
-                          ? null
-                          : () => search(setDialogState, dialogContext),
-                      icon: const Icon(Icons.search),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (searching) const LinearProgressIndicator(),
-                if (searchError != null)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      searchError!,
-                      style: TextStyle(color: Theme.of(dialogContext).colorScheme.error),
-                    ),
-                  ),
-                Expanded(
-                  child: candidates.isEmpty
-                      ? const Center(child: Text('搜索用户后，选择要邀请的协作者'))
-                      : ListView.builder(
-                          itemCount: candidates.length,
-                          itemBuilder: (context, index) {
-                            final item = candidates[index];
-                            return ListTile(
-                              leading: const Icon(Icons.person_add_alt_1),
-                              title: Text(item['username'] as String? ?? '用户'),
-                              onTap: () => Navigator.of(dialogContext).pop(item),
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('取消'),
-            ),
-          ],
-        ),
+      builder: (_) => _InviteMemberDialog(
+        collaborationId: widget.collaborationId,
+        service: service,
       ),
     );
-    controller.dispose();
     if (selected == null) return;
-
     try {
       await service.invite(
         widget.collaborationId,
@@ -694,6 +605,123 @@ class _CollaborationDetailScreenState extends ConsumerState<CollaborationDetailS
           );
         },
       ),
+    );
+  }
+}
+
+
+class _InviteMemberDialog extends StatefulWidget {
+  final String collaborationId;
+  final CollaborationService service;
+
+  const _InviteMemberDialog({
+    required this.collaborationId,
+    required this.service,
+  });
+
+  @override
+  State<_InviteMemberDialog> createState() => _InviteMemberDialogState();
+}
+
+class _InviteMemberDialogState extends State<_InviteMemberDialog> {
+  final _controller = TextEditingController();
+  List<Map<String, dynamic>> _candidates = [];
+  bool _searching = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search() async {
+    final query = _controller.text.trim();
+    if (query.length < 2) {
+      setState(() => _error = '至少输入 2 个字符');
+      return;
+    }
+    setState(() {
+      _searching = true;
+      _error = null;
+    });
+    try {
+      final result = await widget.service.searchMembers(
+        widget.collaborationId,
+        query,
+      );
+      if (!mounted) return;
+      setState(() {
+        _candidates = result;
+        _searching = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _searching = false;
+        _error = error.toString();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('邀请协作者'),
+      content: SizedBox(
+        width: 420,
+        height: 380,
+        child: Column(
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _search(),
+              decoration: InputDecoration(
+                labelText: '按用户名搜索',
+                hintText: '输入至少 2 个字符',
+                suffixIcon: IconButton(
+                  tooltip: '搜索',
+                  onPressed: _searching ? null : _search,
+                  icon: const Icon(Icons.search),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (_searching) const LinearProgressIndicator(),
+            if (_error != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            Expanded(
+              child: _candidates.isEmpty
+                  ? const Center(child: Text('搜索用户后，选择要邀请的协作者'))
+                  : ListView.builder(
+                      itemCount: _candidates.length,
+                      itemBuilder: (context, index) {
+                        final item = _candidates[index];
+                        return ListTile(
+                          leading: const Icon(Icons.person_add_alt_1),
+                          title: Text(item['username'] as String? ?? '用户'),
+                          onTap: () => Navigator.of(context).pop(item),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+      ],
     );
   }
 }
