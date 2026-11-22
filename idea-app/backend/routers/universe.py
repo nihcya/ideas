@@ -94,6 +94,59 @@ def _node(idea: Idea, author: str, depth: int):
     }
 
 
+@router.get("/search")
+async def search_visible_ideas(
+    q: str = Query(..., min_length=2, max_length=80),
+    limit: int = Query(20, ge=1, le=30),
+    db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
+):
+    """Search only Ideas the current viewer is already allowed to read."""
+    visible_predicates = [
+        and_(
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
+        )
+    ]
+    query = (
+        select(Idea, User.username)
+        .outerjoin(User, User.id == Idea.author_id)
+        .where(
+            Idea.status != "rejected",
+            Idea.content.ilike(f"%{q.strip()}%"),
+        )
+    )
+    if user is not None:
+        visible_predicates.extend([
+            Idea.author_id == user.id,
+            IdeaAccessGrant.id.is_not(None),
+        ])
+        query = query.outerjoin(
+            IdeaAccessGrant,
+            and_(
+                IdeaAccessGrant.idea_id == Idea.id,
+                IdeaAccessGrant.user_id == user.id,
+                IdeaAccessGrant.status == "accepted",
+            ),
+        )
+    query = query.where(or_(*visible_predicates)).distinct()
+    query = query.order_by(Idea.created_at.desc()).limit(limit)
+    rows = (await db.execute(query)).all()
+    return {
+        "items": [
+            {
+                "id": str(idea.id),
+                "title": idea.content[:100],
+                "author": author or "匿名",
+                "color_hex": idea.color_hex,
+            }
+            for idea, author in rows
+        ],
+        "limit": limit,
+    }
+
+
 @router.get("/{idea_id}/graph")
 async def get_idea_graph(
     idea_id: uuid.UUID,
