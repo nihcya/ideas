@@ -255,3 +255,12 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 贡献重复归属由 uq_version_contribution_consumed_once 数据库唯一约束兜底；请求内重复选择由 _attach_contributions 返回 422。独立重复提交当前允许作为不同提案记录，不按文本相等去重。
 - 最新代码 head b784036c5166e3cdc3ea2aec94cdbc9ffb2efdd0 的 Backend CI 为 51 passed、1 warning；Flutter test/analyze 通过，APK build 尚待最终结论。
 - 这组测试采用 SQLite 与 mock 审核/缓存；不代表生产 PostgreSQL、Redis 或真实审核服务已集成验收。migrations 001/002/003 未执行。
+## 21. PostgreSQL migration 与版本并发安全审查（2026-11-22）
+
+- 发现 Migration 001 的 PL/pgSQL guard 原先写成 `DO $ ... END $;`，美元引用分隔符与块结束分号均不符合 PostgreSQL 语法；已改为 `DO $$ ... END; $$;`。
+- Migration 002 现在在创建贡献表前检查 001 的 schema migration marker；Migration 003 在创建版本表前检查 001、002 的 marker，降低人工误执行顺序风险。
+- 新增 `test_migration_contracts.py` 静态契约检查，覆盖事务包裹、DO 块、前置依赖、贡献状态 CHECK、FK、版本号唯一约束和 contribution_id 全局唯一约束。
+- 新增重复 contribution_id 请求测试：同一草稿重复传入同一贡献返回 422；模拟 FastAPI 请求事务边界 rollback 后不残留 draft。
+- 版本号分配与发布均先锁定 Idea 行（PostgreSQL `SELECT FOR UPDATE`），版本草稿行/关联贡献行在编辑和发布路径中也使用行锁；数据库 `UNIQUE(idea_id, version_number)` 与 `UNIQUE(contribution_id)` 作为最终并发约束。
+- 当前并发测试主要使用 SQLite，SQLite 不实现 PostgreSQL 行级 `FOR UPDATE` 语义。因此不能将其描述为真实 PostgreSQL 并发验收；需要后续在独立 PG 16 环境运行并发集成测试。
+- 本次未运行 SQL migration，也未连接生产数据库。Migration 001 的 active Idea 公共回填仍需上线前按真实生产查询规则做预检查与审批。
