@@ -1,16 +1,18 @@
 """HTTP contracts for first-class asynchronous collaboration workspaces."""
 import uuid
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, func
 from httpx import ASGITransport, AsyncClient
 
 from deps import get_current_user, get_db
 from main import app
 from models import (
-    User, Idea, Collaboration, CollaborationContribution, ForkRelation,
-    IdeaVersion, IdeaVersionContribution, IdeaContribution,
+    User, Idea, Collaboration, CollaborationMember, CollaborationSource,
+    CollaborationContribution, ForkRelation, IdeaVersion,
+    IdeaVersionContribution, IdeaContribution,
 )
 from routers import collaborations as collaborations_router
+from schemas.collaboration import CollaborationPublish
 
 
 async def _user(db, username):
@@ -284,3 +286,163 @@ async def test_collaboration_publish_atomically_creates_idea_version_lineage_and
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.mark.asyncio
+async def test_collaboration_publish_uses_intersection_of_all_parent_rights(db_session, monkeypatch):
+    owner = await _user(db_session, "merge_rights_owner")
+    permissive = Idea(
+        content="允许衍生的父创意",
+        color_hex="#123456",
+        source="ugc",
+        author_id=owner.id,
+        border_style="gold-thin",
+        publication_status="published",
+        visibility="public",
+        license_code="attribution_adaptation",
+        license_version="v1",
+        allow_fork=True,
+        is_forkable=True,
+        legacy_license_review_status="not_required",
+    )
+    restrictive = Idea(
+        content="不允许衍生的父创意",
+        color_hex="#654321",
+        source="ugc",
+        author_id=owner.id,
+        border_style="gold-thin",
+        publication_status="published",
+        visibility="public",
+        license_code="attribution",
+        license_version="v1",
+        allow_fork=False,
+        is_forkable=False,
+        legacy_license_review_status="not_required",
+    )
+    db_session.add_all([permissive, restrictive])
+    await db_session.flush()
+    workspace = Collaboration(
+        title="多父授权交集",
+        owner_id=owner.id,
+        status="draft",
+        visibility="private",
+    )
+    db_session.add(workspace)
+    await db_session.flush()
+    db_session.add(CollaborationMember(
+        collaboration_id=workspace.id, user_id=owner.id,
+        role="owner", status="accepted", invited_by=owner.id,
+    ))
+    db_session.add_all([
+        CollaborationSource(
+            collaboration_id=workspace.id, idea_id=permissive.id,
+            position=0, rights_snapshot={"source_idea_id": str(permissive.id)},
+        ),
+        CollaborationSource(
+            collaboration_id=workspace.id, idea_id=restrictive.id,
+            position=1, rights_snapshot={"source_idea_id": str(restrictive.id)},
+        ),
+    ])
+    await db_session.commit()
+
+    async def allow_audit(*args, **kwargs):
+        return True, ""
+
+    monkeypatch.setattr(collaborations_router, "audit_content", allow_audit)
+    with pytest.raises(Exception) as exc:
+        await collaborations_router.publish_collaboration(
+            workspace.id,
+            CollaborationPublish(
+                content="尝试绕过限制父创意的合并结果",
+                visibility="public",
+                license_code="attribution_adaptation",
+                allow_fork=True,
+                confirm_terms=True,
+            ),
+            db_session,
+            owner,
+        )
+    assert getattr(exc.value, "status_code", None) == 422
+    await db_session.rollback()
+    count = await db_session.scalar(select(func.count()).select_from(Idea))
+    assert count == 2
+    persisted_workspace = await db_session.get(Collaboration, workspace.id)
+    assert persisted_workspace.status == "draft"
+    assert persisted_workspace.published_idea_id is None
+
+
+@pytest.mark.asyncio
+async def test_collaboration_publish_commit_failure_rolls_back_everything(db_session, monkeypatch):
+    from datetime import datetime, timezone
+
+    owner = await _user(db_session, "rollback_owner")
+    source = Idea(
+        content="原始公开来源",
+        color_hex="#123456",
+        source="ugc",
+        author_id=owner.id,
+        border_style="gold-thin",
+        publication_status="published",
+        visibility="public",
+        license_code="attribution_adaptation",
+        license_version="v1",
+        allow_fork=True,
+        is_forkable=True,
+        published_at=datetime.now(timezone.utc),
+        legacy_license_review_status="not_required",
+    )
+    db_session.add(source)
+    await db_session.flush()
+    workspace = Collaboration(
+        title="原子回滚测试", owner_id=owner.id, status="draft", visibility="private",
+    )
+    db_session.add(workspace)
+    await db_session.flush()
+    db_session.add(CollaborationMember(
+        collaboration_id=workspace.id, user_id=owner.id,
+        role="owner", status="accepted", invited_by=owner.id,
+    ))
+    db_session.add(CollaborationSource(
+        collaboration_id=workspace.id, idea_id=source.id,
+        position=0, rights_snapshot={"source_idea_id": str(source.id)},
+    ))
+    await db_session.commit()
+
+    async def allow_audit(*args, **kwargs):
+        return True, ""
+
+    async def noop(*args, **kwargs):
+        return None
+
+    async def fail_commit():
+        raise RuntimeError("simulated commit failure")
+
+    monkeypatch.setattr(collaborations_router, "audit_content", allow_audit)
+    monkeypatch.setattr(collaborations_router, "write_audit_log", noop)
+    monkeypatch.setattr(collaborations_router.cache, "delete", noop)
+    monkeypatch.setattr(collaborations_router.cache, "delete_pattern", noop)
+    monkeypatch.setattr(db_session, "commit", fail_commit)
+
+    with pytest.raises(RuntimeError, match="simulated commit failure"):
+        await collaborations_router.publish_collaboration(
+            workspace.id,
+            CollaborationPublish(
+                content="事务失败不应留下半成品",
+                visibility="public",
+                license_code="attribution_adaptation",
+                allow_fork=True,
+                confirm_terms=True,
+            ),
+            db_session,
+            owner,
+        )
+    await db_session.rollback()
+
+    assert await db_session.scalar(select(func.count()).select_from(Idea)) == 1
+    assert await db_session.scalar(select(func.count()).select_from(IdeaVersion)) == 0
+    assert await db_session.scalar(select(func.count()).select_from(ForkRelation)) == 0
+    assert await db_session.scalar(select(func.count()).select_from(IdeaVersionContribution)) == 0
+    assert await db_session.scalar(select(func.count()).select_from(IdeaContribution)) == 0
+    persisted_workspace = await db_session.get(Collaboration, workspace.id)
+    assert persisted_workspace.status == "draft"
+    assert persisted_workspace.published_idea_id is None
