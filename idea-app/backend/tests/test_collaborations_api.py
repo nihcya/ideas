@@ -57,6 +57,9 @@ async def test_workspace_invitation_does_not_grant_private_source_idea_access(db
             assert invite.status_code == 201
 
             active["user"] = contributor
+            inbox = await client.get("/api/collaborations/invitations/inbox")
+            assert inbox.status_code == 200
+            assert inbox.json()["items"][0]["collaboration_id"] == workspace_id
             pending_read = await client.get(f"/api/collaborations/{workspace_id}")
             assert pending_read.status_code == 404
             pending_source_read = await client.get(f"/api/ideas/{private_source.id}")
@@ -102,6 +105,12 @@ async def test_workspace_invitation_does_not_grant_private_source_idea_access(db
             assert owner_view.status_code == 200
             assert len(owner_view.json()["contributions"]) == 1
             assert owner_view.json()["contributions"][0]["status"] == "submitted"
+
+            revoked = await client.delete(f"/api/collaborations/{workspace_id}/members/{contributor.id}")
+            assert revoked.status_code == 200
+            active["user"] = contributor
+            revoked_workspace = await client.get(f"/api/collaborations/{workspace_id}")
+            assert revoked_workspace.status_code == 404
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
