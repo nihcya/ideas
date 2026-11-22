@@ -1,6 +1,6 @@
 # IDEAS V2.0 Sprint 2 — First-class asynchronous collaboration
 
-Status: backend workspace foundation and initial Flutter workspace UI implemented; owner-controlled atomic publication and expanded PostgreSQL race coverage remain in progress.
+Status: workspace foundation, initial Flutter workspace UI, and owner-controlled atomic publication are implemented; exact-head CI and additional PostgreSQL race coverage remain in progress.
 
 ## Product boundary
 
@@ -35,7 +35,7 @@ PostgreSQL migration: 004_collaborations.sql. It requires 001, 002 and 003 and i
 | POST | /api/collaborations/{id}/contributions | Owner/contributor submits attributed proposal |
 | PATCH | /api/collaborations/{id}/contributions/{contribution_id} | Author edits own submitted proposal |
 | DELETE | /api/collaborations/{id}/contributions/{contribution_id} | Author withdraws own submitted proposal |
-| POST | /api/collaborations/{id}/contributions/{contribution_id}/review | Owner accepts/rejects a submitted proposal |
+| POST | /api/collaborations/{id}/contributions/{contribution_id}/review | Owner accepts/rejects a submitted proposal |\n| POST | /api/collaborations/{id}/publish | Owner atomically creates output Idea, version, parent edges and frozen contributor attributions |
 
 ## Access matrix
 
@@ -52,9 +52,9 @@ PostgreSQL migration: 004_collaborations.sql. It requires 001, 002 and 003 and i
 
 Inaccessible workspace and source resources use 404 to avoid existence disclosure. Private source IDs and rights snapshots are omitted from workspace responses when the member does not independently have source access.
 
-## Publication contract — next implementation tranche
+## Publication contract — implemented, pending exact-head verification
 
-The workspace owner alone publishes. The final operation must be a single database transaction that:
+The workspace owner alone publishes. The implemented endpoint performs a single database transaction that:
 1. Locks the workspace, its source rows and accepted contribution rows.
 2. Rechecks workspace owner/status and every source's current publication state, visibility, license chain and custom-term acknowledgement.
 3. Requires every direct parent and every ancestor obligation to permit the intended derivative; multi-parent rights are the intersection, never a union.
