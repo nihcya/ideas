@@ -345,3 +345,14 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [ ] 最新 head 的 pytest、Flutter test/analyze 和 Android Debug APK CI 尚待完成；新增端到端测试通过前不标记验收完成。
 - [ ] 本测试使用 SQLite 内存库与 mock 内容审核，不替代 PostgreSQL 迁移验证、生产鉴权/缓存/审核服务验证。
 - [ ] PostgreSQL migrations 001/002/003 仍未执行。
+
+### 13.16 协作权限撤销与版本发布失败路径（2026-11-22）
+
+- [x] 贡献撤回接口现在要求操作者仍持有当前 Idea 的 accepted contributor grant；邀请撤销后，原协作者不能继续通过撤回 API 操作私有贡献。
+- [x] ASGI HTTP 端到端测试覆盖有效权限下本人撤回成功、权限撤销后撤回返回 403，以及已拒绝贡献不能编辑或撤回。
+- [x] 版本发布前复核关联贡献仍为 accepted；若状态已变化，返回 409，Idea 内容和版本状态保持不变。
+- [x] 新增模拟数据库 commit 失败并显式 rollback 的测试，验证 Idea 内容、版本状态、发布时间和署名关联不出现半发布。
+- [x] 现有数据库唯一约束确保 contribution_id 只能关联一个版本；同一草稿请求重复传入 contribution_id 会返回 422。多次独立提交仍作为独立提案处理，不以文本相同作为数据库去重条件。
+- [x] 最新代码 head b784036c5166e3cdc3ea2aec94cdbc9ffb2efdd0 的 CI run 45007930008：Backend 51 passed，Flutter test 和 analyze passed；Android Debug APK build 当时仍在执行。
+- [ ] Android Debug APK build 最终结果待确认；以最新文档提交对应 CI 为最终验证依据。
+- [ ] PostgreSQL migrations 001/002/003 仍未执行；当前测试使用 SQLite，不替代 PostgreSQL 并发/迁移验收。
