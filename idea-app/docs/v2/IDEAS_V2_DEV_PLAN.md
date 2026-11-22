@@ -504,15 +504,15 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 
 ### Sprint 2 — 独立异步协作空间（进行中）
 - [x] 建立独立 Collaboration / Member / Source / Contribution / Event ORM 模型。
-- [x] 新增 Migration 004，依赖 001/002/003；纳入 PostgreSQL 16 迁移顺序及失败保护测试。
+- [x] 新增 Migration 004，依赖 001/002/003；纳入 PostgreSQL 16 迁移顺序及失败保护测试。\n- [x] 新增 Migration 005，将协作提案桥接到 IdeaContribution/IdeaVersionContribution 冻结署名链；依赖 001–004。
 - [x] 新增协作空间创建、成员邀请/接受/拒绝/撤销、邀请收件箱、成员读取、贡献提交/编辑/撤回/审核 API。
 - [x] Workspace membership 与 Idea ACL 分离；接受协作邀请不授予私有源 Idea 的访问权。
 - [x] 不可访问私有源的成员不会收到源 Idea ID、署名或授权快照；只返回受限占位引用。
 - [x] 新增协作列表和详情 Flutter 页面、API client、Provider、路由及个人主页入口。
-- [x] 新增 HTTP API 回归测试，覆盖待接受拒绝访问、接受后访问、viewer 不可提交和私有来源隔离。
-- [ ] owner-only 原子协作发布：输出 Idea + 初始版本 + 多父关系 + 冻结署名 + 通知 + 事件，事务失败整体回滚。
+- [x] 新增 HTTP API 回归测试，覆盖待接受拒绝访问、接受后访问、viewer 不可提交、私有来源隔离、贡献/事件隔离和成员撤权。
+- [x] owner-only 原子协作发布 API：输出 Idea + 初始版本 + 多父关系 + 冻结署名 + 通知 + 事件；公开发布校验来源当前状态与完整授权继承链。\n- [x] 协作贡献通过 IdeaContribution 桥接到既有版本署名链，公开创作者贡献页和版本时间线可复用既有隐私过滤。\n- [x] custom 来源授权必须在协作发布时显式确认，确认人/时间冻结到来源关系快照。\n- [ ] 发布失败/commit failure 整体回滚测试、publish-vs-source-unpublish PostgreSQL 并发测试。
 - [ ] PostgreSQL 16 并发覆盖：accept-vs-revoke、contribution-write-vs-revoke、review-vs-edit、publish-vs-source-unpublish。
-- [ ] Flutter 协作页面的 widget tests、错误态/空态/分页及成员撤权 UI。
+- [x] Flutter 协作发布表单、贡献选择、授权确认、成员撤权 UI 已接入。\n- [ ] Flutter 协作页面 widget tests、错误态/空态/分页和最新 exact-head CI。
 
 ### Sprint 3 — 创意宇宙
 - [ ] 设计并实现 bounded recursive graph API：默认上下游 2 层，最大 3 层，节点数上限和截断标记。
@@ -531,3 +531,17 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - CI 仅验证隔离测试库；不连接生产数据库，不执行生产 migrations，不部署线上环境。
 - 90 天历史授权到期未确认的最终处置仍待产品负责人决策。
 - 不做实时聊天/协同编辑、完整项目管理、交易融资、复杂推荐或积分经济。
+
+
+### 14.1 Sprint 2 协作发布闭环推进（2026-11-22）
+
+- [x] Migration 005 新增 source_collaboration_contribution_id 唯一关联，将协作提案安全桥接到普通 IdeaContribution，复用 IdeaVersionContribution 的冻结署名和公开贡献查询。
+- [x] POST /api/collaborations/{id}/publish：锁定 workspace/source rows/accepted contributions；重新验证每个来源的公开状态与完整授权链；多父按交集判断；custom 来源要求显式确认。
+- [x] 单事务创建输出 Idea、V1、父关系和完整 rights_chain 快照、贡献桥接记录、冻结署名、通知和事件；公开发布清 Explore 缓存。
+- [x] 私有输出仍为 private draft、allow_fork=false；公开输出必须 confirm_terms=true。
+- [x] 贡献提交/编辑接入现有审核服务；贡献者视图隐藏其他人的贡献 ID 和活动事件。
+- [x] Flutter 增加协作成果发布表单，允许选择已采纳贡献、范围、授权、后续衍生开关及 custom 条款确认。
+- [x] 新增 HTTP 测试覆盖 custom 授权未确认时拒绝、确认后发布成功、版本/多父关系/贡献署名快照。
+- [ ] Migration 005、全量后端测试、Flutter test/analyze/build 的 exact-head CI 仍待完成；不得提前标记通过。
+- [ ] PostgreSQL 双会话并发：协作发布 vs 来源撤回、协作成员撤权 vs 贡献写入、协作审核 vs 提案编辑。
+- [ ] 生产 migrations 001–005 未执行；生产 DB 未连接。
