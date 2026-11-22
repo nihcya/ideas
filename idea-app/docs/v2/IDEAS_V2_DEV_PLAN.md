@@ -521,7 +521,7 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [ ] PostgreSQL 查询性能、递归环路、节点上限和私有节点不泄露测试。
 
 ### Sprint 4 — 社区体验、治理与发布
-- [x] Explore 关键词、授权、衍生许可、来源筛选与推荐/最新/衍生数排序已接入前后端；稳定分页、筛选状态和错误恢复测试已补。\n- [ ] 公开创作者搜索与发现入口。
+- [x] Explore 关键词、授权、衍生许可、来源筛选与推荐/最新/衍生数排序已接入前后端；稳定分页、筛选状态和错误恢复测试已补。\n- [x] 公开创作者搜索与发现入口：按公开作品/署名贡献排序，只展示有公开创意或公开署名贡献的创作者。
 - [ ] 通知类型、通知偏好和通知深链 ACL。
 - [ ] 举报、审核状态机、管理员处置与审计记录。
 - [ ] 安全审计、限流、缓存隔离、结构化日志、监控和告警。
@@ -625,5 +625,5 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 通知 API 在列表、未读数和标记已读时同时执行资源 ACL 与用户偏好过滤。
 - [x] Migration 009 为 notifications 增加 collaboration_id；私有协作通知按 pending/accepted membership 做 ACL 过滤。
 - [x] Flutter 通知偏好页面、协作通知深链和 pending invite 导向协作收件箱已接入。
-- [x] 新增通知偏好 API/写入抑制测试、私有协作通知 ACL 测试和 PostgreSQL Migration 009 验证。
+- [x] 新增通知偏好 API/写入抑制测试、私有协作通知 ACL 测试和 PostgreSQL Migration 009 验证。\n- [x] 新增公开创作者搜索 API、Explore 发现入口、创作者搜索页和公开作品/署名统计测试。
 - [ ] Exact-head CI（Backend、PostgreSQL migrations/concurrency、Flutter test/analyze/Android APK/Web Release）全部通过后勾选。
