@@ -270,8 +270,9 @@ async def test_accept_waits_for_owner_revocation_and_cannot_restore_access(monke
             seed.add_all([
                 User(id=owner_id, username=f"arown_{uuid.uuid4().hex[:8]}", password_hash="test-only"),
                 User(id=invitee_id, username=f"arinv_{uuid.uuid4().hex[:8]}", password_hash="test-only"),
-                Collaboration(id=workspace_id, title="接受撤销竞争", owner_id=owner_id, status="draft", visibility="private"),
             ])
+            await seed.flush()
+            seed.add(Collaboration(id=workspace_id, title="接受撤销竞争", owner_id=owner_id, status="draft", visibility="private"))
             await seed.flush()
             seed.add_all([
                 CollaborationMember(collaboration_id=workspace_id, user_id=owner_id, role="owner", status="accepted", invited_by=owner_id),
@@ -344,8 +345,9 @@ async def test_review_waits_for_contributor_edit_and_locks_the_reviewed_snapshot
             seed.add_all([
                 User(id=owner_id, username=f"rvown_{uuid.uuid4().hex[:8]}", password_hash="test-only"),
                 User(id=contributor_id, username=f"rvcon_{uuid.uuid4().hex[:8]}", password_hash="test-only"),
-                Collaboration(id=workspace_id, title="审核编辑竞争", owner_id=owner_id, status="draft", visibility="private"),
             ])
+            await seed.flush()
+            seed.add(Collaboration(id=workspace_id, title="审核编辑竞争", owner_id=owner_id, status="draft", visibility="private"))
             await seed.flush()
             seed.add_all([
                 CollaborationMember(collaboration_id=workspace_id, user_id=owner_id, role="owner", status="accepted", invited_by=owner_id),
@@ -423,8 +425,9 @@ async def test_member_leave_serializes_before_and_blocks_contribution_write(monk
             seed.add_all([
                 User(id=owner_id, username=f"lvown_{uuid.uuid4().hex[:8]}", password_hash="test-only"),
                 User(id=contributor_id, username=f"lvcon_{uuid.uuid4().hex[:8]}", password_hash="test-only"),
-                Collaboration(id=workspace_id, title="主动离开竞争", owner_id=owner_id, status="draft", visibility="private"),
             ])
+            await seed.flush()
+            seed.add(Collaboration(id=workspace_id, title="主动离开竞争", owner_id=owner_id, status="draft", visibility="private"))
             await seed.flush()
             seed.add_all([
                 CollaborationMember(collaboration_id=workspace_id, user_id=owner_id, role="owner", status="accepted", invited_by=owner_id),
@@ -501,8 +504,9 @@ async def test_archive_serializes_before_and_blocks_contribution_write(monkeypat
             seed.add_all([
                 User(id=owner_id, username=f"arown_{uuid.uuid4().hex[:8]}", password_hash="test-only"),
                 User(id=contributor_id, username=f"arcon_{uuid.uuid4().hex[:8]}", password_hash="test-only"),
-                Collaboration(id=workspace_id, title="归档写入竞争", owner_id=owner_id, status="draft", visibility="private"),
             ])
+            await seed.flush()
+            seed.add(Collaboration(id=workspace_id, title="归档写入竞争", owner_id=owner_id, status="draft", visibility="private"))
             await seed.flush()
             seed.add_all([
                 CollaborationMember(collaboration_id=workspace_id, user_id=owner_id, role="owner", status="accepted", invited_by=owner_id),
