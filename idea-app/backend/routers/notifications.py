@@ -78,7 +78,19 @@ async def update_notification_preferences(
         else:
             row.enabled = item.enabled
     await db.commit()
-    return await get_notification_preferences(request, db, user)
+    result = await db.execute(
+        select(NotificationPreference).where(NotificationPreference.user_id == user.id)
+    )
+    saved = {row.notification_type: row.enabled for row in result.scalars().all()}
+    return NotificationPreferencesResponse(
+        items=[
+            NotificationPreferenceItem(
+                notification_type=notification_type,
+                enabled=saved.get(notification_type, True),
+            )
+            for notification_type in NOTIFICATION_TYPES
+        ]
+    )
 
 
 @router.get("", response_model=NotificationsResponse)
