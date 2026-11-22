@@ -308,3 +308,13 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 
 - 新增双独立会话并发发布同一 draft version 的 PostgreSQL 16 集成测试。发布路由先锁 Idea 再锁 Version；预期仅一个请求成功，另一个在获得 Idea 锁后发现版本不再是 draft 并返回 404，最终 Idea 内容与发布快照一致。
 - 此测试刚提交，尚待 CI 执行验证；不要将预期行为写成已通过结果。
+
+
+## 29. PostgreSQL 版本编辑与发布并发竞争验收（2026-11-22）
+
+- 新增两个独立 PostgreSQL AsyncSession 并发编辑/发布同一 draft version 的集成测试。
+- 锁顺序审查：发布路径先锁 Idea 再锁 Version；编辑路径只锁 Version，不再请求 Idea 行锁，因此不会形成“编辑持有 Version 等待 Idea、发布持有 Idea 等待 Version”的锁循环。
+- PostgreSQL READ COMMITTED 下，若发布先完成，等待中的 SELECT ... WHERE status='draft' FOR UPDATE 会在行更新后重新检查条件，编辑请求得到 404；若编辑先完成，发布随后读取已提交的最新草稿快照。
+- 验收断言最终版本为 published、published_at 非空、Idea.content 与 content_snapshot 一致，且不存在残留 draft。
+- GitHub Actions run [45015839841](https://github.com/nihcya/ideas/actions/runs/45015839841) 的 PostgreSQL concurrency job 已通过，专项文件 **4 passed, 1 warning**；backend pytest 和 PostgreSQL migration job 也通过。Flutter pub get/test/analyze 通过，Android Debug APK build 在记录时仍运行中。
+- 新测试运行在独立 PostgreSQL 16 CI 数据库；不代表生产数据库已验证。migrations 001/002/003 未执行。
