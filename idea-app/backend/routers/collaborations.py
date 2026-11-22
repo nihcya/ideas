@@ -294,6 +294,14 @@ async def invite_member(
         )
         db.add(member)
     await _event(db, collaboration_id, user.id, "member_invited", {"user_id": str(payload.user_id), "role": payload.role})
+    await add_notification_if_enabled(
+        db,
+        user_id=payload.user_id,
+        notification_type="collab_invited",
+        content=f"{user.username} 邀请你加入协作空间：{workspace.title}",
+        actor_id=user.id,
+        collaboration_id=collaboration_id,
+    )
     await db.commit()
     return {"invite_id": str(member.id), "user_id": str(member.user_id), "role": member.role, "status": member.status}
 
@@ -832,6 +840,7 @@ async def publish_collaboration(
             content="协作空间成果已完成发布",
             idea_id=idea.id if is_public else None,
             actor_id=user.id,
+            collaboration_id=collaboration_id,
         )
 
     await db.commit()
@@ -869,5 +878,14 @@ async def review_contribution(
     item.reviewed_at = datetime.now(timezone.utc)
     item.review_note = payload.review_note
     await _event(db, collaboration_id, user.id, f"contribution_{payload.decision}", {"contribution_id": str(item.id)})
+    if item.author_id != user.id:
+        await add_notification_if_enabled(
+            db,
+            user_id=item.author_id,
+            notification_type="collab_reviewed",
+            content=f"你在协作空间「{workspace.title}」中的贡献已{ '采纳' if payload.decision == 'accepted' else '拒绝' }",
+            actor_id=user.id,
+            collaboration_id=collaboration_id,
+        )
     await db.commit()
     return _contribution_payload(item)
