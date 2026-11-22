@@ -7,6 +7,7 @@ class UserSettings {
   final bool darkMode;
   final bool forkable;
   final String username;
+  final bool isAdmin;
   final String bio;
   final String llmApiUrl;
   final String llmApiKey; // 后端已脱敏（sk-***1234）
@@ -16,6 +17,7 @@ class UserSettings {
     required this.darkMode,
     required this.forkable,
     required this.username,
+    this.isAdmin = false,
     required this.bio,
     required this.llmApiUrl,
     required this.llmApiKey,
@@ -27,6 +29,7 @@ class UserSettings {
       darkMode: json['dark_mode'] as bool? ?? false,
       forkable: json['forkable'] as bool? ?? true,
       username: json['username'] as String? ?? '',
+      isAdmin: json['is_admin'] as bool? ?? false,
       bio: json['bio'] as String? ?? '',
       llmApiUrl: json['llm_api_url'] as String? ?? '',
       llmApiKey: json['llm_api_key'] as String? ?? '',
