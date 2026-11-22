@@ -186,16 +186,181 @@ class _CollaborationDetailScreenState extends ConsumerState<CollaborationDetailS
   }
 
   Future<void> _invite() async {
-    final userId = await _ask('邀请协作者', '输入用户 ID');
-    if (userId == null || userId.isEmpty) return;
+    final controller = TextEditingController();
+    var candidates = <Map<String, dynamic>>[];
+    var searching = false;
+    String? searchError;
+    final service = ref.read(collaborationServiceProvider);
+
+    Future<void> search(StateSetter setDialogState, BuildContext dialogContext) async {
+      final query = controller.text.trim();
+      if (query.length < 2) {
+        setDialogState(() => searchError = '至少输入 2 个字符');
+        return;
+      }
+      setDialogState(() {
+        searching = true;
+        searchError = null;
+      });
+      try {
+        final result = await service.searchMembers(widget.collaborationId, query);
+        if (!dialogContext.mounted) return;
+        setDialogState(() {
+          candidates = result;
+          searching = false;
+        });
+      } catch (e) {
+        if (!dialogContext.mounted) return;
+        setDialogState(() {
+          searching = false;
+          searchError = e.toString();
+        });
+      }
+    }
+
+    final selected = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('邀请协作者'),
+          content: SizedBox(
+            width: 420,
+            height: 380,
+            child: Column(
+              children: [
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => search(setDialogState, dialogContext),
+                  decoration: InputDecoration(
+                    labelText: '按用户名搜索',
+                    hintText: '输入至少 2 个字符',
+                    suffixIcon: IconButton(
+                      tooltip: '搜索',
+                      onPressed: searching
+                          ? null
+                          : () => search(setDialogState, dialogContext),
+                      icon: const Icon(Icons.search),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (searching) const LinearProgressIndicator(),
+                if (searchError != null)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      searchError!,
+                      style: TextStyle(color: Theme.of(dialogContext).colorScheme.error),
+                    ),
+                  ),
+                Expanded(
+                  child: candidates.isEmpty
+                      ? const Center(child: Text('搜索用户后，选择要邀请的协作者'))
+                      : ListView.builder(
+                          itemCount: candidates.length,
+                          itemBuilder: (context, index) {
+                            final item = candidates[index];
+                            return ListTile(
+                              leading: const Icon(Icons.person_add_alt_1),
+                              title: Text(item['username'] as String? ?? '用户'),
+                              onTap: () => Navigator.of(dialogContext).pop(item),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('取消'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (selected == null) return;
+
     try {
-      await ref.read(collaborationServiceProvider).invite(widget.collaborationId, userId, 'contributor');
+      await service.invite(
+        widget.collaborationId,
+        selected['user_id'] as String,
+        'contributor',
+      );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('邀请已发送，接受前不会获得访问权')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('邀请已发送，接受前不会获得访问权')),
+        );
         setState(_reload);
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('邀请失败：$e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('邀请失败：$e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _leave() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('离开协作空间？'),
+        content: const Text('离开后将立即失去该空间的访问权，之后需要重新邀请才能加入。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('确认离开')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(collaborationServiceProvider).leave(widget.collaborationId);
+      if (mounted) context.pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('离开失败：$e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _archive() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('归档协作空间？'),
+        content: const Text('归档后空间将变为只读，成员无法继续提交贡献或发布成果。已有成果和贡献记录会保留。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确认归档'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(collaborationServiceProvider).archive(widget.collaborationId);
+      if (mounted) {
+        setState(_reload);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('协作空间已归档')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('归档失败：$e')),
+        );
+      }
     }
   }
 
@@ -392,6 +557,7 @@ class _CollaborationDetailScreenState extends ConsumerState<CollaborationDetailS
           if (snapshot.hasError) return Center(child: Text('加载失败：${snapshot.error}'));
           final data = snapshot.data!;
           final isOwner = data['member_role'] == 'owner';
+          final isArchived = data['status'] == 'archived';
           final members = (data['members'] as List<dynamic>? ?? []);
           final sources = (data['sources'] as List<dynamic>? ?? []);
           final contributions = (data['contributions'] as List<dynamic>? ?? []);
@@ -399,7 +565,36 @@ class _CollaborationDetailScreenState extends ConsumerState<CollaborationDetailS
           return RefreshIndicator(
             onRefresh: () async => setState(_reload),
             child: ListView(padding: const EdgeInsets.all(16), children: [
-              Text(data['title'] as String? ?? '', style: Theme.of(context).textTheme.headlineSmall),
+              if (isArchived)
+                const Card(
+                  child: ListTile(
+                    leading: Icon(Icons.archive_outlined),
+                    title: Text('此协作空间已归档'),
+                    subtitle: Text('空间处于只读状态，历史内容仍可查看'),
+                  ),
+                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      data['title'] as String? ?? '',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                  ),
+                  if (isOwner && !isArchived)
+                    IconButton(
+                      tooltip: '归档空间',
+                      onPressed: _archive,
+                      icon: const Icon(Icons.archive_outlined),
+                    ),
+                  if (!isOwner)
+                    IconButton(
+                      tooltip: '离开空间',
+                      onPressed: _leave,
+                      icon: const Icon(Icons.exit_to_app),
+                    ),
+                ],
+              ),
               if ((data['description'] as String? ?? '').isNotEmpty) Text(data['description'] as String),
               if (publishedResult != null) ...[
                 const SizedBox(height: 12),
@@ -465,7 +660,7 @@ class _CollaborationDetailScreenState extends ConsumerState<CollaborationDetailS
               Row(children: [
                 Text('异步贡献', style: Theme.of(context).textTheme.titleMedium),
                 const Spacer(),
-                if (data['member_role'] == 'owner' || data['member_role'] == 'contributor')
+                if (!isArchived && (data['member_role'] == 'owner' || data['member_role'] == 'contributor'))
                   IconButton(onPressed: _submit, icon: const Icon(Icons.add_comment_outlined)),
               ]),
               ...contributions.map((raw) {
@@ -474,7 +669,7 @@ class _CollaborationDetailScreenState extends ConsumerState<CollaborationDetailS
                 return Card(child: ListTile(
                   title: Text(item['content'] as String? ?? ''),
                   subtitle: Text('${item['contribution_type']} · ${item['status']}'),
-                  trailing: isOwner && pending ? Wrap(spacing: 0, children: [
+                  trailing: isOwner && !isArchived && pending ? Wrap(spacing: 0, children: [
                     IconButton(onPressed: () => _review(item['id'] as String, 'accepted'), icon: const Icon(Icons.check)),
                     IconButton(onPressed: () => _review(item['id'] as String, 'rejected'), icon: const Icon(Icons.close)),
                   ]) : null,
