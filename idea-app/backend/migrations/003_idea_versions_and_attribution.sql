@@ -5,7 +5,7 @@
 
 BEGIN;
 
-DO $
+DO $migration$
 BEGIN
   IF to_regclass('public.app_schema_migrations') IS NULL THEN
     RAISE EXCEPTION 'Migrations 001 and 002 must be applied first';
@@ -20,7 +20,7 @@ BEGIN
     RAISE EXCEPTION 'Migrations 001 and 002 must be applied first';
   END IF;
 END;
-$;
+$migration$;
 
 CREATE TABLE IF NOT EXISTS idea_versions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
