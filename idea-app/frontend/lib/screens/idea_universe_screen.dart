@@ -38,8 +38,8 @@ class _IdeaUniverseScreenState extends ConsumerState<IdeaUniverseScreen> {
       _error = null;
     });
     try {
-      final graph = await ref.read(ideaServiceProvider).getIdeaGraph(
-            ideaId: widget.ideaId,
+      final graph = await ref.read(universeServiceProvider).getGraph(
+            widget.ideaId,
             depth: _depth,
             direction: _direction,
             includeInspired: _includeInspired,
@@ -211,7 +211,7 @@ class _IdeaUniverseScreenState extends ConsumerState<IdeaUniverseScreen> {
       final depth = (node['depth'] as num?)?.toInt() ?? 0;
       layers.putIfAbsent(depth, () => []).add(node);
     }
-    final maxDepth = layers.keys.fold<int>(0, math.max);
+    final maxDepth = layers.keys.fold<int>(0, (a, b) => a > b ? a : b);
     const width = 900.0;
     final height = 150.0 + (maxDepth + 1) * 190.0;
     final positions = <String, Offset>{};
