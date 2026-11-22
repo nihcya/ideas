@@ -102,7 +102,7 @@ The final query must only be run if the registry exists; otherwise skip it. Revi
 3. Verify the dump can be listed (for a custom-format dump, `pg_restore --list`).
 4. Restore the backup into an isolated staging database using the same PostgreSQL major version.
 5. Run the read-only preflight SQL against the restored copy.
-6. Rehearse migrations 001 → 002 → 003 on that restored copy, then run the post-migration validation SQL below.
+6. Rehearse migrations 001 → 002 → 003 → 004 → 005 on that restored copy, then run the post-migration validation SQL below.
 7. Confirm application smoke tests against the restored/migrated staging copy.
 8. Do not proceed if restore or rehearsal fails. A backup that has not been restored is not a verified recovery point.
 
