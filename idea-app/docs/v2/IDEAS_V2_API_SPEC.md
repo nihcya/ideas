@@ -263,17 +263,17 @@ First-class asynchronous workspaces are independent of per-Idea invitations. See
 - GET /collaborations — list accepted workspaces for current user.
 - POST /collaborations — create private workspace from 1–10 Ideas the owner can currently view; capture immutable source rights snapshots.
 - GET /collaborations/invitations/inbox — list pending workspace invitations.
-- POST /collaborations/{id}/members — owner invites contributor/viewer.
+- GET /collaborations/{id}/members/search?q= — owner-only username search; excludes self and pending/accepted members; returns only user_id/username.\n- POST /collaborations/{id}/members — owner invites contributor/viewer.
 - POST /collaborations/{id}/accept — accept invitation; workspace access only, no private source Idea ACL grant.
 - POST /collaborations/{id}/decline — decline pending invitation.
-- DELETE /collaborations/{id}/members/{user_id} — owner revokes pending/accepted membership.
+- DELETE /collaborations/{id}/members/{user_id} — owner revokes pending/accepted membership.\n- DELETE /collaborations/{id}/leave — accepted non-owner leaves; membership changes to left and access is immediately revoked.\n- POST /collaborations/{id}/archive — owner archives draft/published workspace; operation is idempotent and freezes further writes while preserving history.
 - GET /collaborations/{id} — accepted member reads workspace; owner sees all contributions, contributor sees own; private source details are independently ACL-filtered.
 - POST /collaborations/{id}/contributions — owner/contributor submits attributed proposal.
 - PATCH /collaborations/{id}/contributions/{contribution_id} — author edits own submitted proposal.
 - DELETE /collaborations/{id}/contributions/{contribution_id} — author withdraws own submitted proposal.
 - POST /collaborations/{id}/contributions/{contribution_id}/review — owner accepts/rejects proposal.
 
-Pending members cannot read workspace. Viewer members cannot submit, edit, withdraw, or review contributions. Owner-only atomic publication into Idea/version/relations/attributions is implemented; exact-head CI and PostgreSQL race verification remain required.
+Pending members cannot read workspace. Viewer members cannot submit, edit, withdraw, or review contributions. Owner-only candidate search is rate-limited. A member may leave voluntarily; the owner cannot leave and must archive the workspace instead. Archived workspaces remain readable by accepted members but are read-only. Owner-only atomic publication into Idea/version/relations/attributions is implemented; exact-head CI and PostgreSQL race verification remain required.
 
 - POST /collaborations/{id}/publish — owner-only atomic publication. Request includes final content, visibility, license, allow_fork, confirm_terms, confirm_custom_licenses and accepted_contribution_ids. Every source is locked and revalidated against current public status and full inherited rights chain; multi-parent obligations are intersected. Creates output Idea, initial version, parent edges, bridge IdeaContribution records and frozen version attributions in one transaction. Private output remains a private draft; public output requires explicit terms confirmation.
 
