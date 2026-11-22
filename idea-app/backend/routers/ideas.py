@@ -20,7 +20,7 @@ from services.color_pool import random_color
 from services.audit_service import audit_content, write_audit_log
 from services.cache import cache, key_idea_detail, key_user_vault
 from services.rate_limit import limiter, CREATE_LIMIT
-from services.idea_access import can_view_idea, can_derive_from_idea
+from services.idea_access import can_view_idea, can_derive_from_idea, build_derivation_snapshot
 
 router = APIRouter(prefix="/ideas", tags=["ideas"])
 
@@ -202,19 +202,32 @@ async def get_idea_detail(
 
     # 谱系图：父节点
     parents_result = await db.execute(
-        select(Idea, User, ForkRelation.relation_type)
+        select(Idea, User, ForkRelation.relation_type, ForkRelation.license_snapshot)
         .join(ForkRelation, ForkRelation.parent_id == Idea.id)
         .outerjoin(User, User.id == Idea.author_id)
         .where(ForkRelation.child_id == idea.id)
     )
     parents = []
-    for parent_idea, parent_user, _rel in parents_result.all():
+    for parent_idea, parent_user, _rel, license_snapshot in parents_result.all():
+        source_author = (
+            (license_snapshot or {}).get("source_author_name")
+            or (parent_user.username if parent_user else "匿名")
+        )
         if not await can_view_idea(db, parent_idea, user.id if user else None):
+            # A source may later be withdrawn/unpublished. Keep its historical
+            # provenance visible on derivatives without exposing the withdrawn text.
+            if license_snapshot:
+                parents.append(LineageNode(
+                    id=str(parent_idea.id),
+                    color_hex=parent_idea.color_hex,
+                    author=source_author,
+                    title="已撤回的来源创意",
+                ))
             continue
         parents.append(LineageNode(
             id=str(parent_idea.id),
             color_hex=parent_idea.color_hex,
-            author=parent_user.username if parent_user else "匿名",
+            author=source_author,
             title=parent_idea.content[:30],
         ))
 
@@ -344,7 +357,7 @@ async def fork_idea(
     user: User = Depends(get_current_user),
 ):
     # 验证 parent
-    parent_result = await db.execute(select(Idea).where(Idea.id == uuid.UUID(req.parent_id)))
+    parent_result = await db.execute(select(Idea).where(Idea.id == uuid.UUID(req.parent_id)).with_for_update())
     parent = parent_result.scalar_one_or_none()
     if parent is None or parent.status == "rejected" or not await can_view_idea(db, parent, user.id):
         raise HTTPException(
@@ -384,14 +397,7 @@ async def fork_idea(
         child_id=new_idea.id,
         parent_id=parent.id,
         relation_type="fork",
-        license_snapshot={
-            "license_code": parent.license_code,
-            "license_text_snapshot": parent.license_text_snapshot,
-            "license_version": parent.license_version,
-            "source_author_id": str(parent.author_id) if parent.author_id else None,
-            "captured_at": datetime.now(timezone.utc).isoformat(),
-            "allow_fork": parent.allow_fork,
-        },
+        license_snapshot=await build_derivation_snapshot(db, parent),
     )
     db.add(relation)
 
@@ -451,7 +457,7 @@ async def publish_idea(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Idea).where(Idea.id == idea_id))
+    result = await db.execute(select(Idea).where(Idea.id == idea_id).with_for_update())
     idea = result.scalar_one_or_none()
     if idea is None or idea.author_id != user.id:
         raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}})
@@ -501,7 +507,7 @@ async def unpublish_idea(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Idea).where(Idea.id == idea_id))
+    result = await db.execute(select(Idea).where(Idea.id == idea_id).with_for_update())
     idea = result.scalar_one_or_none()
     if idea is None or idea.author_id != user.id:
         raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}})
