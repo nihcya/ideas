@@ -85,7 +85,13 @@ SELECT to_regclass('public.app_schema_migrations') AS migration_registry,
        to_regclass('public.idea_access_grants') AS access_grants,
        to_regclass('public.idea_contributions') AS contributions,
        to_regclass('public.idea_versions') AS versions,
-       to_regclass('public.idea_version_contributions') AS version_attributions,\n       to_regclass('public.collaborations') AS collaborations,\n       to_regclass('public.collaboration_members') AS collaboration_members,\n       to_regclass('public.collaboration_sources') AS collaboration_sources,\n       to_regclass('public.collaboration_contributions') AS collaboration_contributions,\n       to_regclass('public.collaboration_events') AS collaboration_events,\n       to_regclass('public.idea_associations') AS idea_associations;
+       to_regclass('public.idea_version_contributions') AS version_attributions,
+       to_regclass('public.collaborations') AS collaborations,
+       to_regclass('public.collaboration_members') AS collaboration_members,
+       to_regclass('public.collaboration_sources') AS collaboration_sources,
+       to_regclass('public.collaboration_contributions') AS collaboration_contributions,
+       to_regclass('public.collaboration_events') AS collaboration_events,
+       to_regclass('public.idea_associations') AS idea_associations;
 
 -- If an app_schema_migrations table already exists, inspect it; do not overwrite it.
 SELECT version, applied_at
@@ -117,7 +123,7 @@ Actual backup commands, retention, encryption, storage destination, and RPO/RTO 
 - Verify all six registry entries and post-migration invariants before enabling V2 endpoints.
 - Keep the backup and logs according to the organization's retention policy.
 
-Migration 001 intentionally rejects a second execution once its marker exists. Migrations 002–005 also check prerequisites. Do not edit markers to force a rerun.
+Migration 001 intentionally rejects a second execution once its marker exists. Migrations 002–006 also check prerequisites. Do not edit markers to force a rerun.
 
 ## 5. Post-migration validation SQL
 
