@@ -659,3 +659,12 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 新增多父授权交集测试：任一上游不允许衍生，合并创意即不能继续衍生。
 - [x] 新增源创意撤回回归测试：原始创意撤回后，既有衍生创意继续依据冻结的授权快照运行。
 - [x] Migration 012、授权到期任务、发布边界和血缘回归测试已补齐；exact-head CI 待通过。
+
+
+### 17. Release engineering preparation（2026-11-22）
+
+- [x] Android Gradle release signing supports an external upload keystore; signing files are ignored by Git.
+- [x] Added manual release-candidate workflow to build a signed Android App Bundle and production Flutter Web bundle using an explicit API base URL.
+- [x] Added release checklist for GitHub secrets, production API URL, migrations 001–012, admin allowlist and daily legacy authorization job.
+- [ ] Actual signed release build remains gated on owner-provided Android keystore secrets and production HTTPS API URL.
+- [ ] Production migrations/deployment remain manual, approval-gated operations; CI does not access production.
