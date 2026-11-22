@@ -15,14 +15,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from deps import get_db, get_current_user
 from models import (
     User, Idea, Collaboration, CollaborationMember, CollaborationSource,
-    CollaborationContribution, CollaborationEvent,
+    CollaborationContribution, CollaborationEvent, IdeaContribution,
+    IdeaVersion, IdeaVersionContribution, ForkRelation, Notification,
 )
 from schemas.collaboration import (
     CollaborationCreate, CollaborationMemberInvite,
     CollaborationContributionCreate, CollaborationContributionUpdate,
-    CollaborationContributionReview,
+    CollaborationContributionReview, CollaborationPublish,
 )
-from services.idea_access import can_view_idea, get_effective_rights_chain
+from services.idea_access import (
+    can_view_idea, get_effective_rights_chain, can_derive_from_idea,
+    requires_custom_license_confirmation, build_derivation_snapshot,
+)\nfrom services.audit_service import audit_content, write_audit_log\nfrom services.color_pool import random_color\nfrom services.cache import cache, key_idea_detail
 
 router = APIRouter(prefix="/collaborations", tags=["collaborations"])
 
@@ -461,6 +465,220 @@ async def withdraw_contribution(
     await db.commit()
     return {"withdrawn": True}
 
+
+
+@router.post("/{collaboration_id}/publish", status_code=201)
+async def publish_collaboration(
+    collaboration_id: uuid.UUID,
+    payload: CollaborationPublish,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Atomically publish the owner's accepted workspace result as a new Idea.
+
+    All source Ideas must currently be public and derivable. Source rows are locked
+    in deterministic UUID order so publication cannot race source withdrawal.
+    """
+    workspace = await db.scalar(
+        select(Collaboration).where(
+            Collaboration.id == collaboration_id
+        ).with_for_update()
+    )
+    if workspace is None or workspace.owner_id != user.id:
+        raise _error(404, "COLLABORATION_NOT_FOUND", "协作空间不存在或无权发布")
+    if workspace.status != "draft":
+        raise _error(409, "COLLABORATION_ALREADY_PUBLISHED", "协作空间已完成发布")
+
+    source_result = await db.execute(
+        select(CollaborationSource).where(
+            CollaborationSource.collaboration_id == collaboration_id
+        ).order_by(CollaborationSource.position).with_for_update()
+    )
+    source_rows = source_result.scalars().all()
+    if not source_rows:
+        raise _error(422, "COLLABORATION_SOURCES_REQUIRED", "协作空间必须至少关联一个来源创意")
+    source_ids = [row.idea_id for row in source_rows]
+
+    locked_result = await db.execute(
+        select(Idea).where(Idea.id.in_(source_ids)).order_by(Idea.id).with_for_update()
+    )
+    locked_sources = {idea.id: idea for idea in locked_result.scalars().all()}
+    if len(locked_sources) != len(source_ids):
+        raise _error(404, "SOURCE_IDEA_NOT_FOUND", "来源创意不存在")
+
+    sources = [locked_sources[row.idea_id] for row in source_rows]
+    for source in sources:
+        if not await can_derive_from_idea(db, source, user.id):
+            raise _error(
+                422, "SOURCE_LICENSE_BLOCKS_DERIVATION",
+                "所有来源及其祖先都必须允许改编，且来源必须保持公开有效",
+            )
+
+    custom_required = await requires_custom_license_confirmation(db, sources)
+    if custom_required and not payload.confirm_custom_licenses:
+        raise _error(
+            422, "CUSTOM_LICENSE_CONFIRMATION_REQUIRED",
+            "来源或祖先包含自定义授权，必须明确确认已阅读并接受全部条款",
+        )
+    if payload.visibility == "public" and not payload.confirm_terms:
+        raise _error(400, "TERMS_NOT_CONFIRMED", "公开发布必须确认最终授权条款")
+    if payload.license_code == "custom" and not (payload.license_custom_text or "").strip():
+        raise _error(422, "LICENSE_TEXT_REQUIRED", "自定义授权必须填写授权说明")
+    if payload.allow_fork and payload.license_code not in ("attribution_adaptation", "custom"):
+        raise _error(422, "LICENSE_DERIVATIVE_MISMATCH", "当前授权不允许开启继续衍生")
+    if payload.allow_fork and payload.visibility != "public":
+        raise _error(422, "PRIVATE_DERIVATION_DISABLED", "私有草稿不能开启公开衍生权限")
+    if payload.allow_fork:
+        for source in sources:
+            chain = await get_effective_rights_chain(db, source)
+            if not chain or any(
+                item.get("allow_fork") is not True
+                or item.get("license_code") not in ("attribution_adaptation", "custom")
+                for item in chain
+            ):
+                raise _error(
+                    422, "INHERITED_LICENSE_BLOCKS_DERIVATION",
+                    "任一上游授权不允许继续衍生，不能通过协作发布扩大权限",
+                )
+
+    selected_ids = payload.accepted_contribution_ids
+    if len(selected_ids) != len(set(selected_ids)):
+        raise _error(422, "DUPLICATE_CONTRIBUTION", "贡献不能重复选择")
+    if selected_ids:
+        contribution_result = await db.execute(
+            select(CollaborationContribution).where(
+                CollaborationContribution.collaboration_id == collaboration_id,
+                CollaborationContribution.id.in_(selected_ids),
+                CollaborationContribution.status == "accepted",
+            ).order_by(CollaborationContribution.id).with_for_update()
+        )
+        accepted = contribution_result.scalars().all()
+        if len(accepted) != len(selected_ids):
+            raise _error(409, "CONTRIBUTION_NOT_ACCEPTED", "只能选择当前协作空间中已采纳的贡献")
+    else:
+        accepted = []
+
+    passed, reason = await audit_content(db, payload.content)
+    if not passed:
+        raise _error(403, "AUDIT_FAILED", reason or "内容审核不通过")
+
+    now = datetime.now(timezone.utc)
+    is_public = payload.visibility == "public"
+    idea = Idea(
+        content=payload.content,
+        color_hex=random_color(),
+        source="merge" if len(sources) > 1 else "fork",
+        author_id=user.id,
+        border_style="gold-thin",
+        publication_status="published" if is_public else "draft",
+        visibility=payload.visibility,
+        license_code=payload.license_code,
+        license_text_snapshot=payload.license_custom_text,
+        license_version=payload.license_version,
+        allow_fork=bool(is_public and payload.allow_fork),
+        is_forkable=bool(is_public and payload.allow_fork),
+        published_at=now if is_public else None,
+        legacy_license_review_status="not_required",
+    )
+    db.add(idea)
+    await db.flush()
+
+    version = IdeaVersion(
+        idea_id=idea.id,
+        version_number=1,
+        content_snapshot=payload.content,
+        change_summary=payload.change_summary,
+        status="published" if is_public else "draft",
+        created_by=user.id,
+        published_by=user.id if is_public else None,
+        published_at=now if is_public else None,
+    )
+    db.add(version)
+    await db.flush()
+
+    for contribution in accepted:
+        author_name = await db.scalar(
+            select(User.username).where(User.id == contribution.author_id)
+        ) or "匿名"
+        bridge = IdeaContribution(
+            idea_id=idea.id,
+            author_id=contribution.author_id,
+            content=contribution.content,
+            note=contribution.note,
+            status="accepted",
+            reviewed_by=user.id,
+            reviewed_at=now,
+            review_note="经协作空间审核并纳入发布版本",
+            source_collaboration_contribution_id=contribution.id,
+        )
+        db.add(bridge)
+        await db.flush()
+        db.add(IdeaVersionContribution(
+            version_id=version.id,
+            contribution_id=bridge.id,
+            author_id_snapshot=contribution.author_id,
+            author_name_snapshot=author_name,
+            content_snapshot=contribution.content,
+        ))
+
+    relation_type = "merge" if len(sources) > 1 else "fork"
+    for source in sources:
+        snapshot = await build_derivation_snapshot(
+            db,
+            source,
+            custom_license_acknowledged=payload.confirm_custom_licenses,
+            acknowledged_by=user.id,
+        )
+        db.add(ForkRelation(
+            child_id=idea.id,
+            parent_id=source.id,
+            relation_type=relation_type,
+            angle="collaboration",
+            license_snapshot=snapshot,
+        ))
+        source.fork_count = (source.fork_count or 0) + 1
+        source.last_fork_at = now
+
+    workspace.status = "published"
+    workspace.visibility = payload.visibility
+    workspace.published_idea_id = idea.id
+    workspace.published_at = now
+    await write_audit_log(db, idea.id, payload.content, True, "collaboration publication")
+    await _event(
+        db, collaboration_id, user.id, "collaboration_published",
+        {"visibility": payload.visibility, "source_count": len(sources)},
+    )
+
+    member_result = await db.execute(
+        select(CollaborationMember).where(
+            CollaborationMember.collaboration_id == collaboration_id,
+            CollaborationMember.status == "accepted",
+            CollaborationMember.user_id != user.id,
+        )
+    )
+    for member in member_result.scalars().all():
+        db.add(Notification(
+            user_id=member.user_id,
+            type="collab_published",
+            content="协作空间成果已完成发布",
+            idea_id=idea.id if is_public else None,
+            actor_id=user.id,
+        ))
+
+    await db.commit()
+    if is_public:
+        await cache.delete_pattern("explore:v2:*")
+    await cache.delete(key_idea_detail(str(idea.id)))
+    return {
+        "collaboration_id": str(workspace.id),
+        "idea_id": str(idea.id),
+        "version_id": str(version.id),
+        "version_number": 1,
+        "publication_status": idea.publication_status,
+        "visibility": idea.visibility,
+        "source_idea_ids": [str(source.id) for source in sources],
+        "attribution_count": len(accepted),
+    }
 
 @router.post("/{collaboration_id}/contributions/{contribution_id}/review")
 async def review_contribution(
