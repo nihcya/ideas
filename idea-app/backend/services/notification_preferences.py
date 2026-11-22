@@ -12,6 +12,8 @@ NOTIFICATION_TYPES = {
     "collected": "有人收藏了你的创意",
     "spark_updated": "灵感状态已更新",
     "collab_published": "协作空间发布了最终成果",
+    "collab_invited": "你收到一个协作空间邀请",
+    "collab_reviewed": "你的协作贡献已完成审核",
 }
 
 
@@ -38,6 +40,7 @@ async def add_notification_if_enabled(
     content: str,
     idea_id: uuid.UUID | None = None,
     actor_id: uuid.UUID | None = None,
+    collaboration_id: uuid.UUID | None = None,
 ) -> Notification | None:
     if not await notification_enabled(db, user_id, notification_type):
         return None
@@ -47,6 +50,7 @@ async def add_notification_if_enabled(
         content=content[:200],
         idea_id=idea_id,
         actor_id=actor_id,
+        collaboration_id=collaboration_id,
     )
     db.add(notification)
     return notification
