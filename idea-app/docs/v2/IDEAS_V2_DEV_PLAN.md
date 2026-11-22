@@ -381,3 +381,10 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [ ] 新增 PostgreSQL 并发 job 尚待 CI 实际执行；不能将代码已提交等同于并发测试通过。
 - [ ] 当前并发覆盖聚焦“同一 Idea 并发创建草稿”；并发发布/编辑、贡献跨版本竞争仍需进一步专项覆盖。
 - [ ] 生产数据库未连接；migrations 001/002/003 未执行。生产上线仍需备份恢复演练、schema/data preflight、迁移审批和回滚预案。
+
+### 13.20 PostgreSQL 迁移失败回滚与并发测试修正（2026-11-22）
+
+- [x] 扩展 PG migration integration：验证 Migration 002 在 001 前执行会失败且不留下 schema marker/table；Migration 001 重复执行会失败；Migration 003 在 002 前执行会失败且不创建版本表；前置迁移补齐后 002/003 可正常执行。
+- [x] 首轮并发 CI 暴露测试 fixture 的外键种子顺序问题；已在插入 Idea 前显式 flush owner User，避免将 fixture 错误误判为业务锁问题。
+- [x] 首轮失败路径测试暴露 asyncpg 多语句执行失败后连接处于 aborted transaction；已在每次预期失败后显式 ROLLBACK，并在 finally 增加清理保护。
+- [ ] 修正后的 exact-head CI 尚待完成；在 PostgreSQL job 实际通过前，不标记迁移失败回滚或并发测试验收完成。
