@@ -29,6 +29,21 @@ class UniverseService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> searchIdeas(String query, {int limit = 20}) async {
+    try {
+      final response = await _dio.get(
+        '/ideas/search',
+        queryParameters: {'q': query, 'limit': limit},
+      );
+      final data = response.data as Map<String, dynamic>;
+      return ((data['items'] as List<dynamic>?) ?? [])
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
   Future<void> addInspired({
     required String targetIdeaId,
     required String sourceIdeaId,
