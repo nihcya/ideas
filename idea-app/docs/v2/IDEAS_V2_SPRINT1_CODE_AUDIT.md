@@ -290,3 +290,10 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 扩展 PG 16 迁移测试，覆盖 002-before-001、重复执行 001、003-before-002 的拒绝行为，并检查失败事务回滚后 schema marker/table 状态不被部分写入。
 - 首次执行暴露两项测试代码问题而非迁移业务缺陷：asyncpg 失败事务需显式 ROLLBACK 后才能继续查询/清理；并发测试种子数据需先 flush User 再插入带 author FK 的 Idea。两项均已修复。
 - 修正后的最新 CI 尚在排队/运行；迁移失败路径与 PostgreSQL 并发结果仍 pending，不提前宣称通过。
+
+## 26. PostgreSQL 并发贡献归属竞争修复（2026-11-22）
+
+- 审查 `_attach_contributions` 时发现“先查 attribution 是否存在、再读取 accepted contribution”的 TOCTOU 竞争窗口：两个草稿并发更新可同时观察到贡献尚未归属。
+- 现在先锁定目标 `IdeaContribution` 行（`FOR UPDATE`），再检查 `IdeaVersionContribution` 归属。竞争事务等待前一事务提交后，在 READ COMMITTED 下重新执行归属查询并返回 409；数据库唯一约束继续兜底。
+- 新增 PostgreSQL 16 集成测试，构造同一 Idea 下两个既有 draft 并发认领同一 accepted contribution，验证只有一个成功且数据库只保留一条 attribution。
+- 该新增测试尚待 CI 执行；不能仅凭静态审查宣称竞争场景已通过。
