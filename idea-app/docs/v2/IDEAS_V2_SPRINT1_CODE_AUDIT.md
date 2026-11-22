@@ -351,3 +351,12 @@ PR 最新文档/代码 head 的 CI run [45018438622](https://github.com/nihcya/i
 - PostgreSQL migrations：success。
 - Flutter tests、analyze、Android Debug APK build：success。
 - 该结果验证 CI head，不代表生产 schema/data/备份恢复演练已完成，生产迁移仍未执行。
+
+
+## 33. 撤回来源的隐私安全谱系与授权展示（2026-11-22）
+
+- API 对仍可访问的来源返回真实 Idea ID；对撤回后不可访问的来源返回 opaque withdrawn:<relation-id>，并标记 is_navigable=false。
+- 撤回来源不再泄露私有 Idea ID、原始标题或正文；历史作者署名和授权快照继续保留。
+- LineageNode 返回 relation_type 与 license_snapshot；Flutter 模型已解析，LineageTree 禁止跳转不可导航来源，Idea 详情页展示来源授权快照。
+- CI run [45019528171](https://github.com/nihcya/ideas/actions/runs/45019528171)：Backend 57 passed, 9 skipped；PostgreSQL concurrency 7 passed；migrations、Flutter tests/analyze 通过；APK build 仍在运行。
+- 仍待实现：来源授权对后代节点的传递性限制。尤其多父 Merge 的有效授权应取所有父来源约束交集；custom 授权需明确人工审核/确认，不得默认继承为开放授权。
