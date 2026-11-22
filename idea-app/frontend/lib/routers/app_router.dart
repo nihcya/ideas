@@ -11,7 +11,6 @@ import '../screens/public_idea_timeline_screen.dart';
 import '../screens/idea_detail_screen.dart';
 import '../screens/idea_universe_screen.dart';
 import '../screens/collaboration_screen.dart';
-import '../screens/universe_screen.dart';
 import '../screens/create_idea_screen.dart';
 import '../screens/publish_idea_screen.dart';
 import '../screens/idea_invites_screen.dart';
@@ -114,13 +113,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'publicUserProfile',
         builder: (context, state) => PublicUserProfileScreen(
           userId: state.pathParameters['id']!,
-        ),
-      ),
-      GoRoute(
-        path: '/idea/:id/universe',
-        name: 'ideaUniverse',
-        builder: (context, state) => UniverseScreen(
-          ideaId: state.pathParameters['id']!,
         ),
       ),
       GoRoute(
