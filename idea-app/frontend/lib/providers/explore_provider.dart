@@ -3,6 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/idea.dart';
 import 'api_provider.dart';
 
+class ExploreFilters {
+  final String? query;
+  final String sort;
+  final String? licenseCode;
+  final bool? allowFork;
+  final String? source;
+
+  const ExploreFilters({
+    this.query,
+    this.sort = 'recommended',
+    this.licenseCode,
+    this.allowFork,
+    this.source,
+  });
+}
+
 /// 探索页 Notifier — 管理圆圈列表，支持刷新和加载更多
 class ExploreNotifier extends AsyncNotifier<List<CircleData>> {
   int _offset = 0;
