@@ -132,3 +132,84 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
 
     finally:
         await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_postgres_migration_order_guards_and_failed_transaction_rollback():
+    dsn = os.getenv("IDEAS_MIGRATION_TEST_DSN")
+    if not dsn:
+        pytest.skip("IDEAS_MIGRATION_TEST_DSN is not configured")
+
+    conn = await asyncpg.connect(dsn)
+    try:
+        await conn.execute("""
+            DROP TABLE IF EXISTS idea_version_contributions CASCADE;
+            DROP TABLE IF EXISTS idea_versions CASCADE;
+            DROP TABLE IF EXISTS idea_contributions CASCADE;
+            DROP TABLE IF EXISTS idea_access_grants CASCADE;
+            DROP TABLE IF EXISTS app_schema_migrations CASCADE;
+            DROP TABLE IF EXISTS fork_relations CASCADE;
+            DROP TABLE IF EXISTS ideas CASCADE;
+            DROP TABLE IF EXISTS users CASCADE;
+
+            CREATE TABLE users (id UUID PRIMARY KEY);
+            CREATE TABLE ideas (
+                id UUID PRIMARY KEY,
+                status VARCHAR(16) NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                is_forkable BOOLEAN NOT NULL DEFAULT FALSE
+            );
+            CREATE TABLE fork_relations (id UUID PRIMARY KEY);
+        """)
+
+        migration_001 = (MIGRATIONS / "001_idea_visibility_and_acl.sql").read_text(encoding="utf-8")
+        migration_002 = (MIGRATIONS / "002_idea_contributions.sql").read_text(encoding="utf-8")
+        migration_003 = (MIGRATIONS / "003_idea_versions_and_attribution.sql").read_text(encoding="utf-8")
+
+        # Migration 002 must fail before 001, and its transaction must leave no table behind.
+        with pytest.raises(asyncpg.PostgresError):
+            await conn.execute(migration_002)
+        assert await conn.fetchval("SELECT to_regclass('public.app_schema_migrations')") is None
+        assert await conn.fetchval("SELECT to_regclass('public.idea_contributions')") is None
+
+        await conn.execute(migration_001)
+
+        # Migration 001 is intentionally one-shot; a second attempt must fail cleanly.
+        with pytest.raises(asyncpg.PostgresError):
+            await conn.execute(migration_001)
+        markers = await conn.fetch("SELECT version FROM app_schema_migrations")
+        assert [row["version"] for row in markers] == ["001_idea_visibility_and_acl"]
+        assert await conn.fetchval(
+            "SELECT COUNT(*) FROM information_schema.columns "
+            "WHERE table_schema='public' AND table_name='ideas' "
+            "AND column_name='publication_status'"
+        ) == 1
+
+        # Migration 003 must not create version tables until 002 is recorded.
+        with pytest.raises(asyncpg.PostgresError):
+            await conn.execute(migration_003)
+        assert await conn.fetchval("SELECT to_regclass('public.idea_versions')") is None
+        markers = await conn.fetch("SELECT version FROM app_schema_migrations ORDER BY version")
+        assert [row["version"] for row in markers] == ["001_idea_visibility_and_acl"]
+
+        # After the prerequisite is applied, the remaining migrations succeed.
+        await conn.execute(migration_002)
+        await conn.execute(migration_003)
+        markers = await conn.fetch("SELECT version FROM app_schema_migrations ORDER BY version")
+        assert {row["version"] for row in markers} == {
+            "001_idea_visibility_and_acl",
+            "002_idea_contributions",
+            "003_idea_versions_and_attribution",
+        }
+    finally:
+        await conn.execute("""
+            DROP TABLE IF EXISTS idea_version_contributions CASCADE;
+            DROP TABLE IF EXISTS idea_versions CASCADE;
+            DROP TABLE IF EXISTS idea_contributions CASCADE;
+            DROP TABLE IF EXISTS idea_access_grants CASCADE;
+            DROP TABLE IF EXISTS app_schema_migrations CASCADE;
+            DROP TABLE IF EXISTS fork_relations CASCADE;
+            DROP TABLE IF EXISTS ideas CASCADE;
+            DROP TABLE IF EXISTS users CASCADE;
+        """)
+        await conn.close()
