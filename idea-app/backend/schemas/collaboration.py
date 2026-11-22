@@ -40,3 +40,17 @@ class CollaborationMemberResponse(BaseModel):
     user_id: uuid.UUID
     role: str
     status: str
+
+class CollaborationPublish(BaseModel):
+    content: str = Field(..., min_length=1, max_length=300)
+    change_summary: str | None = Field(None, max_length=2000)
+    visibility: Literal["private", "public"] = "private"
+    license_code: Literal[
+        "all_rights_reserved", "attribution", "attribution_adaptation", "custom"
+    ]
+    license_custom_text: str | None = Field(None, max_length=5000)
+    license_version: str = Field("v1", min_length=1, max_length=32)
+    allow_fork: bool = False
+    confirm_terms: bool = False
+    confirm_custom_licenses: bool = False
+    accepted_contribution_ids: list[uuid.UUID] = Field(default_factory=list, max_length=100)
