@@ -515,8 +515,8 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] Flutter 协作发布表单、贡献选择、授权确认、成员撤权 UI 已接入。\n- [ ] Flutter 协作页面专属 widget tests、错误态/空态/分页及成员离开/归档交互。\n- [x] exact-head CI（commit bc937df8）：backend 68 passed / 11 skipped；PostgreSQL migrations 001–005、并发测试、Flutter test/analyze、Android APK、Web Release 全部通过。
 
 ### Sprint 3 — 创意宇宙
-- [ ] 设计并实现 bounded recursive graph API：默认上下游 2 层，最大 3 层，节点数上限和截断标记。
-- [ ] Inspired 灵感关联与 Fork/Merge/Evolve 严格血缘分离，新增独立关系类型和权限策略。
+- [x] 实现 bounded recursive graph API：默认上下游 2 层，最大 3 层，100 节点/300 边上限、截断标记和 visited 防环。
+- [x] Inspired 灵感关联与 Fork/Merge/Evolve 严格血缘分离：独立 idea_associations 表、target owner 创建/删除、双方 ACL 可见性过滤，不参与授权继承。
 - [ ] 图谱按需展开、图例、边类型、节点导航、时间线和隐私安全缓存。
 - [ ] PostgreSQL 查询性能、递归环路、节点上限和私有节点不泄露测试。
 
@@ -552,3 +552,16 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] GitHub Actions exact-head CI 全绿：backend 68 passed / 11 skipped；PostgreSQL migrations 001–005 success；PostgreSQL version + collaboration concurrency success；Flutter test/analyze、Android Debug APK、Web Release success。
 - [ ] Sprint 2 剩余：协作专属 widget tests、邀请用户搜索/选择体验、成员主动离开与空间归档操作。完成后再关闭 Sprint 2。
 - [ ] 生产迁移和部署仍未执行；PR #2 保持 Open，不合并 main。
+
+
+### 15. Sprint 3 开发启动（2026-11-22）
+
+- [x] 新增 IdeaAssociation ORM 和 Migration 006，依赖 001–005。
+- [x] 新增 bounded BFS Universe graph API：depth 1–3，默认 2；direction ancestors/descendants/both；max_nodes 100、max_edges 300。
+- [x] ForkRelation 保持 parent→child 严格血缘；Inspired 通过独立表及独立边类型表达，不改变许可继承。
+- [x] 私有祖先使用 opaque restricted node，递归清理 snapshot 中 Idea/User 内部 ID；私有子节点和不可见 Inspired 边不返回。
+- [x] 新增 Inspired association owner-only 创建/删除 API，处理自环和重复关系。
+- [x] 新增 API 测试覆盖递归层级、关系方向、Inspired 分离、私有祖先脱敏和关联管理。
+- [ ] PostgreSQL migration 006 / Universe API exact-head CI 待执行。
+- [ ] Flutter Universe graph screen、按需展开、深度/方向控制、图例与节点跳转待实现。
+- [ ] 图谱查询性能、递归环路/节点上限及公开缓存隔离测试待补充。
