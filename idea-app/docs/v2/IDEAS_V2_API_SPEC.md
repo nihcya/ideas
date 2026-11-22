@@ -276,3 +276,12 @@ First-class asynchronous workspaces are independent of per-Idea invitations. See
 Pending members cannot read workspace. Viewer members cannot submit, edit, withdraw, or review contributions. Owner-only atomic publication into Idea/version/relations/attributions is implemented; exact-head CI and PostgreSQL race verification remain required.
 
 - POST /collaborations/{id}/publish — owner-only atomic publication. Request includes final content, visibility, license, allow_fork, confirm_terms, confirm_custom_licenses and accepted_contribution_ids. Every source is locked and revalidated against current public status and full inherited rights chain; multi-parent obligations are intersected. Creates output Idea, initial version, parent edges, bridge IdeaContribution records and frozen version attributions in one transaction. Private output remains a private draft; public output requires explicit terms confirmation.
+
+
+## Idea Universe APIs (Sprint 3)
+
+- GET /ideas/{idea_id}/graph — bounded BFS traversal of strict parent→child lineage plus optional Inspired edges; default depth 2, max depth 3, max 100 nodes and 300 edges. ACL is checked server-side for every node. Restricted upstream ancestors use opaque non-navigable placeholders with sanitized frozen attribution; private descendants/associations are omitted.
+- POST /ideas/{target_idea_id}/associations — target owner records an Inspired association from a viewable source Idea. Self-links are rejected, duplicate pair returns 409. Inspired is not ForkRelation and grants no derivative rights.
+- DELETE /ideas/{target_idea_id}/associations/{association_id} — target-owner deletion.
+
+See IDEAS_V2_SPRINT3_UNIVERSE_SPEC.md for traversal, privacy and edge contracts.
