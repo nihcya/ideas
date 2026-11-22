@@ -287,3 +287,12 @@
 - custom 授权不自动视为开放授权。Fork、Collide、Evolve 的确认入库环节必须由操作者明确确认已阅读并接受全部上游 custom 条款；系统记录确认人和确认时间。
 - 衍生作者选择的授权仅适用于其原创贡献，不得覆盖、放宽或替代上游创意的授权。
 - 来源撤回不删除既有衍生关系；衍生内容继续受创作时冻结的来源授权快照约束。
+
+
+## V2.0 implementation addendum — creator graph and legacy rights transition
+
+- Creator follow is a first-class community relationship: users can follow/unfollow creators, view public follower/following lists, and see follower counts and their own follow state on public profiles.
+- Historical public Ideas retain their public state through a 90-day authorization supplement window measured from the V2.0 activation migration marker.
+- Creators receive one reminder in the final seven days. At expiry, the Idea remains visible but new derivations are disabled until valid rights are confirmed; existing derivative Ideas retain their immutable upstream authorization snapshots.
+- A daily idempotent maintenance job processes reminders and expiry. The publish endpoint independently enforces the deadline to prevent scheduler delays from bypassing the transition.
+- Community reports support user submission, admin review, and optional hiding of public Ideas. Admin access is server-allowlisted by account UUID.
