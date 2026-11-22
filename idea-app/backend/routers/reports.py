@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,7 +32,7 @@ def _admin_required(user: User):
 @limiter.limit(DEFAULT_LIMIT)
 async def create_idea_report(
     request: Request,
-    payload: IdeaReportCreate,
+    payload: IdeaReportCreate = Body(...),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -125,14 +125,18 @@ async def list_admin_reports(
 @limiter.limit(DEFAULT_LIMIT)
 async def review_idea_report(
     request: Request,
-    report_id: uuid.UUID,
-    payload: IdeaReportReview,
+    report_id: str,
+    payload: IdeaReportReview = Body(...),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     _admin_required(user)
+    try:
+        report_uuid = uuid.UUID(report_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="举报记录不存在")
     report = await db.scalar(
-        select(IdeaReport).where(IdeaReport.id == report_id).with_for_update()
+        select(IdeaReport).where(IdeaReport.id == report_uuid).with_for_update()
     )
     if report is None:
         raise HTTPException(status_code=404, detail="举报记录不存在")
