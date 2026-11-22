@@ -25,7 +25,6 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
         # The CI service database is disposable and dedicated to this test.
         await conn.execute("""
             DROP TABLE IF EXISTS notification_preferences CASCADE;
-            DROP TABLE IF EXISTS notification_preferences CASCADE;
             DROP TABLE IF EXISTS idea_associations CASCADE;
             DROP TABLE IF EXISTS collaboration_events CASCADE;
             DROP TABLE IF EXISTS collaboration_contributions CASCADE;
@@ -193,7 +192,6 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         migration_005 = (MIGRATIONS / "005_collaboration_attribution.sql").read_text(encoding="utf-8")
         migration_006 = (MIGRATIONS / "006_idea_associations.sql").read_text(encoding="utf-8")
         migration_007 = (MIGRATIONS / "007_notification_preferences.sql").read_text(encoding="utf-8")
-        migration_007 = (MIGRATIONS / "007_notification_preferences.sql").read_text(encoding="utf-8")
         migration_008 = (MIGRATIONS / "008_collaboration_member_leave.sql").read_text(encoding="utf-8")
 
         async def expect_migration_failure(sql):
@@ -236,6 +234,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         await expect_migration_failure(migration_008)
         assert await conn.fetchval("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='idea_contributions' AND column_name='source_collaboration_contribution_id'") == 0
         assert await conn.fetchval("SELECT to_regclass('public.idea_associations')") is None
+        assert await conn.fetchval("SELECT to_regclass('public.notification_preferences')") is None
 
         # After the prerequisite is applied, the remaining migrations succeed.
         await conn.execute(migration_002)
@@ -278,6 +277,8 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         except asyncpg.PostgresError:
             pass
         await conn.execute("""
+            DROP TABLE IF EXISTS notification_preferences CASCADE;
+            DROP TABLE IF EXISTS idea_associations CASCADE;
             DROP TABLE IF EXISTS collaboration_events CASCADE;
             DROP TABLE IF EXISTS collaboration_contributions CASCADE;
             DROP TABLE IF EXISTS collaboration_sources CASCADE;
