@@ -53,7 +53,7 @@ Tests cover depth 2 recursion, ancestors/descendants, merge/evolve edge types, I
 - The client uses the dedicated UniverseService; graph responses are not put into a shared cache.
 - Server-side node ACL checks are batched per BFS layer to avoid per-node ACL queries while retaining the same visibility predicate.
 - Widget/API regression tests cover restricted placeholder rendering and directional traversal.
-- Still open: Inspired create/delete UI, graph query benchmarks and cap stress tests, responsive layout validation, and exact-head CI.
+- Still open: graph query benchmarks and cap stress tests, responsive layout validation, and exact-head CI.
 
 
 ## ACL-safe Inspired source picker
@@ -66,3 +66,6 @@ GET /api/ideas/search
 - The Universe router is registered before the dynamic one-segment Idea detail route so /ideas/search resolves correctly.
 
 The Universe screen exposes add/remove association controls only when the current viewer owns the target Idea. Adding an association searches accessible source Ideas, optionally captures a short note, and then calls the owner-only association API. The backend remains the final authorization boundary.
+
+
+The initial graph canvas width now scales with the widest BFS layer to prevent dense node overlap. The owner association list is height-bounded and independently scrollable. Widget tests exercise the Inspired search-and-create flow.
