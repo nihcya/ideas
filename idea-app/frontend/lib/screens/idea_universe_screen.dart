@@ -24,6 +24,7 @@ class _IdeaUniverseScreenState extends ConsumerState<IdeaUniverseScreen> {
   String? _error;
   Map<String, dynamic>? _graph;
   int _requestGeneration = 0;
+  final Set<String> _removingAssociations = <String>{};
 
   @override
   void initState() {
@@ -173,6 +174,64 @@ class _IdeaUniverseScreenState extends ConsumerState<IdeaUniverseScreen> {
     );
   }
 
+  Widget _buildInspiredManager(
+    ThemeData theme,
+    List<Map<String, dynamic>> edges,
+  ) {
+    final inspired = edges.where((edge) => edge['type'] == 'inspired').toList();
+    return ExpansionTile(
+      title: const Text('管理灵感关联'),
+      subtitle: Text('${inspired.length} 条关联 · 不影响血缘和授权'),
+      children: inspired.isEmpty
+          ? const [ListTile(title: Text('当前图谱没有灵感关联'))]
+          : inspired.map((edge) {
+              final id = edge['id'] as String;
+              return ListTile(
+                leading: const Icon(Icons.lightbulb_outline),
+                title: const Text('灵感关联'),
+                subtitle: Text(edge['note'] as String? ?? '未填写说明'),
+                trailing: IconButton(
+                  tooltip: '删除关联',
+                  onPressed: _removingAssociations.contains(id)
+                      ? null
+                      : () => _removeInspired(id),
+                  icon: _removingAssociations.contains(id)
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.delete_outline),
+                ),
+              );
+            }).toList(),
+    );
+  }
+
+  Future<void> _removeInspired(String associationId) async {
+    setState(() => _removingAssociations.add(associationId));
+    try {
+      await ref.read(universeServiceProvider).removeInspired(
+            targetIdeaId: widget.ideaId,
+            associationId: associationId,
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('灵感关联已删除')),
+        );
+        await _loadGraph();
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败：$error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _removingAssociations.remove(associationId));
+    }
+  }
+
   Widget _buildError(ThemeData theme) {
     return Center(
       child: Padding(
@@ -279,6 +338,8 @@ class _IdeaUniverseScreenState extends ConsumerState<IdeaUniverseScreen> {
             style: theme.textTheme.bodySmall,
           ),
         ),
+        if (graph['can_manage_associations'] == true)
+          _buildInspiredManager(theme, edges),
       ],
     );
   }
