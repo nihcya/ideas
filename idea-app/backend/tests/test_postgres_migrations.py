@@ -288,6 +288,11 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
             "009_collaboration_notification_links",
             "010_idea_reports",
         }
+        owner_id, contributor_id = uuid.uuid4(), uuid.uuid4()
+        await conn.executemany(
+            "INSERT INTO users(id) VALUES($1)",
+            [(owner_id,), (contributor_id,)],
+        )
         collab_id = uuid.uuid4()
         await conn.execute(
             "INSERT INTO collaborations(id, title, owner_id) VALUES($1, $2, $3)",
