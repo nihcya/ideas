@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     app_env: str = "dev"
     app_host: str = "0.0.0.0"
     app_port: int = 8000
+    # Comma-separated UUID allowlist for moderation/admin endpoints.
+    admin_user_ids: str = ""
     # CORS:支持通配符 * 匹配任意端口(经 cors_origin_regex 转换为正则)。
     # dev: http://localhost:*,http://127.0.0.1:*
     # prod: https://example.com,https://app.example.com (精确域名,无通配符)
