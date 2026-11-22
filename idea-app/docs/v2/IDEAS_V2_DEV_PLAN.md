@@ -388,3 +388,11 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 首轮并发 CI 暴露测试 fixture 的外键种子顺序问题；已在插入 Idea 前显式 flush owner User，避免将 fixture 错误误判为业务锁问题。
 - [x] 首轮失败路径测试暴露 asyncpg 多语句执行失败后连接处于 aborted transaction；已在每次预期失败后显式 ROLLBACK，并在 finally 增加清理保护。
 - [ ] 修正后的 exact-head CI 尚待完成；在 PostgreSQL job 实际通过前，不标记迁移失败回滚或并发测试验收完成。
+
+### 13.21 并发贡献归属保护（2026-11-22）
+
+- [x] 审查发现：两个已存在的草稿可能并发选择同一条 accepted contribution；原逻辑先查询归属再读取贡献，存在两个事务同时观察到“未归属”的竞争窗口。
+- [x] 修复 `_attach_contributions`：先对当前创意中已采纳的贡献行执行 `SELECT ... FOR UPDATE`，获得行锁后再检查是否已有版本归属；数据库 `UNIQUE(contribution_id)` 仍作为最终一致性防线。
+- [x] 新增 PostgreSQL 16 并发测试：两个独立会话更新两个既有草稿并同时选择同一贡献，预期一个成功、另一个 409，最终贡献归属记录恰好一条。
+- [ ] 新增并发贡献测试及修复尚待 exact-head CI 执行验证。
+- [ ] 并发发布双请求测试、生产迁移预检查/备份恢复演练仍未完成。
