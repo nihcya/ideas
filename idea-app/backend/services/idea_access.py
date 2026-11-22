@@ -50,9 +50,9 @@ async def get_inherited_rights_chain(
 ) -> list[dict]:
     """Return immutable ancestor license obligations, flattened and deduplicated.
 
-    Each incoming edge stores the full chain as it existed when that edge was
-    created. This avoids depending on a parent's current visibility or mutable
-    license fields after a source has been withdrawn or its terms later change.
+    New edges carry a complete rights_chain. For older edges, reconstruct the
+    ancestors from the still-existing parent graph and use the edge's own direct
+    snapshot for the parent terms captured at derivation time.
     """
     visited = set(_visited or ())
     if idea.id in visited:
@@ -60,27 +60,34 @@ async def get_inherited_rights_chain(
     visited.add(idea.id)
 
     result = await db.execute(
-        select(ForkRelation.license_snapshot).where(
+        select(ForkRelation.license_snapshot, ForkRelation.parent_id).where(
             ForkRelation.child_id == idea.id
         )
     )
     by_source: dict[str, dict] = {}
-    for snapshot in result.scalars().all():
+    for snapshot, parent_id in result.all():
         if not snapshot:
             continue
         chain = snapshot.get("rights_chain")
-        if not isinstance(chain, list):
-            # Backward compatibility for edges created before rights-chain support.
-            chain = [{
-                "source_idea_id": snapshot.get("source_idea_id"),
+        if isinstance(chain, list):
+            edge_chain = chain
+        else:
+            edge_chain = []
+            parent = await db.get(Idea, parent_id)
+            if parent is not None and parent.id not in visited:
+                edge_chain.extend(
+                    await get_inherited_rights_chain(db, parent, visited)
+                )
+            edge_chain.append({
+                "source_idea_id": snapshot.get("source_idea_id") or str(parent_id),
                 "source_author_id": snapshot.get("source_author_id"),
                 "source_author_name": snapshot.get("source_author_name", "匿名"),
                 "license_code": snapshot.get("license_code"),
                 "license_text_snapshot": snapshot.get("license_text_snapshot"),
                 "license_version": snapshot.get("license_version"),
                 "allow_fork": snapshot.get("allow_fork", False),
-            }]
-        for item in chain:
+            })
+        for item in edge_chain:
             source_id = str(item.get("source_idea_id") or "")
             key = source_id or (
                 str(item.get("source_author_id") or "unknown")
@@ -91,7 +98,6 @@ async def get_inherited_rights_chain(
             )
             by_source.setdefault(key, dict(item))
     return list(by_source.values())
-
 
 async def get_effective_rights_chain(
     db: AsyncSession, idea: Idea
