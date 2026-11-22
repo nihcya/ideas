@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +30,7 @@ from services.idea_access import (
 from services.audit_service import audit_content, write_audit_log
 from services.color_pool import random_color
 from services.cache import cache, key_idea_detail
+from services.rate_limit import limiter, DEFAULT_LIMIT
 
 router = APIRouter(prefix="/collaborations", tags=["collaborations"])
 
@@ -211,7 +212,9 @@ async def create_collaboration(
 
 
 @router.get("/{collaboration_id}/members/search")
+@limiter.limit(DEFAULT_LIMIT)
 async def search_collaboration_members(
+    request: Request,
     collaboration_id: uuid.UUID,
     q: str = Query(..., min_length=2, max_length=80),
     db: AsyncSession = Depends(get_db),
