@@ -156,6 +156,7 @@ async def test_collaboration_publish_atomically_creates_idea_version_lineage_and
     from datetime import datetime, timezone
 
     owner = await _user(db_session, "publish_owner")
+    owner_id = owner.id
     contributor = await _user(db_session, "publish_contrib")
     source = Idea(
         content="公开且允许改编的来源创意",
