@@ -264,3 +264,10 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 版本号分配与发布均先锁定 Idea 行（PostgreSQL `SELECT FOR UPDATE`），版本草稿行/关联贡献行在编辑和发布路径中也使用行锁；数据库 `UNIQUE(idea_id, version_number)` 与 `UNIQUE(contribution_id)` 作为最终并发约束。
 - 当前并发测试主要使用 SQLite，SQLite 不实现 PostgreSQL 行级 `FOR UPDATE` 语义。因此不能将其描述为真实 PostgreSQL 并发验收；需要后续在独立 PG 16 环境运行并发集成测试。
 - 本次未运行 SQL migration，也未连接生产数据库。Migration 001 的 active Idea 公共回填仍需上线前按真实生产查询规则做预检查与审批。
+## 22. PostgreSQL 16 migration integration coverage（2026-11-22）
+
+- 新增 `tests/test_postgres_migrations.py`，通过 asyncpg 连接独立 PostgreSQL 16 测试库，建立最小旧版 users/ideas/fork_relations 基础表。
+- 在真实 PG 16 中按 001→002→003 顺序执行迁移文件，验证 PL/pgSQL dollar-quoted guards、migration markers、active/private 历史回填结果，以及版本号和 contribution_id 唯一约束。
+- GitHub Actions 新增独立 `postgres-migrations` job，使用 ephemeral PostgreSQL 16 service container；常规 SQLite pytest 和 Flutter jobs 保持独立。
+- 这项测试只证明迁移在最小测试基线上的语法与约束行为，不覆盖生产数据规模、线上 schema drift、备份恢复、锁等待或真实生产回填风险。
+- 当前最新提交的 PostgreSQL job 尚待首次运行结果；生产数据库未连接，migrations 001/002/003 未执行。
