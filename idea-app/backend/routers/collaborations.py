@@ -6,6 +6,7 @@ workspace invitation never grants access to a private source Idea.
 from __future__ import annotations
 
 import uuid
+from uuid import UUID
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -31,6 +32,7 @@ from services.audit_service import audit_content, write_audit_log
 from services.color_pool import random_color
 from services.cache import cache, key_idea_detail
 from services.rate_limit import limiter, DEFAULT_LIMIT
+from services.notification_preferences import add_notification_if_enabled
 
 router = APIRouter(prefix="/collaborations", tags=["collaborations"])
 
@@ -215,7 +217,7 @@ async def create_collaboration(
 @limiter.limit(DEFAULT_LIMIT)
 async def search_collaboration_members(
     request: Request,
-    collaboration_id: uuid.UUID,
+    collaboration_id: UUID,
     q: str = Query(..., min_length=2, max_length=80),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
