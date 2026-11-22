@@ -825,13 +825,14 @@ async def publish_collaboration(
         )
     )
     for member in member_result.scalars().all():
-        db.add(Notification(
+        await add_notification_if_enabled(
+            db,
             user_id=member.user_id,
-            type="collab_published",
+            notification_type="collab_published",
             content="协作空间成果已完成发布",
             idea_id=idea.id if is_public else None,
             actor_id=user.id,
-        ))
+        )
 
     await db.commit()
     if is_public:
