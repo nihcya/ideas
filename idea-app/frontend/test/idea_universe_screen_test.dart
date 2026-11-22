@@ -14,6 +14,7 @@ class _FakeUniverseService extends UniverseService {
   int lastDepth = 0;
   String lastDirection = '';
   bool lastIncludeInspired = false;
+  int addCalls = 0;
 
   @override
   Future<Map<String, dynamic>> getGraph(
@@ -29,6 +30,7 @@ class _FakeUniverseService extends UniverseService {
     lastIncludeInspired = includeInspired;
     return {
       'root_id': ideaId,
+      'can_manage_associations': true,
       'depth': depth,
       'direction': direction,
       'include_inspired': includeInspired,
@@ -78,8 +80,34 @@ class _FakeUniverseService extends UniverseService {
           'target': ideaId,
           'type': 'fork',
         },
+        {
+          'id': 'edge-3',
+          'source': 'child-1',
+          'target': ideaId,
+          'type': 'inspired',
+          'note': '研究方向启发',
+        },
       ],
     };
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> searchIdeas(String query, {int limit = 20}) async => [
+        {
+          'id': 'source-idea',
+          'title': '可访问的来源创意',
+          'author': '来源作者',
+          'color_hex': '#4C8DCE',
+        },
+      ];
+
+  @override
+  Future<void> addInspired({
+    required String targetIdeaId,
+    required String sourceIdeaId,
+    String? note,
+  }) async {
+    addCalls++;
   }
 }
 
@@ -104,6 +132,33 @@ void main() {
     expect(find.text('已撤回的来源创意'), findsOneWidget);
     expect(find.text('显示灵感关联'), findsOneWidget);
     expect(find.textContaining('3 个节点'), findsOneWidget);
+  });
+
+  testWidgets('owner can search and add an Inspired association', (tester) async {
+    final service = _FakeUniverseService();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [universeServiceProvider.overrideWithValue(service)],
+        child: const MaterialApp(
+          home: IdeaUniverseScreen(ideaId: 'root-idea'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('管理灵感关联'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加灵感来源'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, '人工智能');
+    await tester.tap(find.byTooltip('搜索'));
+    await tester.pumpAndSettle();
+    expect(find.text('可访问的来源创意'), findsOneWidget);
+    await tester.tap(find.text('可访问的来源创意'));
+    await tester.pumpAndSettle();
+
+    expect(service.addCalls, 1);
   });
 
   testWidgets('changing Inspired visibility reloads the graph', (tester) async {
