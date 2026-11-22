@@ -226,7 +226,7 @@ class _UniversePainter extends CustomPainter {
         final direction = (end - start) / math.max(distance, 0.01);
         var cursor = 0.0;
         while (cursor < distance - 18) {
-          final finish = math.min(cursor + 9, distance - 18);
+          final finish = math.min(cursor + 9, distance - 18).toDouble();
           canvas.drawLine(start + direction * cursor, start + direction * finish, paint);
           cursor += 15;
         }
@@ -234,7 +234,7 @@ class _UniversePainter extends CustomPainter {
         canvas.drawLine(start, end, paint);
       }
       final delta = end - start;
-      final length = math.max(delta.distance, 0.01);
+      final length = math.max(delta.distance, 0.01).toDouble();
       final unit = delta / length;
       final tip = end - unit * target.radius;
       final perpendicular = Offset(-unit.dy, unit.dx);
