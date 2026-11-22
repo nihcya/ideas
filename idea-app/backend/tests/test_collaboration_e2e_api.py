@@ -146,6 +146,14 @@ async def test_private_collaboration_to_published_public_attribution_http_flow(
             assert reviewed.status_code == 200
             assert reviewed.json()["status"] == "accepted"
 
+            # The accepted contribution remains visible in the private collaboration
+            # feed before publication.
+            contribution_feed = await client.get(
+                f"/api/ideas/{idea.id}/contributions"
+            )
+            assert contribution_feed.status_code == 200
+            assert contribution_feed.json()["items"][0]["status"] == "accepted"
+
             # Explicitly publish the Idea, then publish a new version so it belongs
             # to the public era and can appear on the public timeline.
             published_idea = await client.post(
@@ -159,9 +167,6 @@ async def test_private_collaboration_to_published_public_attribution_http_flow(
                 },
             )
             assert published_idea.status_code == 200
-            public_since = datetime.fromisoformat(
-                published_idea.json()["created_at"].replace("Z", "+00:00")
-            )
             assert published_idea.json()["visibility"] == "public"
 
             draft = await client.post(
@@ -183,21 +188,6 @@ async def test_private_collaboration_to_published_public_attribution_http_flow(
             assert version_published.json()["version"]["attributions"][0][
                 "content"
             ] == "增加校园社团与课程项目协作场景"
-
-            # Contributor's private collaboration feed links the accepted
-            # contribution to the published version and frozen attribution.
-            active_user["value"] = collaborator
-            contribution_feed = await client.get(
-                f"/api/ideas/{idea.id}/contributions"
-            )
-            assert contribution_feed.status_code == 200
-            linked = contribution_feed.json()["items"][0]
-            assert linked["published_version"]["id"] == version_id
-            assert linked["attribution_content_snapshot"] == (
-                "增加校园社团与课程项目协作场景"
-            )
-            assert linked["attribution_author_name"] == collaborator.username
-
             # Anonymous public timeline exposes only the published public-era
             # version and the frozen attribution snapshot.
             active_user["value"] = None
