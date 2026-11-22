@@ -166,17 +166,21 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         migration_002 = (MIGRATIONS / "002_idea_contributions.sql").read_text(encoding="utf-8")
         migration_003 = (MIGRATIONS / "003_idea_versions_and_attribution.sql").read_text(encoding="utf-8")
 
+        async def expect_migration_failure(sql):
+            with pytest.raises(asyncpg.PostgresError):
+                await conn.execute(sql)
+            # asyncpg leaves the failed multi-statement transaction aborted until rollback.
+            await conn.execute("ROLLBACK")
+
         # Migration 002 must fail before 001, and its transaction must leave no table behind.
-        with pytest.raises(asyncpg.PostgresError):
-            await conn.execute(migration_002)
+        await expect_migration_failure(migration_002)
         assert await conn.fetchval("SELECT to_regclass('public.app_schema_migrations')") is None
         assert await conn.fetchval("SELECT to_regclass('public.idea_contributions')") is None
 
         await conn.execute(migration_001)
 
         # Migration 001 is intentionally one-shot; a second attempt must fail cleanly.
-        with pytest.raises(asyncpg.PostgresError):
-            await conn.execute(migration_001)
+        await expect_migration_failure(migration_001)
         markers = await conn.fetch("SELECT version FROM app_schema_migrations")
         assert [row["version"] for row in markers] == ["001_idea_visibility_and_acl"]
         assert await conn.fetchval(
@@ -186,8 +190,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         ) == 1
 
         # Migration 003 must not create version tables until 002 is recorded.
-        with pytest.raises(asyncpg.PostgresError):
-            await conn.execute(migration_003)
+        await expect_migration_failure(migration_003)
         assert await conn.fetchval("SELECT to_regclass('public.idea_versions')") is None
         markers = await conn.fetch("SELECT version FROM app_schema_migrations ORDER BY version")
         assert [row["version"] for row in markers] == ["001_idea_visibility_and_acl"]
@@ -202,6 +205,12 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
             "003_idea_versions_and_attribution",
         }
     finally:
+        # Ensure cleanup can run even if an unexpected SQL assertion left the
+        # connection inside an aborted transaction.
+        try:
+            await conn.execute("ROLLBACK")
+        except asyncpg.PostgresError:
+            pass
         await conn.execute("""
             DROP TABLE IF EXISTS idea_version_contributions CASCADE;
             DROP TABLE IF EXISTS idea_versions CASCADE;
