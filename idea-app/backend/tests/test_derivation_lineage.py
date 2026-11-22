@@ -41,6 +41,11 @@ async def test_derivative_keeps_source_attribution_after_source_is_unpublished(
     db_session, monkeypatch
 ):
     owner, source = await _public_source(db_session)
+    derivative_author = User(
+        username="derivation_child_author", password_hash="test-hash", bio=""
+    )
+    db_session.add(derivative_author)
+    await db_session.commit()
 
     async def allow_audit(*args, **kwargs):
         return True, ""
@@ -55,7 +60,7 @@ async def test_derivative_keeps_source_attribution_after_source_is_unpublished(
     forked = await ideas_router.fork_idea(
         IdeaForkRequest(parent_id=str(source.id), content="基于原始创意形成的衍生方案"),
         db_session,
-        owner,
+        derivative_author,
     )
     relation_result = await db_session.execute(
         select(ForkRelation).where(ForkRelation.child_id == uuid.UUID(forked.id))
@@ -66,7 +71,7 @@ async def test_derivative_keeps_source_attribution_after_source_is_unpublished(
 
     await ideas_router.unpublish_idea(source.id, db_session, owner)
     detail = await ideas_router.get_idea_detail(
-        uuid.UUID(forked.id), db_session, None
+        uuid.UUID(forked.id), db_session, derivative_author
     )
 
     assert len(detail.lineage.parents) == 1
