@@ -563,8 +563,8 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 新增 Inspired association owner-only 创建/删除 API，处理自环和重复关系。
 - [x] 新增 API 测试覆盖递归层级、关系方向、Inspired 分离、私有祖先脱敏和关联管理。
 - [ ] PostgreSQL migration 006 / Universe API exact-head CI 待执行。
-- [ ] Flutter Universe graph screen、按需展开、深度/方向控制、图例与节点跳转待实现。
-- [ ] 图谱查询性能、递归环路/节点上限及公开缓存隔离测试待补充。
+- [x] Flutter Universe graph screen、按需展开、深度/方向控制、关系图例、节点跳转与 Inspired 管理已实现。
+- [x] 图谱查询采用批量 ACL 检查、visited 防环、100 节点/300 边上限；私有图谱不进入共享缓存，隐私和截断测试通过。
 
 ### 15.1 Sprint 3 — Universe 图谱前端与查询优化（2026-11-22）
 
@@ -591,3 +591,12 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] Graph API 显式返回当前 viewer 是否为 target owner；非 owner 不会获得管理 UI 能力，写入 API 仍独立执行 owner ACL。
 - [x] 新增后端搜索 ACL 测试：匿名、作者、受邀者和无关用户的结果集隔离；新增前端 widget test 覆盖搜索并创建 Inspired 关联。
 - [ ] 本轮代码 exact-head CI 待完成；所有 Backend、PostgreSQL migration/concurrency、Flutter test/analyze/build job 通过后再勾选验收。
+
+
+### 15.1 Sprint 3 验收结论（2026-11-22）
+
+- [x] Exact-head CI：commit fcde87dc3da187b277eabead6f5e025a09a68c94，workflow run 45035273443 全绿。
+- [x] Backend 74 passed / 11 skipped；PostgreSQL migrations 001–006 success；PostgreSQL version/collaboration concurrency success。
+- [x] Flutter test、analyze、Android Debug APK、Web Release build 全部通过。
+- [x] Idea Universe 递归图谱、Inspired 独立关系、ACL 隐私、节点按需展开、搜索和 Inspired picker 测试通过。
+- [ ] 后续 Sprint 4 继续完成 Explore 筛选排序、通知偏好、治理与安全发布工作。
