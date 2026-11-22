@@ -5,7 +5,7 @@
 
 BEGIN;
 
-DO $
+DO $migration$
 BEGIN
   IF to_regclass('public.app_schema_migrations') IS NULL THEN
     RAISE EXCEPTION 'Migration 001_idea_visibility_and_acl must be applied first';
@@ -17,7 +17,7 @@ BEGIN
     RAISE EXCEPTION 'Migration 001_idea_visibility_and_acl must be applied first';
   END IF;
 END;
-$;
+$migration$;
 
 CREATE TABLE IF NOT EXISTS idea_contributions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
