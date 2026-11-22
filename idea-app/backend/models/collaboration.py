@@ -37,7 +37,7 @@ class CollaborationMember(Base, TimestampMixin):
     __table_args__ = (
         UniqueConstraint("collaboration_id", "user_id", name="uq_collaboration_member_user"),
         CheckConstraint("role IN ('owner','contributor','viewer')", name="ck_collaboration_member_role"),
-        CheckConstraint("status IN ('pending','accepted','declined','revoked')", name="ck_collaboration_member_status"),
+        CheckConstraint("status IN ('pending','accepted','declined','revoked','left')", name="ck_collaboration_member_status"),
         Index("idx_collaboration_members_user_status", "user_id", "status"),
     )
 
