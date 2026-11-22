@@ -467,3 +467,138 @@ async def test_collaboration_publish_commit_failure_rolls_back_everything(db_ses
     persisted_workspace = await db_session.get(Collaboration, workspace_id)
     assert persisted_workspace.status == "draft"
     assert persisted_workspace.published_idea_id is None
+
+
+
+@pytest.mark.asyncio
+async def test_collaboration_owner_searches_invite_candidates_without_exposing_membership(
+    db_session,
+):
+    owner = await _user(db_session, "candidate_owner")
+    candidate = await _user(db_session, "candidate_amy")
+    already_invited = await _user(db_session, "candidate_existing")
+    outsider = await _user(db_session, "candidate_outsider")
+    workspace = Collaboration(
+        title="邀请搜索测试", owner_id=owner.id, status="draft", visibility="private",
+    )
+    db_session.add(workspace)
+    await db_session.flush()
+    workspace_id = workspace.id
+    db_session.add(CollaborationMember(
+        collaboration_id=workspace_id, user_id=owner.id,
+        role="owner", status="accepted", invited_by=owner.id,
+    ))
+    db_session.add(CollaborationMember(
+        collaboration_id=workspace_id, user_id=already_invited.id,
+        role="contributor", status="pending", invited_by=owner.id,
+    ))
+    await db_session.commit()
+
+    active = {"user": owner}
+
+    async def override_db():
+        yield db_session
+
+    async def override_user():
+        return active["user"]
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = override_user
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+            response = await client.get(
+                f"/api/collaborations/{workspace_id}/members/search",
+                params={"q": "candidate_am"},
+            )
+            assert response.status_code == 200
+            assert response.json()["items"] == [
+                {"user_id": str(candidate.id), "username": candidate.username}
+            ]
+
+            short_query = await client.get(
+                f"/api/collaborations/{workspace_id}/members/search",
+                params={"q": " "},
+            )
+            assert short_query.status_code == 422
+
+            active["user"] = outsider
+            denied = await client.get(
+                f"/api/collaborations/{workspace_id}/members/search",
+                params={"q": "candidate"},
+            )
+            assert denied.status_code == 404
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)
+
+
+@pytest.mark.asyncio
+async def test_collaboration_member_can_leave_and_owner_can_archive_workspace(db_session):
+    owner = await _user(db_session, "leave_archive_owner")
+    contributor = await _user(db_session, "leave_archive_contributor")
+    workspace = Collaboration(
+        title="成员离开和空间归档", owner_id=owner.id,
+        status="draft", visibility="private",
+    )
+    db_session.add(workspace)
+    await db_session.flush()
+    workspace_id = workspace.id
+    db_session.add(CollaborationMember(
+        collaboration_id=workspace_id, user_id=owner.id,
+        role="owner", status="accepted", invited_by=owner.id,
+    ))
+    db_session.add(CollaborationMember(
+        collaboration_id=workspace_id, user_id=contributor.id,
+        role="contributor", status="accepted", invited_by=owner.id,
+    ))
+    await db_session.commit()
+
+    active = {"user": contributor}
+
+    async def override_db():
+        yield db_session
+
+    async def override_user():
+        return active["user"]
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_user] = override_user
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+            left = await client.delete(f"/api/collaborations/{workspace_id}/leave")
+            assert left.status_code == 200
+            assert left.json()["left"] is True
+
+            member_row = await db_session.scalar(select(CollaborationMember).where(
+                CollaborationMember.collaboration_id == workspace_id,
+                CollaborationMember.user_id == contributor.id,
+            ))
+            assert member_row.status == "left"
+            assert (await client.get(f"/api/collaborations/{workspace_id}")).status_code == 404
+
+            active["user"] = owner
+            owner_leave = await client.delete(f"/api/collaborations/{workspace_id}/leave")
+            assert owner_leave.status_code == 422
+
+            archived = await client.post(f"/api/collaborations/{workspace_id}/archive")
+            assert archived.status_code == 200
+            assert archived.json()["status"] == "archived"
+            again = await client.post(f"/api/collaborations/{workspace_id}/archive")
+            assert again.status_code == 200
+
+            closed_write = await client.post(
+                f"/api/collaborations/{workspace_id}/contributions",
+                json={"content": "归档后不允许提交"},
+            )
+            assert closed_write.status_code == 409
+
+            event_count = await db_session.scalar(select(func.count()).select_from(
+                collaborations_router.CollaborationEvent
+            ).where(
+                collaborations_router.CollaborationEvent.collaboration_id == workspace_id,
+                collaborations_router.CollaborationEvent.event_type == "member_left",
+            ))
+            assert event_count == 1
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_current_user, None)
