@@ -40,6 +40,27 @@ class CollaborationService {
     } on DioException catch (e) { throw toApiException(e); }
   }
 
+  Future<List<Map<String, dynamic>>> searchMembers(String id, String query) async {
+    try {
+      final res = await _dio.get(
+        '/collaborations/$id/members/search',
+        queryParameters: {'q': query},
+      );
+      return ((res.data as Map<String, dynamic>)['items'] as List<dynamic>)
+          .map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } on DioException catch (e) { throw toApiException(e); }
+  }
+
+  Future<void> leave(String id) async {
+    try { await _dio.delete('/collaborations/$id/leave'); }
+    on DioException catch (e) { throw toApiException(e); }
+  }
+
+  Future<void> archive(String id) async {
+    try { await _dio.post('/collaborations/$id/archive'); }
+    on DioException catch (e) { throw toApiException(e); }
+  }
+
   Future<void> invite(String id, String userId, String role) async {
     try {
       await _dio.post('/collaborations/$id/members', data: {'user_id': userId, 'role': role});
