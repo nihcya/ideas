@@ -7,6 +7,7 @@ import '../screens/vault_screen.dart';
 import '../screens/spark_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/public_user_profile_screen.dart';
+import '../screens/creators_screen.dart';
 import '../screens/public_idea_timeline_screen.dart';
 import '../screens/idea_detail_screen.dart';
 import '../screens/idea_universe_screen.dart';
@@ -107,6 +108,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/auth',
         name: 'auth',
         builder: (context, state) => const AuthScreen(),
+      ),
+      GoRoute(
+        path: '/creators',
+        name: 'creators',
+        builder: (context, state) => const CreatorsScreen(),
       ),
       GoRoute(
         path: '/user/:id',
