@@ -329,7 +329,10 @@ async def get_collaboration(
     member_query = (
         select(CollaborationMember, User.username)
         .join(User, User.id == CollaborationMember.user_id)
-        .where(CollaborationMember.collaboration_id == collaboration_id)
+        .where(
+            CollaborationMember.collaboration_id == collaboration_id,
+            CollaborationMember.status.in_(["accepted", "pending"]),
+        )
     )
     if member.role != "owner":
         member_query = member_query.where(CollaborationMember.status == "accepted")
