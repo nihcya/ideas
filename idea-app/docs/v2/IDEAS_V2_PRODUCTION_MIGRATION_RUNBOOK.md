@@ -2,7 +2,7 @@
 
 **Status:** Review checklist only. No production database has been accessed or migrated.  
 **Target:** PostgreSQL 16+  
-**Migrations:** `001_idea_visibility_and_acl.sql` → `002_idea_contributions.sql` → `003_idea_versions_and_attribution.sql`
+**Migrations:** `001_idea_visibility_and_acl.sql` → `002_idea_contributions.sql` → `003_idea_versions_and_attribution.sql` → `004_collaborations.sql` → `005_collaboration_attribution.sql`
 
 This runbook is not authorization to run migrations. Production execution requires an approved maintenance window, a named operator, a verified backup/restore rehearsal, and explicit approval of the legacy-public-data assumption below.
 
@@ -85,7 +85,7 @@ SELECT to_regclass('public.app_schema_migrations') AS migration_registry,
        to_regclass('public.idea_access_grants') AS access_grants,
        to_regclass('public.idea_contributions') AS contributions,
        to_regclass('public.idea_versions') AS versions,
-       to_regclass('public.idea_version_contributions') AS version_attributions;
+       to_regclass('public.idea_version_contributions') AS version_attributions,\n       to_regclass('public.collaborations') AS collaborations,\n       to_regclass('public.collaboration_members') AS collaboration_members,\n       to_regclass('public.collaboration_sources') AS collaboration_sources,\n       to_regclass('public.collaboration_contributions') AS collaboration_contributions,\n       to_regclass('public.collaboration_events') AS collaboration_events;
 
 -- If an app_schema_migrations table already exists, inspect it; do not overwrite it.
 SELECT version, applied_at
@@ -114,15 +114,15 @@ Actual backup commands, retention, encryption, storage destination, and RPO/RTO 
 - Take and verify the final pre-migration backup.
 - Execute each migration file in order using the approved PostgreSQL client with stop-on-error enabled (for example, `psql -v ON_ERROR_STOP=1`). Each file manages its own transaction.
 - Stop immediately on the first error. Do not manually insert migration markers or skip prerequisites.
-- Verify all three registry entries and post-migration invariants before enabling V2 endpoints.
+- Verify all five registry entries and post-migration invariants before enabling V2 endpoints.
 - Keep the backup and logs according to the organization's retention policy.
 
-Migration 001 intentionally rejects a second execution once its marker exists. Migrations 002/003 also check prerequisites. Do not edit markers to force a rerun.
+Migration 001 intentionally rejects a second execution once its marker exists. Migrations 002–005 also check prerequisites. Do not edit markers to force a rerun.
 
 ## 5. Post-migration validation SQL
 
 ```sql
--- All three migrations must be recorded exactly once.
+-- All five migrations must be recorded exactly once.
 SELECT version, applied_at
 FROM app_schema_migrations
 WHERE version IN (
