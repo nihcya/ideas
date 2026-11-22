@@ -270,7 +270,12 @@ class _CollaborationDetailScreenState extends ConsumerState<CollaborationDetailS
                     DropdownMenuItem(value: 'attribution_adaptation', child: Text('署名-允许改编')),
                     DropdownMenuItem(value: 'custom', child: Text('自定义授权')),
                   ],
-                  onChanged: (value) => setDialogState(() => licenseCode = value ?? licenseCode),
+                  onChanged: (value) => setDialogState(() {
+                    licenseCode = value ?? licenseCode;
+                    if (!['attribution_adaptation', 'custom'].contains(licenseCode)) {
+                      allowFork = false;
+                    }
+                  }),
                 ),
                 if (licenseCode == 'custom')
                   TextField(
@@ -282,7 +287,8 @@ class _CollaborationDetailScreenState extends ConsumerState<CollaborationDetailS
                   contentPadding: EdgeInsets.zero,
                   title: const Text('允许后续衍生'),
                   value: allowFork,
-                  onChanged: visibility == 'public'
+                  onChanged: visibility == 'public' &&
+                          ['attribution_adaptation', 'custom'].contains(licenseCode)
                       ? (value) => setDialogState(() => allowFork = value)
                       : null,
                 ),
@@ -435,11 +441,26 @@ class _CollaborationDetailScreenState extends ConsumerState<CollaborationDetailS
               )),
               const Divider(),
               Text('来源创意', style: Theme.of(context).textTheme.titleMedium),
-              ...sources.map((s) => ListTile(
-                dense: true,
-                leading: Icon(s['accessible'] == true ? Icons.link : Icons.lock_outline),
-                title: Text(s['accessible'] == true ? '可访问来源' : '受限来源（不授予原 Idea 权限）'),
-              )),
+              ...sources.map((s) {
+                final rights = s['rights_snapshot'] as Map<String, dynamic>?;
+                final chain = rights?['rights_chain'] as List<dynamic>? ?? [];
+                final licenseSummary = chain
+                    .map((item) => (item as Map)['license_code'] ?? '未指定')
+                    .join(' → ');
+                final customTerms = chain
+                    .where((item) => (item as Map)['license_code'] == 'custom')
+                    .map((item) => (item as Map)['license_text_snapshot'] ?? '')
+                    .where((text) => text.toString().isNotEmpty)
+                    .join('；');
+                return ListTile(
+                  dense: true,
+                  leading: Icon(s['accessible'] == true ? Icons.link : Icons.lock_outline),
+                  title: Text(s['accessible'] == true ? '可访问来源' : '受限来源（不授予原 Idea 权限）'),
+                  subtitle: s['accessible'] == true
+                      ? Text('授权链：$licenseSummary${customTerms.isEmpty ? '' : '\\n自定义条款：$customTerms'}')
+                      : null,
+                );
+              }),
               const Divider(),
               Row(children: [
                 Text('异步贡献', style: Theme.of(context).textTheme.titleMedium),
