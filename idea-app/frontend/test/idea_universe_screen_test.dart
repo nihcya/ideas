@@ -15,6 +15,7 @@ class _FakeUniverseService extends UniverseService {
   String lastDirection = '';
   bool lastIncludeInspired = false;
   int addCalls = 0;
+  String lastIdeaId = '';
 
   @override
   Future<Map<String, dynamic>> getGraph(
@@ -25,7 +26,48 @@ class _FakeUniverseService extends UniverseService {
     int maxNodes = 100,
   }) async {
     calls++;
+    lastIdeaId = ideaId;
     lastDepth = depth;
+    if (ideaId == 'child-1') {
+      return {
+        'root_id': ideaId,
+        'can_manage_associations': false,
+        'depth': depth,
+        'direction': direction,
+        'include_inspired': includeInspired,
+        'truncated': false,
+        'nodes': [
+          {
+            'id': ideaId,
+            'title': '衍生创意',
+            'color_hex': '#4C8DCE',
+            'author': '协作者',
+            'depth': 0,
+            'node_type': 'idea',
+            'navigable': true,
+            'is_root': true,
+          },
+          {
+            'id': 'expanded-grandchild',
+            'title': '展开后创意',
+            'color_hex': '#4C8DCE',
+            'author': '下一位作者',
+            'depth': 1,
+            'node_type': 'idea',
+            'navigable': true,
+            'is_root': false,
+          },
+        ],
+        'edges': [
+          {
+            'id': 'expanded-edge',
+            'source': ideaId,
+            'target': 'expanded-grandchild',
+            'type': 'evolve',
+          },
+        ],
+      };
+    }
     lastDirection = direction;
     lastIncludeInspired = includeInspired;
     return {
@@ -159,6 +201,31 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(service.addCalls, 1);
+  });
+
+
+  testWidgets('expands a node on demand without replacing the original root', (tester) async {
+    final service = _FakeUniverseService();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          universeServiceProvider.overrideWithValue(service),
+        ],
+        child: const MaterialApp(
+          home: IdeaUniverseScreen(ideaId: 'root-idea'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('展开此节点').first);
+    await tester.pumpAndSettle();
+
+    expect(service.calls, 2);
+    expect(service.lastIdeaId, 'child-1');
+    expect(find.text('展开后创意'), findsOneWidget);
+    expect(find.text('中心创意'), findsOneWidget);
   });
 
   testWidgets('changing Inspired visibility reloads the graph', (tester) async {
