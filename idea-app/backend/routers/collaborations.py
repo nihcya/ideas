@@ -26,7 +26,10 @@ from schemas.collaboration import (
 from services.idea_access import (
     can_view_idea, get_effective_rights_chain, can_derive_from_idea,
     requires_custom_license_confirmation, build_derivation_snapshot,
-)\nfrom services.audit_service import audit_content, write_audit_log\nfrom services.color_pool import random_color\nfrom services.cache import cache, key_idea_detail
+)
+from services.audit_service import audit_content, write_audit_log
+from services.color_pool import random_color
+from services.cache import cache, key_idea_detail
 
 router = APIRouter(prefix="/collaborations", tags=["collaborations"])
 
