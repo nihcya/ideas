@@ -329,3 +329,15 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - PostgreSQL 16 专项测试新增并发编辑 vs 审核、并发编辑 vs 撤权；run [45016633454](https://github.com/nihcya/ideas/actions/runs/45016633454) 的专项文件 **6 passed, 1 warning**。
 - 锁定邀请状态后的最新代码 head 由 run [45016696437](https://github.com/nihcya/ideas/actions/runs/45016696437) 验证中；Backend、PostgreSQL migration/concurrency 已通过，Flutter APK build 尚在运行。
 - 以上为 disposable PostgreSQL 16 CI 验证，不代表生产数据库已验证；migrations 001/002/003 未执行。
+
+
+## 31. DAG 来源撤回与衍生授权快照（2026-11-22）
+
+- 所有现有衍生入口均创建新 Idea 作为 child，父节点只能引用已存在的 Idea；API 不允许修改既有关系的 child/parent，因此正常 API 写入保持时间向前的 DAG 结构。Collide confirm 额外拒绝重复父节点。
+- Fork、Evolve、Collide confirm 对来源 Idea 行执行 SELECT FOR UPDATE；作者 publish/unpublish 也锁定同一 Idea 行。来源状态变化与衍生关系创建按事务先后串行。
+- Collide 的两个来源按 UUID 字符串固定排序后加锁，避免反向选择来源时出现锁顺序死锁。
+- ForkRelation.license_snapshot 现在冻结来源 ID、作者 ID/署名、授权代码、自定义授权文本快照、授权版本、创建时间和 allow_fork。
+- 详情谱系读取在来源仍可见时展示来源标题；来源撤回后对无权用户展示“已撤回的来源创意”及快照署名，不再展示撤回正文。衍生关系与子创意不因 unpublish 被删除。
+- 新增 SQLite API 回归测试验证撤回后的署名保留与重复 Collide 父节点拒绝；新增 PostgreSQL 16 独立会话测试验证 fork 与 unpublish 的行锁串行。
+- CI run [45018288819](https://github.com/nihcya/ideas/actions/runs/45018288819)：Backend **57 passed, 9 skipped**；PostgreSQL concurrency **7 passed**；migrations passed；Flutter test/analyze passed，APK build 尚在执行。
+- SQLite 测试不验证行锁语义；fork-vs-unpublish 锁竞争由 PostgreSQL 16 专项测试覆盖。以上均不代表生产数据库迁移已执行。
