@@ -13,11 +13,21 @@ class IdeaService {
   Future<ExploreResponse> getExplore({
     int limit = 25,
     int offset = 0,
+    String? query,
+    String sort = 'recommended',
+    String? licenseCode,
+    bool? allowFork,
+    String? source,
   }) async {
     try {
       final res = await _dio.get('/ideas/explore', queryParameters: {
         'limit': limit,
         'offset': offset,
+        'q': query,
+        'sort': sort,
+        'license_code': licenseCode,
+        'allow_fork': allowFork,
+        'source': source,
       });
       return ExploreResponse.fromJson(res.data as Map<String, dynamic>);
     } on DioException catch (e) {
