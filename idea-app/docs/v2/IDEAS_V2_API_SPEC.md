@@ -233,3 +233,24 @@ The GET /api/ideas/{id} response returns lineage parent/child nodes with relatio
 - The opaque key is only a graph-layout identity; it is not the private Idea ID and must never be used to request an Idea detail route.
 - The Flutter lineage graph renders the historical source node but does not navigate to it.
 - Do not return the withdrawn source's title/body or private Idea ID to a viewer who no longer has access.
+
+## 9. Derivative license inheritance and multi-parent intersection contract（2026-11-22）
+
+### Effective rights
+- The effective rights of a published Idea are the union of its immutable lineage records as obligations, evaluated conjunctively: every direct parent and every ancestor in every parent chain must allow derivation.
+- For a multi-parent Collide/Merge, the effective permission is the intersection of all parent chains. If any source has allow_fork=false or a license code outside attribution_adaptation/custom, creation is rejected; another parent's permissive terms cannot override it.
+- The current Idea's own license applies only to the author's original contribution. It is appended to the effective chain for future derivation checks and never replaces upstream terms.
+
+### Derivation endpoints
+- POST /api/ideas/fork accepts confirm_custom_licenses (boolean, default false).
+- POST /api/ideas/collide/confirm accepts confirm_custom_licenses (boolean, default false).
+- POST /api/ideas/evolve/confirm accepts confirm_custom_licenses (boolean, default false).
+- If any direct or inherited source uses custom, the caller must explicitly set confirm_custom_licenses=true. Otherwise return HTTP 422 with error code CUSTOM_LICENSE_CONFIRMATION_REQUIRED.
+- Each created ForkRelation freezes its source's full rights_chain and custom-license acknowledgement (acknowledged, acknowledged_by, acknowledged_at), alongside the direct source license and attribution snapshot.
+- attribution_adaptation may be passed downstream subject to preserving source attribution and every ancestor's permission.
+- custom is never silently treated as an open license; the explicit confirmation is required on each derivative creation operation. A custom source still must have allow_fork=true.
+
+### Publication
+- When publishing a derivative with allow_fork=true, the server checks every inherited source obligation. If any ancestor blocks derivation or has an incompatible license, return HTTP 422 / INHERITED_LICENSE_BLOCKS_DERIVATION.
+- A derivative author's selected license cannot broaden, replace, or waive upstream source terms.
+- These rules use the existing ForkRelation JSON metadata; no additional migration is introduced by this contract.
