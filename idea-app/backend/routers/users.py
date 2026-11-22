@@ -204,6 +204,7 @@ async def get_user_profile(
         bio=user.bio or "",
         is_self=bool(viewer and viewer.id == user.id),
         is_following=is_following,
+        can_follow=bool(viewer and viewer.id != user.id),
         stats={
             "produced": produced,
             "collected": collected,
