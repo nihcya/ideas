@@ -371,3 +371,13 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] GitHub Actions 新增 `postgres-migrations` job，使用一次性 PostgreSQL 16 service container；不连接生产数据库。
 - [ ] 新增 PostgreSQL job 的首次 CI 结果待确认。该 job 成功后可证明迁移在该测试基线可执行，但仍不替代生产备份、数据预检查和发布审批。
 - [ ] 生产 migrations 001/002/003 仍未执行。
+
+### 13.19 PostgreSQL 16 迁移与版本并发验证（2026-11-22）
+
+- [x] PostgreSQL 16.16 migration integration run 45009294921：真实执行 migrations 001→002→003，1 passed。
+- [x] 同一 exact-head CI run：Backend pytest 55 passed、1 skipped、1 warning；Flutter pub get、test、analyze、Android Debug APK build 均通过。
+- [x] 新增 `test_postgres_version_concurrency.py`：在独立 PostgreSQL 测试库中通过两个独立 AsyncSession 并发创建同一 Idea 的版本草稿，验证 Idea 行锁使请求串行，最终仅一个草稿成功，另一个返回 409，版本号保持 1。
+- [x] GitHub Actions 新增独立 `postgres-version-concurrency` job，使用独立 PostgreSQL 16 service/database，不与迁移测试共享 schema。
+- [ ] 新增 PostgreSQL 并发 job 尚待 CI 实际执行；不能将代码已提交等同于并发测试通过。
+- [ ] 当前并发覆盖聚焦“同一 Idea 并发创建草稿”；并发发布/编辑、贡献跨版本竞争仍需进一步专项覆盖。
+- [ ] 生产数据库未连接；migrations 001/002/003 未执行。生产上线仍需备份恢复演练、schema/data preflight、迁移审批和回滚预案。
