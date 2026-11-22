@@ -413,6 +413,25 @@ async def get_collaboration(
     events = (await db.execute(
         event_query.order_by(CollaborationEvent.created_at.desc()).limit(100)
     )).scalars().all()
+    published_idea = (
+        await db.get(Idea, workspace.published_idea_id)
+        if workspace.published_idea_id else None
+    )
+    published_result = None
+    if published_idea is not None:
+        published_result = {
+            "content": published_idea.content,
+            "visibility": published_idea.visibility,
+            "license_code": published_idea.license_code,
+            "license_text_snapshot": published_idea.license_text_snapshot,
+            "allow_fork": published_idea.allow_fork,
+            "published_at": published_idea.published_at,
+            "idea_id": (
+                str(published_idea.id)
+                if published_idea.visibility == "public" or workspace.owner_id == user.id
+                else None
+            ),
+        }
     return {
         "id": str(workspace.id),
         "title": workspace.title,
