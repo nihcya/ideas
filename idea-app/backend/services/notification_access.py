@@ -1,11 +1,11 @@
-"""SQL visibility predicate for notifications linked to Ideas."""
+"""SQL visibility predicate for notifications linked to Ideas or collaboration workspaces."""
 from sqlalchemy import select, or_, and_
 
-from models import Idea, IdeaAccessGrant, Notification
+from models import Idea, IdeaAccessGrant, Notification, CollaborationMember
 
 
 def visible_notification_predicate(user_id):
-    """Hide notifications whose linked Idea is no longer visible to the recipient."""
+    """Hide resource notifications after the recipient loses the linked resource ACL."""
     visible_linked_idea = select(Idea.id).where(
         Idea.id == Notification.idea_id,
         or_(
@@ -22,6 +22,29 @@ def visible_notification_predicate(user_id):
             ).exists(),
         ),
     ).exists()
-    # Non-Idea notifications remain visible. Historical notifications with a
-    # null idea_id cannot be retroactively associated with a resource.
-    return or_(Notification.idea_id.is_(None), visible_linked_idea)
+
+    visible_linked_collaboration = select(CollaborationMember.id).where(
+        CollaborationMember.collaboration_id == Notification.collaboration_id,
+        CollaborationMember.user_id == user_id,
+        CollaborationMember.status.in_(["accepted", "pending"]),
+    ).exists()
+
+    # Historical/resource-free notifications remain visible. For private
+    # collaboration notifications (no public Idea link), current membership
+    # or a pending invite is required. Public Idea notifications continue to
+    # use the Idea ACL even if workspace membership later ends.
+    return or_(
+        and_(
+            Notification.idea_id.is_(None),
+            Notification.collaboration_id.is_(None),
+        ),
+        and_(
+            Notification.idea_id.is_not(None),
+            visible_linked_idea,
+        ),
+        and_(
+            Notification.idea_id.is_(None),
+            Notification.collaboration_id.is_not(None),
+            visible_linked_collaboration,
+        ),
+    )
