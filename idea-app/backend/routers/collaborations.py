@@ -396,6 +396,9 @@ async def submit_contribution(
     workspace = await db.get(Collaboration, collaboration_id)
     if workspace is None or workspace.status != "draft":
         raise _error(409, "COLLABORATION_CLOSED", "协作空间已关闭")
+    passed, reason = await audit_content(db, payload.content)
+    if not passed:
+        raise _error(403, "AUDIT_FAILED", reason or "贡献内容审核不通过")
     item = CollaborationContribution(
         collaboration_id=collaboration_id,
         author_id=user.id,
@@ -436,6 +439,9 @@ async def update_contribution(
         idea = await db.get(Idea, payload.source_idea_id)
         if source is None or idea is None or not await can_view_idea(db, idea, user.id):
             raise _error(404, "SOURCE_IDEA_NOT_FOUND", "来源创意不存在或无权访问")
+    passed, reason = await audit_content(db, payload.content)
+    if not passed:
+        raise _error(403, "AUDIT_FAILED", reason or "贡献内容审核不通过")
     item.content = payload.content
     item.contribution_type = payload.contribution_type
     item.source_idea_id = payload.source_idea_id
