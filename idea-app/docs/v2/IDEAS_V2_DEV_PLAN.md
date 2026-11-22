@@ -333,3 +333,15 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [ ] 本次新增 Flutter widget tests、analyze 和 Android Debug APK build 尚待最新 head 的 GitHub Actions 验证。
 - [ ] 若公开版本数量增长到较大规模，应在保留任意版本深链能力的前提下引入可定位的分页/虚拟滚动方案；当前全量构建是为修复现阶段深链可靠性所作的范围内权衡。
 - [ ] PostgreSQL migrations 001/002/003 仍未执行。
+
+
+### 13.15 私有协作到公开署名的 HTTP 端到端验收（2026-11-22）
+
+- [x] 新增 `test_collaboration_e2e_api.py`，通过 ASGI HTTP 客户端串联真实 FastAPI 路由，而非仅直接调用路由函数。
+- [x] 覆盖作者邀请、待接受邀请箱、待接受前私有详情 404、接受邀请后访问。
+- [x] 覆盖 contributor 修改待审核贡献、viewer 接受邀请后仍不能提交贡献。
+- [x] 覆盖作者审核采纳、私有贡献列表读取、作者明确发布创意。
+- [x] 覆盖公开创意版本草稿创建、关联已采纳贡献、发布版本、匿名公开时间线读取冻结署名。
+- [ ] 最新 head 的 pytest、Flutter test/analyze 和 Android Debug APK CI 尚待完成；新增端到端测试通过前不标记验收完成。
+- [ ] 本测试使用 SQLite 内存库与 mock 内容审核，不替代 PostgreSQL 迁移验证、生产鉴权/缓存/审核服务验证。
+- [ ] PostgreSQL migrations 001/002/003 仍未执行。
