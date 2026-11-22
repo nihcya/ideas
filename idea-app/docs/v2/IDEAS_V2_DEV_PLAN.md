@@ -577,7 +577,7 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 新增 API 测试覆盖 ancestors / descendants 方向语义。
 - [ ] 当前代码提交后的 exact-head CI（Backend、PostgreSQL migrations、PostgreSQL concurrency、Flutter test/analyze/Android APK/Web Release）待全部完成；未通过前不标记验收通过。
 - [ ] 补充图谱查询 SQL/性能基准、最大节点/边截断测试、复杂网络布局与小屏适配测试。
-- [ ] Inspired 关联的前端创建/删除管理入口仍待实现；当前图谱只读展示已存在关联。
+- [x] Inspired 关联前端创建/删除管理入口已在 15.2 完成。
 - [ ] Sprint 2 协作页面专属 widget tests、邀请用户搜索/选择、成员主动离开和空间归档仍待完成。
 
 ### 15.2 Sprint 3 — Inspired 关联创建与 ACL 安全（2026-11-22）
@@ -587,6 +587,7 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 将 Universe router 注册到动态 GET /ideas/{idea_id} 详情路由之前，避免 /ideas/search 被 UUID 动态路由截获。
 - [x] UniverseService 增加搜索和 Inspired 创建/删除 API 调用。
 - [x] Universe 页面增加 target owner 专属的灵感关联管理：搜索可访问来源、添加说明、创建关联和删除已有关联。
+- [x] 图谱画布宽度按最宽层节点数自适应，避免密集节点横向重叠；关联管理列表设置最大高度并独立滚动。
 - [x] Graph API 显式返回当前 viewer 是否为 target owner；非 owner 不会获得管理 UI 能力，写入 API 仍独立执行 owner ACL。
 - [x] 新增后端搜索 ACL 测试：匿名、作者、受邀者和无关用户的结果集隔离；新增前端 widget test 覆盖搜索并创建 Inspired 关联。
 - [ ] 本轮代码 exact-head CI 待完成；所有 Backend、PostgreSQL migration/concurrency、Flutter test/analyze/build job 通过后再勾选验收。
