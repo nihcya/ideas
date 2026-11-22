@@ -45,6 +45,44 @@ class IdeaService {
     }
   }
 
+  /// Admin moderation queue.
+  Future<List<Map<String, dynamic>>> getAdminReports({
+    String status = 'pending',
+    int limit = 30,
+    int offset = 0,
+  }) async {
+    try {
+      final res = await _dio.get('/reports/admin', queryParameters: {
+        'status': status,
+        'limit': limit,
+        'offset': offset,
+      });
+      final data = Map<String, dynamic>.from(res.data as Map);
+      return ((data['items'] as List<dynamic>?) ?? [])
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  Future<void> reviewReport({
+    required String reportId,
+    required String status,
+    required bool hideIdea,
+    String? resolutionNote,
+  }) async {
+    try {
+      await _dio.post('/reports/admin/$reportId/review', data: {
+        'status': status,
+        'hide_idea': hideIdea,
+        'resolution_note': resolutionNote,
+      });
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
   /// 举报当前可访问的创意。
   Future<void> reportIdea({
     required String ideaId,
