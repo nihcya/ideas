@@ -92,6 +92,30 @@ class _PublicUserProfileScreenState
     await _loadContributions(reset: true);
   }
 
+  Future<void> _toggleFollow(UserProfile user) async {
+    try {
+      final service = ref.read(userServiceProvider);
+      if (user.isFollowing) {
+        await service.unfollowUser(widget.userId);
+      } else {
+        await service.followUser(widget.userId);
+      }
+      if (mounted) {
+        ref.invalidate(userProfileProvider(widget.userId));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(user.isFollowing ? '已取消关注' : '已关注该创作者')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('关注操作失败：$error')),
+        );
+      }
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(userProfileProvider(widget.userId));
@@ -152,6 +176,29 @@ class _PublicUserProfileScreenState
                 user.bio.isEmpty ? '还没有介绍' : user.bio,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: colors.textSecondary, fontSize: 13),
+              ),
+              if (user.canFollow) ...[
+                const SizedBox(height: 14),
+                Center(
+                  child: user.isFollowing
+                      ? OutlinedButton.icon(
+                          onPressed: () => _toggleFollow(user),
+                          icon: const Icon(Icons.check),
+                          label: const Text('已关注'),
+                        )
+                      : FilledButton.icon(
+                          onPressed: () => _toggleFollow(user),
+                          icon: const Icon(Icons.person_add_alt_1),
+                          label: const Text('关注创作者'),
+                        ),
+                ),
+              ],
+              const SizedBox(height: 14),
+              Center(
+                child: Text(
+                  '粉丝 ${user.stats.followers}  ·  关注 ${user.stats.following}',
+                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                ),
               ),
               const SizedBox(height: 24),
               Container(
