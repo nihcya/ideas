@@ -20,7 +20,7 @@ from services.color_pool import random_color
 from services.audit_service import audit_content, write_audit_log
 from services.cache import cache, key_idea_detail, key_user_vault
 from services.rate_limit import limiter, CREATE_LIMIT
-from services.idea_access import can_view_idea, can_derive_from_idea, build_derivation_snapshot
+from services.idea_access import (can_view_idea, can_derive_from_idea, build_derivation_snapshot, requires_custom_license_confirmation, get_inherited_rights_chain)
 
 router = APIRouter(prefix="/ideas", tags=["ideas"])
 
@@ -386,6 +386,17 @@ async def fork_idea(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"error": {"code": "FORK_DISABLED", "message": "原点子不允许 fork"}},
         )
+    if (
+        await requires_custom_license_confirmation(db, [parent])
+        and not req.confirm_custom_licenses
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail={"error": {
+                "code": "CUSTOM_LICENSE_CONFIRMATION_REQUIRED",
+                "message": "衍生来源包含自定义授权，请阅读全部上游条款并明确确认",
+            }},
+        )
 
     # 审核
     passed, reason = await audit_content(db, req.content)
@@ -414,7 +425,7 @@ async def fork_idea(
         child_id=new_idea.id,
         parent_id=parent.id,
         relation_type="fork",
-        license_snapshot=await build_derivation_snapshot(db, parent),
+        license_snapshot=await build_derivation_snapshot(\n            db, parent,\n            custom_license_acknowledged=req.confirm_custom_licenses,\n            acknowledged_by=user.id,\n        ),
     )
     db.add(relation)
 
@@ -486,6 +497,19 @@ async def publish_idea(
         raise HTTPException(status_code=422, detail={"error": {"code": "LICENSE_TEXT_REQUIRED", "message": "自定义授权必须填写授权说明"}})
     if req.allow_fork and req.license_code not in ("attribution_adaptation", "custom"):
         raise HTTPException(status_code=422, detail={"error": {"code": "LICENSE_DERIVATIVE_MISMATCH", "message": "当前授权不允许开启 Fork"}})
+    inherited_chain = await get_inherited_rights_chain(db, idea)
+    if req.allow_fork and any(
+        item.get("allow_fork") is not True
+        or item.get("license_code") not in ("attribution_adaptation", "custom")
+        for item in inherited_chain
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail={"error": {
+                "code": "INHERITED_LICENSE_BLOCKS_DERIVATION",
+                "message": "上游来源授权不允许继续衍生，不能通过本次发布扩大权限",
+            }},
+        )
 
     passed, reason = await audit_content(db, idea.content)
     if not passed:
