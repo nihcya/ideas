@@ -90,6 +90,7 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
             "008_collaboration_member_leave.sql",
             "009_collaboration_notification_links.sql",
             "010_idea_reports.sql",
+            "011_user_follows.sql",
         ):
             sql = (MIGRATIONS / name).read_text(encoding="utf-8")
             await conn.execute(sql)
@@ -108,6 +109,7 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
             "008_collaboration_member_leave",
             "009_collaboration_notification_links",
             "010_idea_reports",
+            "011_user_follows",
         }
 
         active = await conn.fetchrow(
@@ -220,6 +222,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         migration_008 = (MIGRATIONS / "008_collaboration_member_leave.sql").read_text(encoding="utf-8")
         migration_009 = (MIGRATIONS / "009_collaboration_notification_links.sql").read_text(encoding="utf-8")
         migration_010 = (MIGRATIONS / "010_idea_reports.sql").read_text(encoding="utf-8")
+        migration_011 = (MIGRATIONS / "011_user_follows.sql").read_text(encoding="utf-8")
 
         async def expect_migration_failure(sql):
             with pytest.raises(asyncpg.PostgresError):
@@ -254,13 +257,14 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         await expect_migration_failure(migration_004)
         assert await conn.fetchval("SELECT to_regclass('public.collaborations')") is None
 
-        # Migrations 005–010 must wait for their prerequisite schema.
+        # Migrations 005–011 must wait for their prerequisite schema.
         await expect_migration_failure(migration_005)
         await expect_migration_failure(migration_006)
         await expect_migration_failure(migration_007)
         await expect_migration_failure(migration_008)
         await expect_migration_failure(migration_009)
         await expect_migration_failure(migration_010)
+        await expect_migration_failure(migration_011)
         assert await conn.fetchval("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='idea_contributions' AND column_name='source_collaboration_contribution_id'") == 0
         assert await conn.fetchval("SELECT to_regclass('public.idea_associations')") is None
         assert await conn.fetchval("SELECT to_regclass('public.notification_preferences')") is None
@@ -275,6 +279,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         await conn.execute(migration_008)
         await conn.execute(migration_009)
         await conn.execute(migration_010)
+        await conn.execute(migration_011)
         markers = await conn.fetch("SELECT version FROM app_schema_migrations ORDER BY version")
         assert {row["version"] for row in markers} == {
             "001_idea_visibility_and_acl",
@@ -287,6 +292,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
             "008_collaboration_member_leave",
             "009_collaboration_notification_links",
             "010_idea_reports",
+            "011_user_follows",
         }
         owner_id, contributor_id = uuid.uuid4(), uuid.uuid4()
         await conn.executemany(
@@ -316,6 +322,14 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         assert await conn.fetchval(
             "SELECT collaboration_id FROM notifications WHERE id=$1", notification_id
         ) == collab_id
+        await conn.execute(
+            "INSERT INTO user_follows(follower_id, following_id) VALUES($1, $2)",
+            contributor_id, owner_id,
+        )
+        assert await conn.fetchval(
+            "SELECT COUNT(*) FROM user_follows WHERE follower_id=$1 AND following_id=$2",
+            contributor_id, owner_id,
+        ) == 1
     finally:
         # Ensure cleanup can run even if an unexpected SQL assertion left the
         # connection inside an aborted transaction.
