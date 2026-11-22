@@ -133,7 +133,7 @@ class _ExploreFilterSheetState extends State<ExploreFilterSheet> {
                   DropdownMenuItem<String?>(value: null, child: Text('全部来源')),
                   DropdownMenuItem(value: 'ugc', child: Text('原创')),
                   DropdownMenuItem(value: 'fork', child: Text('Fork')),
-                  DropdownMenuItem(value: 'collide', child: Text('Collide')),
+                  DropdownMenuItem(value: 'merge', child: Text('Collide / Merge')),
                   DropdownMenuItem(value: 'evolve', child: Text('Evolve')),
                 ],
                 onChanged: (value) => setState(() => _source = value),
