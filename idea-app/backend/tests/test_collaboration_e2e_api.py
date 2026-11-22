@@ -110,6 +110,13 @@ async def test_private_collaboration_to_published_public_attribution_http_flow(
             )
             assert updated.status_code == 200
 
+            rejected_submission = await client.post(
+                f"/api/ideas/{idea.id}/contributions",
+                json={"content": "另一条待审核但最终拒绝的建议"},
+            )
+            assert rejected_submission.status_code == 201
+            rejected_contribution_id = rejected_submission.json()["id"]
+
             # Viewer role cannot submit contributions.
             viewer = await _user(db_session, "e2e_collab_viewer")
             active_user["value"] = owner
@@ -144,13 +151,56 @@ async def test_private_collaboration_to_published_public_attribution_http_flow(
             assert reviewed.status_code == 200
             assert reviewed.json()["status"] == "accepted"
 
+            rejected = await client.post(
+                f"/api/ideas/{idea.id}/contributions/{rejected_contribution_id}/review",
+                json={"decision": "rejected", "review_note": "暂不采纳"},
+            )
+            assert rejected.status_code == 200
+            assert rejected.json()["status"] == "rejected"
+
+            active_user["value"] = collaborator
+            rejected_edit = await client.patch(
+                f"/api/ideas/{idea.id}/contributions/{rejected_contribution_id}",
+                json={"content": "试图修改已拒绝的贡献"},
+            )
+            assert rejected_edit.status_code == 404
+            rejected_withdraw = await client.delete(
+                f"/api/ideas/{idea.id}/contributions/{rejected_contribution_id}"
+            )
+            assert rejected_withdraw.status_code == 404
+
+            # A submitted contribution can be withdrawn while the contributor grant
+            # is still active, but not after the owner revokes that grant.
+            post_review_submission = await client.post(
+                f"/api/ideas/{idea.id}/contributions",
+                json={"content": "权限撤销前提交的另一条建议"},
+            )
+            assert post_review_submission.status_code == 201
+            revocable_contribution_id = post_review_submission.json()["id"]
+
+            active_user["value"] = owner
+            revoke = await client.delete(
+                f"/api/ideas/{idea.id}/invites/{invite_id}"
+            )
+            assert revoke.status_code == 200
+
+            active_user["value"] = collaborator
+            revoked_withdraw = await client.delete(
+                f"/api/ideas/{idea.id}/contributions/{revocable_contribution_id}"
+            )
+            assert revoked_withdraw.status_code == 403
+
             # The accepted contribution remains visible in the private collaboration
             # feed before publication.
             contribution_feed = await client.get(
                 f"/api/ideas/{idea.id}/contributions"
             )
             assert contribution_feed.status_code == 200
-            assert contribution_feed.json()["items"][0]["status"] == "accepted"
+            accepted_feed_item = next(
+                item for item in contribution_feed.json()["items"]
+                if item["id"] == contribution_id
+            )
+            assert accepted_feed_item["status"] == "accepted"
 
             # Explicitly publish the Idea, then publish a new version so it belongs
             # to the public era and can appear on the public timeline.
