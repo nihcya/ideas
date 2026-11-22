@@ -408,3 +408,13 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 
 - [x] 新增 PostgreSQL 16 双请求并发发布同一版本草稿测试：两个独立会话同时调用发布路由，预期一个成功、另一个因草稿已不再存在而返回 404；最终版本只处于 published，Idea 内容与版本快照一致。
 - [ ] 新增双发布测试尚待 CI 执行；生产环境未执行。
+
+
+### 13.24 PostgreSQL 16 并发编辑与发布竞争验收（2026-11-22）
+
+- [x] 新增 test_concurrent_update_and_publish_same_draft_are_serialized：两个独立 AsyncSession 并发编辑并发布同一版本草稿。
+- [x] 验证编辑先提交时，发布快照包含编辑后的内容；发布先提交时，编辑请求返回 404；最终 Idea.content 始终等于已发布版本快照，且不残留 draft。
+- [x] PostgreSQL 16 concurrency job [45015839841](https://github.com/nihcya/ideas/actions/runs/45015839841) 已通过，专项文件 **4 passed, 1 warning**；Backend pytest、PostgreSQL migrations job 也已通过。
+- [x] Flutter pub get、test、analyze 已通过；Android Debug APK build 在记录本节时仍运行中，完整 exact-head CI 结论待 APK job 完成。
+- [x] 生产迁移 runbook 的 preflight SQL 已澄清：只把旧 schema 必需字段列为迁移前置条件；Migration 001 新增的 V2 字段单独检查是否存在部分部署，避免误把新字段当作旧表必需字段。
+- [ ] 生产数据库仍未连接；migrations 001/002/003 未执行。生产 schema/data 预检查、历史 active 公开语义审批、备份恢复演练仍是上线前置门槛。
