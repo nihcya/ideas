@@ -606,7 +606,11 @@ async def publish_idea(
     if (
         idea.legacy_license_review_status == "pending"
         and idea.legacy_license_review_due_at is not None
-        and idea.legacy_license_review_due_at <= now
+        and (
+            idea.legacy_license_review_due_at.replace(tzinfo=timezone.utc)
+            if idea.legacy_license_review_due_at.tzinfo is None
+            else idea.legacy_license_review_due_at
+        ) <= now
     ):
         idea.legacy_license_review_status = "expired"
         idea.allow_fork = False
