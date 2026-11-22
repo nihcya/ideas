@@ -69,3 +69,12 @@ The Universe screen exposes add/remove association controls only when the curren
 
 
 The initial graph canvas width now scales with the widest BFS layer to prevent dense node overlap. The owner association list is height-bounded and independently scrollable. Widget tests exercise the Inspired search-and-create flow.
+
+
+## Exact-head verification
+
+- Backend: 74 passed / 11 skipped.
+- PostgreSQL migrations 001–006: success.
+- PostgreSQL version/collaboration concurrency: success.
+- Flutter test, analyze, Android Debug APK and Web Release build: success.
+- Commit: fcde87dc3da187b277eabead6f5e025a09a68c94.
