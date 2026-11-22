@@ -52,6 +52,32 @@ async def _member(db: AsyncSession, collaboration_id: uuid.UUID, user: User, *, 
     return member
 
 
+async def _draft_member(
+    db: AsyncSession, collaboration_id: uuid.UUID, user: User, *, roles=None
+):
+    """Lock workspace first, then membership, matching publish/revoke lock order."""
+    workspace = await db.scalar(
+        select(Collaboration).where(
+            Collaboration.id == collaboration_id
+        ).with_for_update()
+    )
+    if workspace is None:
+        raise _error(404, "COLLABORATION_NOT_FOUND", "协作空间不存在或无权访问")
+    if workspace.status != "draft":
+        raise _error(409, "COLLABORATION_CLOSED", "协作空间已完成发布或归档")
+    result = await db.execute(
+        select(CollaborationMember).where(
+            CollaborationMember.collaboration_id == collaboration_id,
+            CollaborationMember.user_id == user.id,
+            CollaborationMember.status == "accepted",
+        ).with_for_update()
+    )
+    member = result.scalar_one_or_none()
+    if member is None or (roles is not None and member.role not in roles):
+        raise _error(404, "COLLABORATION_NOT_FOUND", "协作空间不存在或无权访问")
+    return workspace, member
+
+
 async def _event(db: AsyncSession, collaboration_id, actor_id, event_type, payload=None):
     db.add(CollaborationEvent(
         collaboration_id=collaboration_id,
@@ -412,7 +438,7 @@ async def submit_contribution(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    member = await _member(db, collaboration_id, user, roles={"owner", "contributor"})
+    workspace, member = await _draft_member(db, collaboration_id, user, roles={"owner", "contributor"})
     if payload.source_idea_id is not None:
         source = await db.scalar(select(CollaborationSource).where(
             CollaborationSource.collaboration_id == collaboration_id,
@@ -421,9 +447,6 @@ async def submit_contribution(
         idea = await db.get(Idea, payload.source_idea_id)
         if source is None or idea is None or not await can_view_idea(db, idea, user.id):
             raise _error(404, "SOURCE_IDEA_NOT_FOUND", "来源创意不存在或无权访问")
-    workspace = await db.get(Collaboration, collaboration_id)
-    if workspace is None or workspace.status != "draft":
-        raise _error(409, "COLLABORATION_CLOSED", "协作空间已关闭")
     passed, reason = await audit_content(db, payload.content)
     if not passed:
         raise _error(403, "AUDIT_FAILED", reason or "贡献内容审核不通过")
@@ -451,13 +474,12 @@ async def update_contribution(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await _member(db, collaboration_id, user, roles={"owner", "contributor"})
-    workspace = await db.get(Collaboration, collaboration_id)
+    workspace, member = await _draft_member(db, collaboration_id, user, roles={"owner", "contributor"})
     item = await db.scalar(select(CollaborationContribution).where(
         CollaborationContribution.id == contribution_id,
         CollaborationContribution.collaboration_id == collaboration_id,
     ).with_for_update())
-    if workspace is None or workspace.status != "draft" or item is None or item.author_id != user.id or item.status != "submitted":
+    if item is None or item.author_id != user.id or item.status != "submitted":
         raise _error(404, "CONTRIBUTION_NOT_FOUND", "贡献不存在或不可编辑")
     if payload.source_idea_id is not None:
         source = await db.scalar(select(CollaborationSource.id).where(
@@ -486,13 +508,12 @@ async def withdraw_contribution(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await _member(db, collaboration_id, user, roles={"owner", "contributor"})
-    workspace = await db.get(Collaboration, collaboration_id)
+    workspace, member = await _draft_member(db, collaboration_id, user, roles={"owner", "contributor"})
     item = await db.scalar(select(CollaborationContribution).where(
         CollaborationContribution.id == contribution_id,
         CollaborationContribution.collaboration_id == collaboration_id,
     ).with_for_update())
-    if workspace is None or workspace.status != "draft" or item is None or item.author_id != user.id or item.status != "submitted":
+    if item is None or item.author_id != user.id or item.status != "submitted":
         raise _error(404, "CONTRIBUTION_NOT_FOUND", "贡献不存在或不可撤回")
     item.status = "withdrawn"
     await _event(db, collaboration_id, user.id, "contribution_withdrawn", {"contribution_id": str(item.id)})
@@ -722,13 +743,12 @@ async def review_contribution(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await _member(db, collaboration_id, user, roles={"owner"})
-    workspace = await db.get(Collaboration, collaboration_id)
+    workspace, member = await _draft_member(db, collaboration_id, user, roles={"owner"})
     item = await db.scalar(select(CollaborationContribution).where(
         CollaborationContribution.id == contribution_id,
         CollaborationContribution.collaboration_id == collaboration_id,
     ).with_for_update())
-    if workspace is None or workspace.status != "draft" or item is None or item.status != "submitted":
+    if item is None or item.status != "submitted":
         raise _error(404, "CONTRIBUTION_NOT_FOUND", "待审核贡献不存在")
     item.status = payload.decision
     item.reviewed_by = user.id
