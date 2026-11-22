@@ -8,6 +8,7 @@ class NotificationItem {
   final String content;
   final String? ideaId;
   final String? actorId;
+  final String? collaborationId;
   final DateTime createdAt;
   final bool read;
 
@@ -17,6 +18,7 @@ class NotificationItem {
     required this.content,
     this.ideaId,
     this.actorId,
+    this.collaborationId,
     required this.createdAt,
     required this.read,
   });
@@ -28,6 +30,7 @@ class NotificationItem {
       content: json['content'] as String,
       ideaId: json['idea_id'] as String?,
       actorId: json['actor_id'] as String?,
+      collaborationId: json['collaboration_id'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       read: json['read'] as bool? ?? false,
     );
