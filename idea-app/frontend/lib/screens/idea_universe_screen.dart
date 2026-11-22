@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/api_provider.dart';
+import '../services/universe_service.dart';
 
 /// Bounded, ACL-filtered Idea Universe around a selected Idea.
 class IdeaUniverseScreen extends ConsumerStatefulWidget {
@@ -227,161 +228,20 @@ class _IdeaUniverseScreenState extends ConsumerState<IdeaUniverseScreen> {
   }
 
   Future<void> _addInspired() async {
-    final queryController = TextEditingController();
-    final noteController = TextEditingController();
-    final service = ref.read(universeServiceProvider);
-    var results = <Map<String, dynamic>>[];
-    var searching = false;
-    String? error;
-
-    try {
-      await showDialog<void>(
-        context: context,
-        builder: (dialogContext) => StatefulBuilder(
-          builder: (context, setDialogState) => AlertDialog(
-            title: const Text('添加灵感来源'),
-            content: SizedBox(
-              width: 440,
-              height: 420,
-              child: Column(
-                children: [
-                  TextField(
-                    controller: queryController,
-                    autofocus: true,
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: (_) async {
-                      final query = queryController.text.trim();
-                      if (query.length < 2) {
-                        setDialogState(() => error = '至少输入 2 个字符');
-                        return;
-                      }
-                      setDialogState(() {
-                        searching = true;
-                        error = null;
-                      });
-                      try {
-                        final found = await service.searchIdeas(query);
-                        if (!dialogContext.mounted) return;
-                        setDialogState(() {
-                          results = found;
-                          searching = false;
-                        });
-                      } catch (e) {
-                        if (!dialogContext.mounted) return;
-                        setDialogState(() {
-                          error = e.toString();
-                          searching = false;
-                        });
-                      }
-                    },
-                    decoration: InputDecoration(
-                      labelText: '搜索可访问的创意',
-                      hintText: '输入创意内容关键词',
-                      suffixIcon: IconButton(
-                        tooltip: '搜索',
-                        onPressed: searching
-                            ? null
-                            : () async {
-                                final query = queryController.text.trim();
-                                if (query.length < 2) {
-                                  setDialogState(() => error = '至少输入 2 个字符');
-                                  return;
-                                }
-                                setDialogState(() {
-                                  searching = true;
-                                  error = null;
-                                });
-                                try {
-                                  final found = await service.searchIdeas(query);
-                                  if (!dialogContext.mounted) return;
-                                  setDialogState(() {
-                                    results = found;
-                                    searching = false;
-                                  });
-                                } catch (e) {
-                                  if (!dialogContext.mounted) return;
-                                  setDialogState(() {
-                                    error = e.toString();
-                                    searching = false;
-                                  });
-                                }
-                              },
-                        icon: const Icon(Icons.search),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: noteController,
-                    maxLength: 240,
-                    decoration: const InputDecoration(
-                      labelText: '关联说明（可选）',
-                      hintText: '这个创意给了你什么启发？',
-                    ),
-                  ),
-                  if (searching) const LinearProgressIndicator(),
-                  if (error != null)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        error!,
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
-                      ),
-                    ),
-                  Expanded(
-                    child: results.isEmpty
-                        ? const Center(child: Text('搜索后选择一个你有权访问的创意'))
-                        : ListView.builder(
-                            itemCount: results.length,
-                            itemBuilder: (context, index) {
-                              final item = results[index];
-                              return ListTile(
-                                leading: const Icon(Icons.lightbulb_outline),
-                                title: Text(item['title'] as String? ?? '未命名创意'),
-                                subtitle: Text(item['author'] as String? ?? '匿名'),
-                                onTap: () async {
-                                  try {
-                                    await service.addInspired(
-                                      targetIdeaId: widget.ideaId,
-                                      sourceIdeaId: item['id'] as String,
-                                      note: noteController.text.trim().isEmpty
-                                          ? null
-                                          : noteController.text.trim(),
-                                    );
-                                    if (dialogContext.mounted) {
-                                      Navigator.of(dialogContext).pop();
-                                    }
-                                    if (mounted) {
-                                      await _loadGraph();
-                                      ScaffoldMessenger.of(this.context).showSnackBar(
-                                        const SnackBar(content: Text('灵感关联已添加')),
-                                      );
-                                    }
-                                  } catch (e) {
-                                    if (dialogContext.mounted) {
-                                      setDialogState(() => error = e.toString());
-                                    }
-                                  }
-                                },
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('关闭'),
-              ),
-            ],
-          ),
-        ),
-      );
-    } finally {
-      queryController.dispose();
-      noteController.dispose();
+    final added = await showDialog<bool>(
+      context: context,
+      builder: (_) => _AddInspiredDialog(
+        targetIdeaId: widget.ideaId,
+        service: ref.read(universeServiceProvider),
+      ),
+    );
+    if (added == true && mounted) {
+      await _loadGraph();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('灵感关联已添加')),
+        );
+      }
     }
   }
 
@@ -688,4 +548,156 @@ class _UniverseEdgePainter extends CustomPainter {
       oldDelegate.edges != edges ||
       oldDelegate.positions != positions ||
       oldDelegate.colors != colors;
+}
+
+
+class _AddInspiredDialog extends StatefulWidget {
+  final String targetIdeaId;
+  final UniverseService service;
+
+  const _AddInspiredDialog({
+    required this.targetIdeaId,
+    required this.service,
+  });
+
+  @override
+  State<_AddInspiredDialog> createState() => _AddInspiredDialogState();
+}
+
+class _AddInspiredDialogState extends State<_AddInspiredDialog> {
+  final _queryController = TextEditingController();
+  final _noteController = TextEditingController();
+  List<Map<String, dynamic>> _results = [];
+  bool _searching = false;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search() async {
+    final query = _queryController.text.trim();
+    if (query.length < 2) {
+      setState(() => _error = '至少输入 2 个字符');
+      return;
+    }
+    setState(() {
+      _searching = true;
+      _error = null;
+    });
+    try {
+      final found = await widget.service.searchIdeas(query);
+      if (!mounted) return;
+      setState(() {
+        _results = found
+            .where((item) => item['id'] != widget.targetIdeaId)
+            .toList();
+        _searching = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+        _searching = false;
+      });
+    }
+  }
+
+  Future<void> _select(Map<String, dynamic> item) async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await widget.service.addInspired(
+        targetIdeaId: widget.targetIdeaId,
+        sourceIdeaId: item['id'] as String,
+        note: _noteController.text.trim().isEmpty
+            ? null
+            : _noteController.text.trim(),
+      );
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+        _saving = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('添加灵感来源'),
+      content: SizedBox(
+        width: 440,
+        height: 420,
+        child: Column(
+          children: [
+            TextField(
+              controller: _queryController,
+              autofocus: true,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _search(),
+              decoration: InputDecoration(
+                labelText: '搜索可访问的创意',
+                hintText: '输入创意内容关键词',
+                suffixIcon: IconButton(
+                  tooltip: '搜索',
+                  onPressed: _searching || _saving ? null : _search,
+                  icon: const Icon(Icons.search),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _noteController,
+              maxLength: 240,
+              decoration: const InputDecoration(
+                labelText: '关联说明（可选）',
+                hintText: '这个创意给了你什么启发？',
+              ),
+            ),
+            if (_searching) const LinearProgressIndicator(),
+            if (_error != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            Expanded(
+              child: _results.isEmpty
+                  ? const Center(child: Text('搜索后选择一个你有权访问的创意'))
+                  : ListView.builder(
+                      itemCount: _results.length,
+                      itemBuilder: (context, index) {
+                        final item = _results[index];
+                        return ListTile(
+                          leading: const Icon(Icons.lightbulb_outline),
+                          title: Text(item['title'] as String? ?? '未命名创意'),
+                          subtitle: Text(item['author'] as String? ?? '匿名'),
+                          enabled: !_saving,
+                          onTap: _saving ? null : () => _select(item),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('关闭'),
+        ),
+      ],
+    );
+  }
 }
