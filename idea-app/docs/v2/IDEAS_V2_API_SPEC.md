@@ -285,3 +285,14 @@ Pending members cannot read workspace. Viewer members cannot submit, edit, withd
 - DELETE /ideas/{target_idea_id}/associations/{association_id} — target-owner deletion.
 
 See IDEAS_V2_SPRINT3_UNIVERSE_SPEC.md for traversal, privacy and edge contracts.
+
+
+## Notification preferences and collaboration deep links (Sprint 4)
+
+- GET /notifications/preferences — returns all supported notification types; a missing preference row defaults to enabled.
+- PUT /notifications/preferences — upserts a partial set of notification_type/enabled values; duplicate or unknown types are rejected.
+- GET /notifications — applies both current resource ACL and notification preference filters before pagination and unread aggregation.
+- POST /notifications/read — uses the same ACL and preference filters; a disabled or inaccessible notification cannot be marked read.
+- Collaboration invite, contribution review, and publication notifications carry collaboration_id. Private collaboration notifications are visible only while the recipient has a pending invitation or accepted membership; public Idea-linked notifications continue to follow the Idea ACL.
+- Flutter deep links route pending collaboration invitations to the collaboration inbox, public published results to the Idea detail, and private collaboration updates to the workspace.
+- Migration 007 stores notification preferences; Migration 009 adds the collaboration notification foreign key. Migration 008 is the explicit member-left lifecycle state.
