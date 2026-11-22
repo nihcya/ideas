@@ -415,7 +415,7 @@ class _UniverseEdgePainter extends CustomPainter {
         final distance = (target - source).distance;
         final direction = (target - source) / distance;
         for (double offset = 0; offset < distance; offset += dash + gap) {
-          final end = math.min(offset + dash, distance);
+          final end = math.min(offset + dash, distance).toDouble();
           canvas.drawLine(source + direction * offset, source + direction * end, paint);
         }
       } else {
