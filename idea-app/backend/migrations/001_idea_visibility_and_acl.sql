@@ -5,8 +5,8 @@
 -- 1. Take a verified backup and run the preflight queries before applying.
 -- 2. Confirm that every currently active Idea was publicly readable under the deployed
 --    production query rules. If not, replace the active-row backfill predicate explicitly.
--- 3. The 90-day legacy license transition deadline is supplied by deployment configuration
---    from the V2.0 activation/announcement effective date; no calendar deadline is hard-coded here.
+-- 3. Migration 012 persists the 90-day transition deadline from this migration's
+--    applied_at activation marker; operators must coordinate this migration with launch.
 -- 4. This file is not executed automatically by application startup.
 
 BEGIN;
