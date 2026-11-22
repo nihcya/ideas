@@ -224,3 +224,12 @@ Persist direct invites independently from collaboration membership. Suggested ta
 - ASGI HTTP tests cover the invite/contribution/publication flow and the permission/failure cases above.
 - Current CI for code head b784036c5166e3cdc3ea2aec94cdbc9ffb2efdd0: Backend 51 passed; Flutter test/analyze passed; Android Debug APK build was still running at documentation time.
 - PostgreSQL migrations 001/002/003 have not been executed. SQLite tests and simulated rollback do not replace PostgreSQL migration, concurrency, or production integration tests.
+
+### Withdrawn-source lineage response privacy contract（2026-11-22）
+
+The GET /api/ideas/{id} response returns lineage parent/child nodes with relation_type, license_snapshot, and is_navigable.
+- If the viewer can still access a parent Idea, id is its Idea ID and is_navigable=true.
+- If a parent was later withdrawn/unpublished and is no longer accessible, the API returns a generic withdrawn-source title, the frozen source author attribution and license snapshot, and an opaque withdrawn:<relation-id> key with is_navigable=false.
+- The opaque key is only a graph-layout identity; it is not the private Idea ID and must never be used to request an Idea detail route.
+- The Flutter lineage graph renders the historical source node but does not navigate to it.
+- Do not return the withdrawn source's title/body or private Idea ID to a viewer who no longer has access.
