@@ -214,3 +214,77 @@ async def test_concurrent_draft_updates_cannot_claim_same_contribution(monkeypat
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
         await engine.dispose()
+
+
+
+@pytest.mark.asyncio
+async def test_concurrent_publish_requests_publish_version_once(monkeypatch):
+    dsn = os.getenv("IDEAS_VERSION_CONCURRENCY_TEST_DSN")
+    if not dsn:
+        pytest.skip("IDEAS_VERSION_CONCURRENCY_TEST_DSN is not configured")
+    if dsn.startswith("postgresql://"):
+        dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    engine = create_async_engine(dsn, pool_size=5, max_overflow=0)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+
+        owner_id, idea_id, version_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+        async with sessions() as seed:
+            seed.add(User(
+                id=owner_id,
+                username=f"pgc_{uuid.uuid4().hex[:10]}",
+                password_hash="test-only",
+            ))
+            await seed.flush()
+            seed.add(Idea(
+                id=idea_id,
+                content="发布前的创意内容",
+                color_hex="#123456",
+                source="ugc",
+                author_id=owner_id,
+                border_style="gold-thin",
+                publication_status="draft",
+                visibility="private",
+                status="active",
+            ))
+            await seed.flush()
+            seed.add(IdeaVersion(
+                id=version_id,
+                idea_id=idea_id,
+                version_number=1,
+                content_snapshot="并发发布的目标版本",
+                status="draft",
+                created_by=owner_id,
+            ))
+            await seed.commit()
+
+        async def publish():
+            async with sessions() as session:
+                owner = await session.get(User, owner_id)
+                try:
+                    result = await versions_router.publish_version(
+                        idea_id, version_id, session, owner
+                    )
+                    return ("published", result["published"])
+                except HTTPException as exc:
+                    await session.rollback()
+                    return ("http_error", exc.status_code)
+
+        outcomes = await asyncio.gather(publish(), publish())
+        assert sorted(item[0] for item in outcomes) == ["http_error", "published"]
+        assert next(item[1] for item in outcomes if item[0] == "http_error") == 404
+
+        async with sessions() as verify:
+            version = await verify.get(IdeaVersion, version_id)
+            idea = await verify.get(Idea, idea_id)
+            assert version.status == "published"
+            assert version.published_at is not None
+            assert idea.content == "并发发布的目标版本"
+    finally:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+        await engine.dispose()
