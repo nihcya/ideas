@@ -14,6 +14,84 @@ from routers.ideas import _calc_size_score
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+@router.get("/search")
+@limiter.limit(DEFAULT_LIMIT)
+async def search_public_creators(
+    request: Request,
+    q: str = Query(..., min_length=2, max_length=80),
+    limit: int = Query(20, ge=1, le=50),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search public creator profiles; ranking uses only public Ideas and attributions."""
+    query = q.strip()
+    if len(query) < 2:
+        raise HTTPException(status_code=422, detail="搜索词至少需要 2 个字符")
+
+    public_idea_count = (
+        select(func.count())
+        .select_from(Idea)
+        .where(
+            Idea.author_id == User.id,
+            Idea.status == "active",
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+        )
+        .correlate(User)
+        .scalar_subquery()
+    )
+    public_contribution_count = (
+        select(func.count())
+        .select_from(IdeaVersionContribution)
+        .join(IdeaVersion, IdeaVersion.id == IdeaVersionContribution.version_id)
+        .join(Idea, Idea.id == IdeaVersion.idea_id)
+        .where(
+            IdeaVersionContribution.author_id_snapshot == User.id,
+            IdeaVersion.status == "published",
+            Idea.status == "active",
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+        )
+        .correlate(User)
+        .scalar_subquery()
+    )
+    result = await db.execute(
+        select(
+            User.id,
+            User.username,
+            User.bio,
+            public_idea_count.label("public_idea_count"),
+            public_contribution_count.label("public_contribution_count"),
+        )
+        .where(User.username.ilike(f"%{query}%"))
+        .order_by(
+            public_contribution_count.desc(),
+            public_idea_count.desc(),
+            User.username.asc(),
+        )
+        .offset(offset)
+        .limit(limit + 1)
+    )
+    rows = result.all()
+    has_more = len(rows) > limit
+    items = rows[:limit]
+    return {
+        "items": [
+            {
+                "id": str(row.id),
+                "username": row.username,
+                "bio": row.bio or "",
+                "public_idea_count": int(row.public_idea_count or 0),
+                "public_contribution_count": int(row.public_contribution_count or 0),
+            }
+            for row in items
+        ],
+        "limit": limit,
+        "offset": offset,
+        "has_more": has_more,
+    }
+
+
 @router.get("/{user_id}", response_model=UserProfile)
 @limiter.limit(DEFAULT_LIMIT)
 async def get_user_profile(
