@@ -62,6 +62,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   Widget build(BuildContext context) {
     final asyncCircles = ref.watch(exploreProvider);
     final hasMore = ref.watch(exploreProvider.notifier).hasMore;
+    final hasActiveFilters = ref.watch(exploreProvider.notifier).filters.isActive;
     final colors = AppColors.of(context);
     return Scaffold(
       appBar: AppBar(
@@ -69,7 +70,10 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         actions: [
           IconButton(
             tooltip: '筛选和排序',
-            icon: const Icon(Icons.filter_list),
+            icon: Icon(
+              Icons.filter_list,
+              color: hasActiveFilters ? colors.gold : null,
+            ),
             onPressed: _openFilters,
           ),
           IconButton(
