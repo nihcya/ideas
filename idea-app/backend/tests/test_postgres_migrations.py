@@ -89,6 +89,7 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
             "007_notification_preferences.sql",
             "008_collaboration_member_leave.sql",
             "009_collaboration_notification_links.sql",
+            "010_idea_reports.sql",
         ):
             sql = (MIGRATIONS / name).read_text(encoding="utf-8")
             await conn.execute(sql)
@@ -106,6 +107,7 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
             "007_notification_preferences",
             "008_collaboration_member_leave",
             "009_collaboration_notification_links",
+            "010_idea_reports",
         }
 
         active = await conn.fetchrow(
@@ -215,6 +217,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         migration_007 = (MIGRATIONS / "007_notification_preferences.sql").read_text(encoding="utf-8")
         migration_008 = (MIGRATIONS / "008_collaboration_member_leave.sql").read_text(encoding="utf-8")
         migration_009 = (MIGRATIONS / "009_collaboration_notification_links.sql").read_text(encoding="utf-8")
+        migration_010 = (MIGRATIONS / "010_idea_reports.sql").read_text(encoding="utf-8")
 
         async def expect_migration_failure(sql):
             with pytest.raises(asyncpg.PostgresError):
@@ -249,12 +252,13 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         await expect_migration_failure(migration_004)
         assert await conn.fetchval("SELECT to_regclass('public.collaborations')") is None
 
-        # Migrations 005–009 must wait for their prerequisite schema.
+        # Migrations 005–010 must wait for their prerequisite schema.
         await expect_migration_failure(migration_005)
         await expect_migration_failure(migration_006)
         await expect_migration_failure(migration_007)
         await expect_migration_failure(migration_008)
         await expect_migration_failure(migration_009)
+        await expect_migration_failure(migration_010)
         assert await conn.fetchval("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='idea_contributions' AND column_name='source_collaboration_contribution_id'") == 0
         assert await conn.fetchval("SELECT to_regclass('public.idea_associations')") is None
         assert await conn.fetchval("SELECT to_regclass('public.notification_preferences')") is None
@@ -268,6 +272,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         await conn.execute(migration_007)
         await conn.execute(migration_008)
         await conn.execute(migration_009)
+        await conn.execute(migration_010)
         markers = await conn.fetch("SELECT version FROM app_schema_migrations ORDER BY version")
         assert {row["version"] for row in markers} == {
             "001_idea_visibility_and_acl",
@@ -279,6 +284,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
             "007_notification_preferences",
             "008_collaboration_member_leave",
             "009_collaboration_notification_links",
+            "010_idea_reports",
         }
         collab_id = uuid.uuid4()
         await conn.execute(
