@@ -24,6 +24,7 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
     try:
         # The CI service database is disposable and dedicated to this test.
         await conn.execute("""
+            DROP TABLE IF EXISTS idea_reports CASCADE;
             DROP TABLE IF EXISTS notification_preferences CASCADE;
             DROP TABLE IF EXISTS idea_associations CASCADE;
             DROP TABLE IF EXISTS notifications CASCADE;
