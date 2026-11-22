@@ -7,7 +7,7 @@ from httpx import ASGITransport, AsyncClient
 
 from deps import get_current_user, get_optional_user, get_db
 from main import app
-from models import User, Idea, ForkRelation, IdeaAssociation
+from models import User, Idea, ForkRelation, IdeaAssociation, IdeaAccessGrant
 
 
 async def _user(db, username):
@@ -126,6 +126,85 @@ async def test_recursive_graph_depth_and_inspired_edges_are_separate_from_lineag
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_optional_user, None)
+
+
+@pytest.mark.asyncio
+async def test_idea_search_only_returns_public_or_acl_visible_results(db_session):
+    owner = await _user(db_session, "universe_search_owner")
+    invited = await _user(db_session, "universe_search_invited")
+    unrelated = await _user(db_session, "universe_search_unrelated")
+    public = _public_idea(owner.id, "可搜索的公开创意")
+    private_owner = Idea(
+        content="可搜索的作者私有创意",
+        color_hex="#123456",
+        source="ugc",
+        author_id=owner.id,
+        border_style="gold-thin",
+        publication_status="draft",
+        visibility="private",
+    )
+    private_invited = Idea(
+        content="可搜索的受邀私有创意",
+        color_hex="#654321",
+        source="ugc",
+        author_id=owner.id,
+        border_style="gold-thin",
+        publication_status="draft",
+        visibility="private",
+    )
+    private_unrelated = Idea(
+        content="可搜索的无关私有创意",
+        color_hex="#ABCDEF",
+        source="ugc",
+        author_id=unrelated.id,
+        border_style="gold-thin",
+        publication_status="draft",
+        visibility="private",
+    )
+    db_session.add_all([public, private_owner, private_invited, private_unrelated])
+    await db_session.flush()
+    db_session.add(IdeaAccessGrant(
+        idea_id=private_invited.id,
+        user_id=invited.id,
+        role="viewer",
+        status="accepted",
+        invited_by=owner.id,
+    ))
+    await db_session.commit()
+
+    active = {"user": None}
+
+    async def override_db():
+        yield db_session
+
+    async def override_user():
+        return active["user"]
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_optional_user] = override_user
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
+            anonymous = await client.get("/api/ideas/search", params={"q": "可搜索"})
+            assert anonymous.status_code == 200
+            assert {item["id"] for item in anonymous.json()["items"]} == {str(public.id)}
+
+            active["user"] = owner
+            owner_results = await client.get("/api/ideas/search", params={"q": "可搜索"})
+            assert {item["id"] for item in owner_results.json()["items"]} == {
+                str(public.id), str(private_owner.id), str(private_invited.id)
+            }
+
+            active["user"] = invited
+            invited_results = await client.get("/api/ideas/search", params={"q": "可搜索"})
+            assert {item["id"] for item in invited_results.json()["items"]} == {
+                str(public.id), str(private_invited.id)
+            }
+
+            too_short = await client.get("/api/ideas/search", params={"q": " "})
+            assert too_short.status_code == 422
+    finally:
+        app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_optional_user, None)
 
 
