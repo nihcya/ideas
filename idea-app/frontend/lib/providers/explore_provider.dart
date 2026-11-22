@@ -17,6 +17,13 @@ class ExploreFilters {
     this.allowFork,
     this.source,
   });
+
+  bool get isActive =>
+      (query?.isNotEmpty ?? false) ||
+      sort != 'recommended' ||
+      licenseCode != null ||
+      allowFork != null ||
+      source != null;
 }
 
 /// 探索页 Notifier — 管理圆圈列表，支持刷新和加载更多
