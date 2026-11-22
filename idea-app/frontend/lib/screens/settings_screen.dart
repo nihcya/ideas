@@ -150,6 +150,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               },
             ),
           ),
+          if (settingsAsync.value?.isAdmin == true)
+            ListTile(
+              leading: const Icon(Icons.gavel_outlined),
+              title: const Text('社区举报管理'),
+              subtitle: const Text('审核用户举报并处理违规公开创意'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/admin/reports'),
+            ),
 
           // ===================== 大模型配置 =====================
           const _SectionHeader('大模型配置'),
