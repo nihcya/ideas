@@ -24,6 +24,7 @@ async def _user(db, username):
 async def test_workspace_invitation_does_not_grant_private_source_idea_access(db_session, monkeypatch):
     owner = await _user(db_session, "ws_owner")
     contributor = await _user(db_session, "ws_contrib")
+    other_contributor = await _user(db_session, "ws_other")
     viewer = await _user(db_session, "ws_viewer")
     private_source = Idea(
         content="作者的私有来源创意",
@@ -92,6 +93,24 @@ async def test_workspace_invitation_does_not_grant_private_source_idea_access(db
                 "source_idea_id": None,
             })
             assert submitted.status_code == 201
+
+            active["user"] = owner
+            other_invite = await client.post(f"/api/collaborations/{workspace_id}/members", json={
+                "user_id": str(other_contributor.id), "role": "contributor",
+            })
+            assert other_invite.status_code == 201
+            active["user"] = other_contributor
+            assert (await client.post(f"/api/collaborations/{workspace_id}/accept")).status_code == 200
+            other_submission = await client.post(f"/api/collaborations/{workspace_id}/contributions", json={
+                "content": "另一位成员的独立提案",
+            })
+            assert other_submission.status_code == 201
+
+            active["user"] = contributor
+            contributor_view = await client.get(f"/api/collaborations/{workspace_id}")
+            assert contributor_view.status_code == 200
+            assert [item["content"] for item in contributor_view.json()["contributions"]] == ["增加社团协作场景"]
+            assert all(event["actor_id"] == str(contributor.id) for event in contributor_view.json()["events"])
 
             active["user"] = viewer
             viewer_invite = await client.post(f"/api/collaborations/{workspace_id}/members", json={
