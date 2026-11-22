@@ -461,3 +461,16 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] Flutter LineageNode 模型解析新字段；LineageTree 不允许点击进入已撤回来源；Idea 详情页展示来源作者、关系类型、授权代码、allow_fork 和自定义授权文本快照。
 - [x] CI run [45019528171](https://github.com/nihcya/ideas/actions/runs/45019528171)：Backend **57 passed, 9 skipped**；PostgreSQL 16 concurrency **7 passed**；PostgreSQL migrations passed；Flutter test/analyze passed，APK build 当时仍在执行。
 - [ ] 上游授权快照对衍生节点后续公开和再衍生的传递/兼容规则尚未完整执行；需明确多父 Merge 的权利交集、custom 授权的人工确认边界，不能仅凭快照已存储就宣称完成授权继承。
+
+### 13.29 授权继承、多父权利交集与自定义授权确认（产品决策确认：2026-11-22）
+
+- [x] 产品负责人确认：多父 Merge 的有效授权取所有父来源及其祖先授权约束的交集；任意祖先不允许继续衍生时，后代均不得 Fork / Collide / Evolve。
+- [x] 统一有效权利链：每条 ForkRelation 快照携带来源及其完整上游 rights_chain；计算当前 Idea 的有效权利时，再加入该 Idea 自身发布授权。按来源 ID 去重，保留每个上游来源的授权代码、版本、自定义文本、署名和 allow_fork。
+- [x] 衍生准入要求直接来源及 rights_chain 中每一项均明确 allow_fork=true，且授权类型为 attribution_adaptation 或 custom；不允许用衍生者自己的授权覆盖上游限制。
+- [x] attribution_adaptation 可继续衍生；来源署名和授权快照随关系向后传递，并在谱系中展示。
+- [x] custom 授权不会静默放行：Fork、Collide confirm、Evolve confirm 请求均需显式 confirm_custom_licenses；未确认返回 CUSTOM_LICENSE_CONFIRMATION_REQUIRED；快照记录确认人和确认时间。
+- [x] 发布衍生 Idea 时，若作者尝试 allow_fork=true，但任一上游来源不允许或授权类型不兼容，服务端拒绝 INHERITED_LICENSE_BLOCKS_DERIVATION。
+- [x] 衍生 Idea 自身的授权只描述其作者原创部分；未来准入仍逐项检查完整上游链，不以当前 Idea 的新授权替代祖先授权。
+- [x] 回归测试覆盖：custom 多代传递、未确认阻止 Fork、Collide/Evolve custom 明确确认、多父 Merge 任一父授权受限时拒绝、发布不得扩大祖先权利。
+- [ ] 最新 exact-head CI 以 run 45023866140 及后续文档提交对应 run 为准；Backend、PostgreSQL migrations、PostgreSQL 并发、Flutter test/analyze/APK 均需完成后才标记全绿。
+- [ ] PostgreSQL migrations 001/002/003 仍未在生产环境执行；本轮不触碰生产数据库。
