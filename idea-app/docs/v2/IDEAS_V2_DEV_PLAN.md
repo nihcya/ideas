@@ -418,3 +418,14 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] Flutter pub get、test、analyze 已通过；Android Debug APK build 在记录本节时仍运行中，完整 exact-head CI 结论待 APK job 完成。
 - [x] 生产迁移 runbook 的 preflight SQL 已澄清：只把旧 schema 必需字段列为迁移前置条件；Migration 001 新增的 V2 字段单独检查是否存在部分部署，避免误把新字段当作旧表必需字段。
 - [ ] 生产数据库仍未连接；migrations 001/002/003 未执行。生产 schema/data 预检查、历史 active 公开语义审批、备份恢复演练仍是上线前置门槛。
+
+
+### 13.25 PostgreSQL 16 协作贡献与邀请撤权并发验收（2026-11-22）
+
+- [x] 协作者提交/编辑/撤回写操作在校验 accepted contributor grant 时可锁定授权行；作者撤销邀请也锁定同一 grant 行，使写入与撤权按事务先后串行。
+- [x] 贡献编辑、撤回和作者审核对目标 IdeaContribution 行加锁；审核先完成时，等待中的编辑/撤回会因状态不再是 submitted 而被拒绝；编辑先完成时，作者审核读取已提交的最新内容。
+- [x] 接受/拒绝/撤销邀请均锁定邀请记录；作者创建或重新发起邀请时锁定 Idea 行及既有 grant，避免邀请状态竞争和并发重复创建。
+- [x] 新增两个 PostgreSQL 16 双会话测试：并发编辑 vs 作者审核；并发编辑 vs 作者撤销邀请。连同既有版本并发测试，专项文件 **6 passed, 1 warning**。
+- [x] Exact code head CI run [45016633454](https://github.com/nihcya/ideas/actions/runs/45016633454)：Backend、PostgreSQL migrations、PostgreSQL concurrency 全部通过；Flutter pub get/test/analyze 通过，APK build 当时仍在执行。
+- [ ] 上述协作锁修复后的最新代码 head 28cb40736fd31a4716fce4129bb58034aec79642 正由 run [45016696437](https://github.com/nihcya/ideas/actions/runs/45016696437) 验证；以该 exact-head 结果为准。
+- [ ] 生产数据库未连接；migrations 001/002/003 未执行。
