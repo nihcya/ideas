@@ -244,3 +244,14 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 审核服务与缓存清理在测试中 mock；本测试验证路由、schema、ACL、持久化关系和 HTTP 响应契约，不代表真实外部审核服务或生产 Redis/PostgreSQL 验证。
 - 最新 head 的 GitHub Actions 尚待最终结果；在 pytest 通过前不宣称端到端验收通过。
 - PostgreSQL migrations 001/002/003 未执行，未连接生产数据库。
+
+## 20. 协作撤权与版本发布异常路径审计（2026-11-22）
+
+- 复审发现贡献撤回 API 原先只校验贡献作者和 submitted 状态，没有复核该用户当前是否仍有 accepted contributor grant；这会使已被撤销邀请的用户仍可操作私有贡献。
+- 已在撤回路由补充 _require_accepted_contributor 校验。权限被撤销后撤回返回 403；本人仍有有效协作权限且贡献处于 submitted 时可正常撤回。
+- ASGI HTTP 测试覆盖邀请接受、提交、编辑、成功撤回、作者拒绝、拒绝后编辑/撤回锁定、作者撤销邀请、撤权后撤回拒绝，以及后续公开版本署名流程。
+- 版本发布时若草稿所关联贡献不再是 accepted，服务端返回 409，且不改变 Idea.content、draft status 或冻结署名关联。
+- 模拟 commit 异常后显式 rollback，验证 Idea 内容、版本发布状态、published_at 和 attribution association 均保持发布前状态。
+- 贡献重复归属由 uq_version_contribution_consumed_once 数据库唯一约束兜底；请求内重复选择由 _attach_contributions 返回 422。独立重复提交当前允许作为不同提案记录，不按文本相等去重。
+- 最新代码 head b784036c5166e3cdc3ea2aec94cdbc9ffb2efdd0 的 Backend CI 为 51 passed、1 warning；Flutter test/analyze 通过，APK build 尚待最终结论。
+- 这组测试采用 SQLite 与 mock 审核/缓存；不代表生产 PostgreSQL、Redis 或真实审核服务已集成验收。migrations 001/002/003 未执行。
