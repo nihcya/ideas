@@ -215,7 +215,7 @@ class _UniversePainter extends CustomPainter {
       if (source == null || target == null) continue;
       final color = _edgeColor(edge['type'] as String? ?? '');
       final paint = Paint()
-        ..color = color.withValues(alpha: 0.82)
+        ..color = color.withOpacity(0.82)
         ..strokeWidth = edge['type'] == 'inspired' ? 2.2 : 2.8
         ..style = PaintingStyle.stroke;
       final start = source.position;
@@ -251,7 +251,7 @@ class _UniversePainter extends CustomPainter {
       final data = node.data;
       final color = _nodeColor(data);
       final isRoot = data['is_root'] == true;
-      final fill = Paint()..color = color.withValues(alpha: 0.18);
+      final fill = Paint()..color = color.withOpacity(0.18);
       final stroke = Paint()
         ..color = isRoot ? const Color(0xFFC79A36) : color
         ..strokeWidth = isRoot ? 4 : 2.4
