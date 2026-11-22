@@ -274,3 +274,5 @@ First-class asynchronous workspaces are independent of per-Idea invitations. See
 - POST /collaborations/{id}/contributions/{contribution_id}/review — owner accepts/rejects proposal.
 
 Pending members cannot read workspace. Viewer members cannot submit, edit, withdraw, or review contributions. Owner-only atomic publication into Idea/version/relations/attributions remains the next Sprint 2 implementation step.
+
+- POST /collaborations/{id}/publish — owner-only atomic publication. Request includes final content, visibility, license, allow_fork, confirm_terms, confirm_custom_licenses and accepted_contribution_ids. Every source is locked and revalidated against current public status and full inherited rights chain; multi-parent obligations are intersected. Creates output Idea, initial version, parent edges, bridge IdeaContribution records and frozen version attributions in one transaction. Private output remains a private draft; public output requires explicit terms confirmation.
