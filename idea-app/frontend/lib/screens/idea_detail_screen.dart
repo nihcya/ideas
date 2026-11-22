@@ -65,6 +65,12 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
               icon: const Icon(Icons.hub_outlined),
               onPressed: () => context.push('/idea/${widget.ideaId}/universe'),
             ),
+          if (loadedDetail != null)
+            IconButton(
+              tooltip: '创意宇宙图谱',
+              icon: const Icon(Icons.hub_outlined),
+              onPressed: () => context.push('/idea/${widget.ideaId}/universe'),
+            ),
           if (canViewPublicTimeline)
             IconButton(
               tooltip: '版本时间线',
