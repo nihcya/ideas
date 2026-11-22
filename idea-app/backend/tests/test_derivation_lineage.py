@@ -1,7 +1,10 @@
 """Regression tests for immutable source attribution and derivation contracts."""
 
+import uuid
+
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import select
 
 from models import User, Idea, ForkRelation
 from routers import ideas as ideas_router
@@ -54,19 +57,16 @@ async def test_derivative_keeps_source_attribution_after_source_is_unpublished(
         db_session,
         owner,
     )
-    relation = await db_session.get(ForkRelation, (
-        await db_session.execute(
-            __import__("sqlalchemy").select(ForkRelation).where(
-                ForkRelation.child_id == __import__("uuid").UUID(forked.id)
-            )
-        )
-    ).scalar_one().id)
+    relation_result = await db_session.execute(
+        select(ForkRelation).where(ForkRelation.child_id == uuid.UUID(forked.id))
+    )
+    relation = relation_result.scalar_one()
     assert relation.license_snapshot["source_author_name"] == owner.username
     assert relation.license_snapshot["license_code"] == "attribution_adaptation"
 
     await ideas_router.unpublish_idea(source.id, db_session, owner)
     detail = await ideas_router.get_idea_detail(
-        __import__("uuid").UUID(forked.id), db_session, None
+        uuid.UUID(forked.id), db_session, None
     )
 
     assert len(detail.lineage.parents) == 1
