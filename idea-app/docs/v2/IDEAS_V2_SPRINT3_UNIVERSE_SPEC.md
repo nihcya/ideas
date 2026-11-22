@@ -1,6 +1,6 @@
 # IDEAS V2.0 Sprint 3 — Idea Universe
 
-Status: bounded recursive graph API, separate Inspired association model/API, PostgreSQL migration 006, and initial Flutter Universe graph screen are implemented. Exact-head CI and remaining graph performance/UI verification are pending.
+Status: bounded recursive graph API, separate Inspired association model/API, PostgreSQL migration 006, Flutter Universe graph screen, and ACL-safe Inspired source picker/management are implemented. Exact-head CI and remaining graph performance verification are pending.
 
 ## Product boundary
 
@@ -54,3 +54,15 @@ Tests cover depth 2 recursion, ancestors/descendants, merge/evolve edge types, I
 - Server-side node ACL checks are batched per BFS layer to avoid per-node ACL queries while retaining the same visibility predicate.
 - Widget/API regression tests cover restricted placeholder rendering and directional traversal.
 - Still open: Inspired create/delete UI, graph query benchmarks and cap stress tests, responsive layout validation, and exact-head CI.
+
+
+## ACL-safe Inspired source picker
+
+GET /api/ideas/search
+- Query parameters: q (trimmed length 2–80), limit (1–30, default 20).
+- Anonymous users search only published + public + active Ideas.
+- Authenticated users additionally search their own Ideas and Ideas with an accepted direct IdeaAccessGrant.
+- Results contain only id, title excerpt, author display name and color; no private content is returned unless the viewer already has Idea access.
+- The Universe router is registered before the dynamic one-segment Idea detail route so /ideas/search resolves correctly.
+
+The Universe screen exposes add/remove association controls only when the current viewer owns the target Idea. Adding an association searches accessible source Ideas, optionally captures a short note, and then calls the owner-only association API. The backend remains the final authorization boundary.
