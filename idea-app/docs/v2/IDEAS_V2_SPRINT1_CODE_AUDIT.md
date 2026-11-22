@@ -284,3 +284,9 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 新增独立 `postgres-version-concurrency` GitHub Actions job，使用 PostgreSQL 16 service container，与 migration job 隔离。
 - 该测试已提交，但其首次 CI 结果尚未确认；不得提前认定并发验证通过。
 - 测试数据库通过 ORM metadata 创建/清理 schema，仅供该 disposable CI job 使用；生产数据库未连接、未改动，migrations 001/002/003 未执行。
+
+## 25. Migration failure-path / PostgreSQL concurrency test follow-up（2026-11-22）
+
+- 扩展 PG 16 迁移测试，覆盖 002-before-001、重复执行 001、003-before-002 的拒绝行为，并检查失败事务回滚后 schema marker/table 状态不被部分写入。
+- 首次执行暴露两项测试代码问题而非迁移业务缺陷：asyncpg 失败事务需显式 ROLLBACK 后才能继续查询/清理；并发测试种子数据需先 flush User 再插入带 author FK 的 Idea。两项均已修复。
+- 修正后的最新 CI 尚在排队/运行；迁移失败路径与 PostgreSQL 并发结果仍 pending，不提前宣称通过。
