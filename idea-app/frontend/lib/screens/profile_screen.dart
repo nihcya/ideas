@@ -34,6 +34,11 @@ class ProfileScreen extends ConsumerWidget {
         title: const Text('我'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.groups_outlined),
+            tooltip: '共创空间',
+            onPressed: () => context.push('/collaborations'),
+          ),
+          IconButton(
             icon: const Icon(Icons.notifications_outlined),
             onPressed: () => context.push('/notifications'),
           ),
