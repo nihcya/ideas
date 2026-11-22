@@ -399,6 +399,8 @@ async def get_idea_detail(
         visibility=idea.visibility,
         license_code=idea.license_code,
         license_version=idea.license_version,
+        legacy_license_review_status=idea.legacy_license_review_status,
+        legacy_license_review_due_at=idea.legacy_license_review_due_at,
         access_role=access_role,
         is_in_vault=is_in_vault,
         lineage=Lineage(parents=parents, children=children),
@@ -599,6 +601,34 @@ async def publish_idea(
         raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}})
     if not req.confirm_terms:
         raise HTTPException(status_code=400, detail={"error": {"code": "TERMS_NOT_CONFIRMED", "message": "必须确认授权条款"}})
+
+    now = datetime.now(timezone.utc)
+    if (
+        idea.legacy_license_review_status == "pending"
+        and idea.legacy_license_review_due_at is not None
+        and idea.legacy_license_review_due_at <= now
+    ):
+        idea.legacy_license_review_status = "expired"
+        idea.allow_fork = False
+        idea.is_forkable = False
+        if req.allow_fork:
+            await db.commit()
+            raise HTTPException(
+                status_code=422,
+                detail={"error": {
+                    "code": "LEGACY_LICENSE_REVIEW_EXPIRED",
+                    "message": "历史公开创意的 90 天授权补充期限已结束，不能开启新的衍生许可",
+                }},
+            )
+    if idea.legacy_license_review_status == "expired" and req.allow_fork:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": {
+                "code": "LEGACY_LICENSE_REVIEW_EXPIRED",
+                "message": "历史公开创意授权补充期限已结束，不能开启新的衍生许可",
+            }},
+        )
+
     if idea.publication_status == "archived":
         raise HTTPException(status_code=409, detail={"error": {"code": "IDEA_ARCHIVED", "message": "归档点子不能直接发布"}})
     if req.license_code == "custom" and not (req.license_custom_text or "").strip():
@@ -623,7 +653,6 @@ async def publish_idea(
     if not passed:
         raise HTTPException(status_code=403, detail={"error": {"code": "AUDIT_FAILED", "message": reason or "内容审核不通过"}})
 
-    now = datetime.now(timezone.utc)
     idea.publication_status = "published"
     idea.visibility = req.visibility
     idea.license_code = req.license_code
