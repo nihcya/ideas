@@ -75,9 +75,12 @@ async def test_derivative_keeps_source_attribution_after_source_is_unpublished(
     )
 
     assert len(detail.lineage.parents) == 1
-    assert detail.lineage.parents[0].id == str(source.id)
+    assert detail.lineage.parents[0].id.startswith("withdrawn:")
+    assert detail.lineage.parents[0].id != str(source.id)
+    assert detail.lineage.parents[0].is_navigable is False
     assert detail.lineage.parents[0].author == owner.username
     assert detail.lineage.parents[0].title == "已撤回的来源创意"
+    assert detail.lineage.parents[0].license_snapshot["license_code"] == "attribution_adaptation"
 
 
 @pytest.mark.asyncio
