@@ -59,17 +59,21 @@ async def _attach_contributions(db: AsyncSession, version: IdeaVersion, idea_id:
         raise HTTPException(status_code=422, detail={"error": {"code": "DUPLICATE_CONTRIBUTION", "message": "贡献不能重复选择"}})
     if not ids:
         return
-    consumed = await db.execute(select(IdeaVersionContribution.contribution_id).where(IdeaVersionContribution.contribution_id.in_(ids)))
-    if consumed.scalars().all():
-        raise HTTPException(status_code=409, detail={"error": {"code": "CONTRIBUTION_ALREADY_USED", "message": "所选贡献已归属其他已发布版本"}})
+    # Lock the accepted contribution rows before checking attribution ownership.
+    # Concurrent drafts may otherwise both observe "unused" and race to insert;
+    # the unique constraint is the final guard, while this lock yields a clean 409.
     result = await db.execute(
         select(IdeaContribution, User.username)
         .join(User, User.id == IdeaContribution.author_id)
         .where(IdeaContribution.idea_id == idea_id, IdeaContribution.id.in_(ids), IdeaContribution.status == "accepted")
+        .with_for_update(of=IdeaContribution)
     )
     rows = result.all()
     if len(rows) != len(ids):
         raise HTTPException(status_code=409, detail={"error": {"code": "CONTRIBUTION_NOT_ACCEPTED", "message": "只能选择当前创意中已采纳的贡献"}})
+    consumed = await db.execute(select(IdeaVersionContribution.contribution_id).where(IdeaVersionContribution.contribution_id.in_(ids)))
+    if consumed.scalars().all():
+        raise HTTPException(status_code=409, detail={"error": {"code": "CONTRIBUTION_ALREADY_USED", "message": "所选贡献已归属其他已发布版本"}})
     for contribution, username in rows:
         db.add(IdeaVersionContribution(
             version_id=version.id,
