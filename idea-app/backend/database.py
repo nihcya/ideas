@@ -250,6 +250,10 @@ async def _migrate_sqlite_columns() -> None:
         ("ideas", "legacy_license_review_notified_at", "DATETIME"),
         ("ideas", "legacy_license_reviewed_at", "DATETIME"),
         ("fork_relations", "metadata", "JSON"),
+        # Added in Migration 005; SQLite ALTER TABLE cannot add this FK safely
+        # to an existing table, so the logical FK is enforced by the application
+        # and a unique index preserves single-use attribution semantics.
+        ("idea_contributions", "source_collaboration_contribution_id", "CHAR(32)"),
     ]
     async with engine.begin() as conn:
         for table, column, ddl in migrations:
@@ -259,6 +263,12 @@ async def _migrate_sqlite_columns() -> None:
             if column not in existing_cols:
                 await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
                 print(f"[database] Migrated: {table}.{column} added")
+
+        await conn.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_idea_contribution_collaboration_source "
+            "ON idea_contributions(source_collaboration_contribution_id) "
+            "WHERE source_collaboration_contribution_id IS NOT NULL"
+        ))
 
         # One-time legacy backfill for existing SQLite databases. Fresh databases have no
         # rows at this point; newly-created Ideas after this marker keep draft/private defaults.
