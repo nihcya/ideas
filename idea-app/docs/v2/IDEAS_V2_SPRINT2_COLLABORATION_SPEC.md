@@ -71,7 +71,7 @@ Initial HTTP tests cover creation, pending invite denial, accept, viewer write d
 
 ## Member lifecycle additions
 
-- Migration 007 adds an explicit left membership state; leaving is distinct from owner revocation and is recorded as an append-only member_left event.
+- Migration 008 adds an explicit left membership state; leaving is distinct from owner revocation and is recorded as an append-only member_left event.
 - Candidate search is owner-only, requires at least two non-whitespace characters, and returns only the user ID and username needed to send an invitation.
 - Archive is owner-only and idempotent. It preserves workspace history and published output while freezing further contributions, reviews, invitations, and publication.
 - Workspace row locking serializes member leave and archive with write operations using the same workspace-first lock order.
