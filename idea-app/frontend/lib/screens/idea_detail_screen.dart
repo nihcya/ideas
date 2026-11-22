@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../models/idea.dart';
 import '../providers/idea_detail_provider.dart';
+import '../providers/api_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/vault_provider.dart';
 import '../theme/app_theme.dart';
@@ -24,6 +25,80 @@ class IdeaDetailScreen extends ConsumerStatefulWidget {
 class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
   bool _collecting = false;
   final GlobalKey _circleKey = GlobalKey();
+
+  Future<void> _reportIdea() async {
+    final descriptionController = TextEditingController();
+    var reason = 'spam';
+    final result = await showDialog<Map<String, String?>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('举报创意'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: reason,
+                decoration: const InputDecoration(labelText: '举报原因'),
+                items: const [
+                  DropdownMenuItem(value: 'spam', child: Text('垃圾或广告内容')),
+                  DropdownMenuItem(value: 'harassment', child: Text('骚扰或仇恨内容')),
+                  DropdownMenuItem(value: 'copyright', child: Text('疑似侵犯著作权')),
+                  DropdownMenuItem(value: 'privacy', child: Text('泄露隐私')),
+                  DropdownMenuItem(value: 'misinformation', child: Text('虚假或误导信息')),
+                  DropdownMenuItem(value: 'other', child: Text('其他')),
+                ],
+                onChanged: (value) => setDialogState(() => reason = value ?? 'other'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descriptionController,
+                maxLines: 3,
+                maxLength: 2000,
+                decoration: const InputDecoration(
+                  labelText: '补充说明（可选）',
+                  hintText: '请描述你认为存在的问题',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, {
+                'reason': reason,
+                'description': descriptionController.text.trim(),
+              }),
+              child: const Text('提交举报'),
+            ),
+          ],
+        ),
+      ),
+    );
+    descriptionController.dispose();
+    if (result == null) return;
+    try {
+      await ref.read(ideaServiceProvider).reportIdea(
+            ideaId: widget.ideaId,
+            reason: result['reason']!,
+            description: result['description'],
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('举报已提交，感谢帮助维护社区')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('举报提交失败：$error')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,11 +140,14 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
               icon: const Icon(Icons.hub_outlined),
               onPressed: () => context.push('/idea/${widget.ideaId}/universe'),
             ),
-          if (loadedDetail != null)
+          if (loadedDetail != null &&
+              !isOwner &&
+              loadedDetail.visibility == 'public' &&
+              loadedDetail.publicationStatus == 'published')
             IconButton(
-              tooltip: '创意宇宙图谱',
-              icon: const Icon(Icons.hub_outlined),
-              onPressed: () => context.push('/idea/${widget.ideaId}/universe'),
+              tooltip: '举报创意',
+              icon: const Icon(Icons.flag_outlined),
+              onPressed: _reportIdea,
             ),
           if (canViewPublicTimeline)
             IconButton(
