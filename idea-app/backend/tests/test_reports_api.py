@@ -72,7 +72,7 @@ async def test_report_submission_admin_review_and_hide_public_idea(db_session, m
                     "description": "疑似未经授权使用了第三方作品",
                 },
             )
-            assert submitted.status_code == 201
+            assert submitted.status_code == 201, submitted.text
             report_id = submitted.json()["id"]
 
             duplicate = await client.post(
