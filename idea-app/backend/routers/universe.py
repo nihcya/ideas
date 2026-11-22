@@ -6,6 +6,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user, get_optional_user
@@ -312,7 +313,14 @@ async def create_inspired_association(
         note=payload.note,
     )
     db.add(association)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail={"error": {"code": "ASSOCIATION_EXISTS", "message": "该灵感关联已存在"}},
+        )
     return {
         "id": str(association.id),
         "source_idea_id": str(source.id),
