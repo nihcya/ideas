@@ -36,11 +36,16 @@ class _ExploreFilterSheetState extends State<ExploreFilterSheet> {
   }
 
   void _apply() {
+    final query = _queryController.text.trim();
+    if (query.isNotEmpty && query.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('搜索关键词至少需要 2 个字符')),
+      );
+      return;
+    }
     Navigator.of(context).pop(
       ExploreFilters(
-        query: _queryController.text.trim().isEmpty
-            ? null
-            : _queryController.text.trim(),
+        query: query.isEmpty ? null : query,
         sort: _sort,
         licenseCode: _licenseCode,
         allowFork: _allowFork == 'all' ? null : _allowFork == 'yes',
