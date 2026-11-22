@@ -174,10 +174,7 @@ class _IdeaUniverseScreenState extends ConsumerState<IdeaUniverseScreen> {
     );
   }
 
-  Widget _buildInspiredManager(
-    ThemeData theme,
-    List<Map<String, dynamic>> edges,
-  ) {
+  Widget _buildInspiredManager(List<Map<String, dynamic>> edges) {
     final inspired = edges.where((edge) => edge['type'] == 'inspired').toList();
     return ExpansionTile(
       title: const Text('管理灵感关联'),
@@ -339,7 +336,7 @@ class _IdeaUniverseScreenState extends ConsumerState<IdeaUniverseScreen> {
           ),
         ),
         if (graph['can_manage_associations'] == true)
-          _buildInspiredManager(theme, edges),
+          _buildInspiredManager(edges),
       ],
     );
   }
