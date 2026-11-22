@@ -25,7 +25,8 @@ class NotificationService {
     }
   }
 
-  /// 读取和更新通知偏好\n
+  /// 读取和更新通知偏好
+
   Future<List<NotificationPreferenceItem>> getPreferences() async {
     try {
       final res = await _dio.get('/notifications/preferences');
@@ -57,7 +58,8 @@ class NotificationService {
       throw toApiException(e);
     }
   }
-\n  /// 标记通知为已读
+
+  /// 标记通知为已读
   /// [notificationIds] 需要标记已读的通知 ID 列表
   Future<int> markRead(List<String> notificationIds) async {
     try {
