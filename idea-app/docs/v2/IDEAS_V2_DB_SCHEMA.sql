@@ -273,7 +273,10 @@ CREATE INDEX IF NOT EXISTS idx_idea_version_contributions_version
 
 
 -- IDEAS V2 Sprint 2: first-class asynchronous collaboration (Migration 004)
--- Canonical executable migration: migrations/004_collaborations.sql
+-- Canonical executable migrations: migrations/004_collaborations.sql and migrations/005_collaboration_attribution.sql
 -- Tables: collaborations, collaboration_members, collaboration_sources,
 -- collaboration_contributions, collaboration_events.
+-- Migration 005 adds idea_contributions.source_collaboration_contribution_id,
+-- uniquely linking an accepted workspace proposal to the existing immutable
+-- IdeaVersionContribution attribution pipeline.
 -- Workspace membership is not an IdeaAccessGrant and never grants access to a private source Idea.
