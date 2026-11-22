@@ -202,26 +202,35 @@ async def get_idea_detail(
 
     # 谱系图：父节点
     parents_result = await db.execute(
-        select(Idea, User, ForkRelation.relation_type, ForkRelation.license_snapshot)
+        select(
+            Idea, User, ForkRelation.relation_type,
+            ForkRelation.license_snapshot, ForkRelation.id
+        )
         .join(ForkRelation, ForkRelation.parent_id == Idea.id)
         .outerjoin(User, User.id == Idea.author_id)
         .where(ForkRelation.child_id == idea.id)
     )
     parents = []
-    for parent_idea, parent_user, _rel, license_snapshot in parents_result.all():
+    for parent_idea, parent_user, relation_type, license_snapshot, relation_id in parents_result.all():
         source_author = (
             (license_snapshot or {}).get("source_author_name")
             or (parent_user.username if parent_user else "匿名")
         )
-        if not await can_view_idea(db, parent_idea, user.id if user else None):
-            # A source may later be withdrawn/unpublished. Keep its historical
-            # provenance visible on derivatives without exposing the withdrawn text.
+        parent_visible = await can_view_idea(
+            db, parent_idea, user.id if user else None
+        )
+        if not parent_visible:
+            # Keep attribution/rights from the public-at-creation snapshot, but
+            # never return a now-private Idea ID or its withdrawn content.
             if license_snapshot:
                 parents.append(LineageNode(
-                    id=str(parent_idea.id),
+                    id=f"withdrawn:{relation_id}",
                     color_hex=parent_idea.color_hex,
                     author=source_author,
                     title="已撤回的来源创意",
+                    is_navigable=False,
+                    relation_type=relation_type,
+                    license_snapshot=license_snapshot,
                 ))
             continue
         parents.append(LineageNode(
@@ -229,11 +238,16 @@ async def get_idea_detail(
             color_hex=parent_idea.color_hex,
             author=source_author,
             title=parent_idea.content[:30],
+            is_navigable=True,
+            relation_type=relation_type,
+            license_snapshot=license_snapshot,
         ))
 
     # 谱系图：子节点（最多10个）
     children_result = await db.execute(
-        select(Idea, User)
+        select(
+            Idea, User, ForkRelation.relation_type, ForkRelation.license_snapshot
+        )
         .join(ForkRelation, ForkRelation.child_id == Idea.id)
         .outerjoin(User, User.id == Idea.author_id)
         .where(ForkRelation.parent_id == idea.id)
@@ -241,7 +255,7 @@ async def get_idea_detail(
         .limit(10)
     )
     children = []
-    for child_idea, child_user in children_result.all():
+    for child_idea, child_user, relation_type, license_snapshot in children_result.all():
         if not await can_view_idea(db, child_idea, user.id if user else None):
             continue
         children.append(LineageNode(
@@ -249,6 +263,9 @@ async def get_idea_detail(
             color_hex=child_idea.color_hex,
             author=child_user.username if child_user else "匿名",
             title=child_idea.content[:30],
+            is_navigable=True,
+            relation_type=relation_type,
+            license_snapshot=license_snapshot,
         ))
 
     access_role = None
