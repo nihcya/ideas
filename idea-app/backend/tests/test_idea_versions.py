@@ -131,12 +131,15 @@ async def test_duplicate_contribution_ids_are_rejected_before_draft_is_committed
         )
     assert exc.value.status_code == 422
 
+    # Preserve the scalar ID before rollback expires ORM state.
+    idea_id = idea.id
+
     # The request transaction boundary rolls back the flushed draft when the
     # endpoint raises. Mirror that boundary explicitly in this direct router test.
     await db_session.rollback()
     drafts = await db_session.execute(
         select(IdeaVersion).where(
-            IdeaVersion.idea_id == idea.id,
+            IdeaVersion.idea_id == idea_id,
             IdeaVersion.status == "draft",
         )
     )
