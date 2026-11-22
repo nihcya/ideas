@@ -77,3 +77,33 @@ class CollaborationService {
     } on DioException catch (e) { throw toApiException(e); }
   }
 }
+
+  Future<Map<String, dynamic>> publish({
+    required String id,
+    required String content,
+    required String visibility,
+    required String licenseCode,
+    String? licenseCustomText,
+    String licenseVersion = 'v1',
+    bool allowFork = false,
+    bool confirmTerms = false,
+    bool confirmCustomLicenses = false,
+    List<String> acceptedContributionIds = const [],
+    String? changeSummary,
+  }) async {
+    try {
+      final res = await _dio.post('/collaborations/$id/publish', data: {
+        'content': content,
+        'visibility': visibility,
+        'license_code': licenseCode,
+        'license_custom_text': licenseCustomText,
+        'license_version': licenseVersion,
+        'allow_fork': allowFork,
+        'confirm_terms': confirmTerms,
+        'confirm_custom_licenses': confirmCustomLicenses,
+        'accepted_contribution_ids': acceptedContributionIds,
+        'change_summary': changeSummary,
+      });
+      return Map<String, dynamic>.from(res.data as Map);
+    } on DioException catch (e) { throw toApiException(e); }
+  }
