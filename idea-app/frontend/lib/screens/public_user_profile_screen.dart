@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/api_provider.dart';
 import '../providers/user_profile_provider.dart';
+import '../models/user.dart';
 import '../theme/app_theme.dart';
 
 /// 其他用户的公开主页：只展示公开资料和已公开署名的贡献。
