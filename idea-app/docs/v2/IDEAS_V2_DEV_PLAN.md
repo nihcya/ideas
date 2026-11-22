@@ -627,3 +627,15 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] Flutter 通知偏好页面、协作通知深链和 pending invite 导向协作收件箱已接入。
 - [x] 新增通知偏好 API/写入抑制测试、私有协作通知 ACL 测试和 PostgreSQL Migration 009 验证。\n- [x] 新增公开创作者搜索 API、Explore 发现入口、创作者搜索页和公开作品/署名统计测试。
 - [ ] Exact-head CI（Backend、PostgreSQL migrations/concurrency、Flutter test/analyze/Android APK/Web Release）全部通过后勾选。
+
+
+### 16.1 Sprint 4 — 社区治理与管理员审核（2026-11-22）
+
+- [x] 新增 IdeaReport 模型与 Migration 010，支持 spam/harassment/copyright/privacy/misinformation/other 六类举报。
+- [x] 新增用户举报 API；只允许举报当前有权访问的 Idea；同一用户对同一创意只能保留一条 pending/in_review 举报。
+- [x] 新增管理员队列、分页和状态筛选；review API 支持 pending → in_review → resolved/dismissed 状态流转，终态不可二次处理。
+- [x] 管理员可在 resolved 时执行 hide_idea：公开创意立即转私有草稿、关闭衍生许可并清除 Explore/详情缓存。
+- [x] 管理端权限采用 IDEAS_ADMIN_USER_IDS UUID allowlist；未配置或配置无效时 fail-closed；普通用户不能通过 API 自助提权。
+- [x] 举报提交与审核动作写入 SecurityEvent；Flutter Idea 详情页增加举报入口，Settings 页只对 allowlisted admin 显示管理入口。
+- [x] 新增 Flutter AdminReportsScreen，支持状态筛选、转处理中、完成/驳回和下架操作；新增后端 API 和管理员 UI 测试。
+- [ ] Migration 010、管理员 allowlist、举报状态机和 Flutter UI exact-head CI 待通过。
