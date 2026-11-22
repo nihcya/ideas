@@ -17,6 +17,7 @@ from .universe import router as universe_router
 def get_all_routers() -> list[APIRouter]:
     return [
         auth_router,
+        universe_router,
         ideas_router,
         evolve_router,
         vault_router,
@@ -26,5 +27,4 @@ def get_all_routers() -> list[APIRouter]:
         settings_router,
         idea_versions_router,
         collaborations_router,
-        universe_router,
     ]
