@@ -303,3 +303,8 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 新增 `IDEAS_V2_PRODUCTION_MIGRATION_RUNBOOK.md`，将生产迁移的前置条件具体化：只读数据分布检查、历史 active 公开可见性假设确认、schema/object 冲突检查、备份恢复演练、按 001→002→003 执行、迁移后状态与约束校验、应用回滚与数据库恢复策略。
 - Migration 001 会将所有 `status='active'` 的 Idea 转为 public/published 并设为 legacy license review pending；这是一项数据政策决策。必须先证明该集合与生产旧版本公开读取规则一致，否则不得执行。
 - CI 使用一次性 PostgreSQL 16 数据库；没有访问生产 DB，没有执行生产 preflight，没有执行 001/002/003。真实生产 schema/data/backup/restore 风险仍未验证。
+
+## 28. PostgreSQL 并发发布验证补充（2026-11-22）
+
+- 新增双独立会话并发发布同一 draft version 的 PostgreSQL 16 集成测试。发布路由先锁 Idea 再锁 Version；预期仅一个请求成功，另一个在获得 Idea 锁后发现版本不再是 draft 并返回 404，最终 Idea 内容与发布快照一致。
+- 此测试刚提交，尚待 CI 执行验证；不要将预期行为写成已通过结果。
