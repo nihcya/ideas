@@ -484,3 +484,15 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] Flutter test、analyze、Android Debug APK build：success。
 - [x] Exact-head CI run [45024074019](https://github.com/nihcya/ideas/actions/runs/45024074019) 四个 job 全部完成并通过。
 - [ ] 生产 PostgreSQL migrations 001/002/003 未执行；CI 通过不代表生产迁移、备份恢复演练或生产数据预检查已完成。
+
+### 13.31 阶段性产品 Demo 准备（2026-11-22）
+
+- [x] 核对 Flutter 路由和页面：Explore、注册登录、创意创建/发布、详情、Fork Guide、血缘、邀请、贡献、版本、Vault、Spark、通知、个人资料等页面已存在于当前分支。
+- [x] 核对本地 Demo 路径：FastAPI + SQLite + Mock AI；后端启动会自动创建 SQLite schema 并初始化演示创意。
+- [x] 新增 `IDEAS_V2_DEMO_QUICKSTART.md`，明确本地启动、演示顺序、Mock AI 限制和验收清单。
+- [x] 新增 CI Flutter Web release build，并上传 `ideas-v2-web-demo` artifact（保留 14 天）；CI 当前同时覆盖 Android Debug APK 与 Web build。
+- [ ] 等待当前 exact-head CI 验证 Web build 和 artifact 上传成功。
+- [ ] 本地真实浏览器 smoke test：注册/登录、创建私有草稿、发布授权、Fork/Collide/Evolve、谱系、custom 授权确认、邀请接受。
+- [ ] 在线共享 Demo 尚未部署：现有 deploy workflow 需要 API_BASE_URL、SERVER_HOST、SERVER_USER、SSH_PRIVATE_KEY 等 GitHub Actions secrets；未确认这些 secrets 和演示服务器状态前，不声称已有公网演示地址。
+- [ ] Demo 默认 Mock AI；若要展示真实模型生成，需在演示环境配置服务端模型 API Key。不得将密钥提交仓库。
+
