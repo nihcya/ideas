@@ -1,6 +1,6 @@
 # IDEAS V2.0 Sprint 3 — Idea Universe
 
-Status: bounded recursive graph API and separate Inspired association model/API are implemented; PostgreSQL migration and exact-head CI are pending.
+Status: bounded recursive graph API, separate Inspired association model/API, PostgreSQL migration 006, and initial Flutter Universe graph screen are implemented. Exact-head CI and remaining graph performance/UI verification are pending.
 
 ## Product boundary
 
@@ -44,3 +44,13 @@ The server performs breadth-first traversal with visited-node tracking and a max
 ## Verification
 
 Tests cover depth 2 recursion, ancestors/descendants, merge/evolve edge types, Inspired separation, depth validation, hidden private ancestor redaction, target-owner-only association creation, self-link rejection, duplicate handling and deletion. PostgreSQL migration 006 adds the independent association table and is required to run after migrations 001–005.
+
+
+## Frontend and query implementation update（2026-11-22）
+
+- The Idea detail page links to a dedicated Universe screen.
+- The screen supports depth 1–3, ancestors/descendants/both, Inspired visibility, zoom/pan, relation labels, restricted non-navigable source placeholders, retry and truncation messaging.
+- The client uses the dedicated UniverseService; graph responses are not put into a shared cache.
+- Server-side node ACL checks are batched per BFS layer to avoid per-node ACL queries while retaining the same visibility predicate.
+- Widget/API regression tests cover restricted placeholder rendering and directional traversal.
+- Still open: Inspired create/delete UI, graph query benchmarks and cap stress tests, responsive layout validation, and exact-head CI.
