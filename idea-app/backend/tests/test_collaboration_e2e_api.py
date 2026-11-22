@@ -1,7 +1,5 @@
 """End-to-end HTTP contract for private collaboration through public attribution."""
 
-from datetime import datetime, timezone
-
 import pytest
 from httpx import ASGITransport, AsyncClient
 
