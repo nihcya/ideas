@@ -295,7 +295,12 @@ async def test_publish_cannot_expand_derivative_rights_beyond_ancestors(
     async def allow_audit(*args, **kwargs):
         return True, ""
 
+    async def noop(*args, **kwargs):
+        return None
+
     monkeypatch.setattr(ideas_router, "audit_content", allow_audit)
+    monkeypatch.setattr(ideas_router.cache, "delete_pattern", noop)
+    monkeypatch.setattr(ideas_router.cache, "delete", noop)
     with pytest.raises(HTTPException) as exc:
         await ideas_router.publish_idea(
             child.id,
