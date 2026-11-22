@@ -734,6 +734,31 @@ class _DetailBody extends StatelessWidget {
               detail.content,
               style: const TextStyle(fontSize: 16, height: 1.7),
             ),
+            if (detail.legacyLicenseReviewStatus == 'pending' ||
+                detail.legacyLicenseReviewStatus == 'expired') ...[
+              const SizedBox(height: 12),
+              Card(
+                color: AppColors.of(context).surface,
+                child: ListTile(
+                  leading: Icon(
+                    Icons.policy_outlined,
+                    color: detail.legacyLicenseReviewStatus == 'expired'
+                        ? Theme.of(context).colorScheme.error
+                        : AppColors.of(context).gold,
+                  ),
+                  title: Text(
+                    detail.legacyLicenseReviewStatus == 'expired'
+                        ? '历史授权补充期限已结束'
+                        : '历史公开创意授权确认期',
+                  ),
+                  subtitle: Text(
+                    detail.legacyLicenseReviewStatus == 'expired'
+                        ? '当前不能继续衍生；已产生的衍生创意及其授权快照不受影响。'
+                        : '请在 90 天过渡期内补充并确认授权。截止时间：${detail.legacyLicenseReviewDueAt?.toLocal().toString().split('.').first ?? '以系统记录为准'}',
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             Wrap(
               spacing: 8,
