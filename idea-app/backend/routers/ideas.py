@@ -1,6 +1,8 @@
 """点子路由：探索/详情/创建/Fork"""
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 import math
+import hashlib
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -53,74 +55,110 @@ def _calc_size_score(fork_count: int, last_fork_at: datetime | None) -> float:
 async def explore(
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    q: str | None = Query(None, min_length=2, max_length=80),
+    sort: Literal["recommended", "latest", "forked"] = Query("recommended"),
+    license_code: str | None = Query(None, max_length=32),
+    allow_fork: bool | None = Query(None),
+    source: str | None = Query(None, max_length=24),
     db: AsyncSession = Depends(get_db),
     user: User | None = Depends(get_optional_user),
 ):
-    # 尝试缓存
-    cache_key = "explore:v2:" + (str(user.id) if user else "anon") + ":" + str(limit) + ":" + str(offset)
+    query_text = q.strip() if q is not None else None
+    if q is not None and (query_text is None or len(query_text) < 2):
+        raise HTTPException(status_code=422, detail="搜索词至少需要 2 个字符")
+
+    filters = [
+        Idea.status == "active",
+        Idea.publication_status == "published",
+        Idea.visibility == "public",
+    ]
+    if query_text:
+        filters.append(Idea.content.ilike(f"%{query_text}%"))
+    if license_code:
+        filters.append(Idea.license_code == license_code)
+    if allow_fork is not None:
+        filters.append(Idea.allow_fork == allow_fork)
+    if source:
+        filters.append(Idea.source == source)
+
+    cache_material = "|".join([
+        str(user.id) if user else "anon",
+        str(limit), str(offset), sort, query_text or "",
+        license_code or "", str(allow_fork), source or "",
+    ])
+    cache_suffix = hashlib.sha256(cache_material.encode("utf-8")).hexdigest()[:20]
+    cache_key = f"explore:v3:{cache_suffix}"
     cached = await cache.get(cache_key)
     if cached:
         return ExploreResponse(**cached)
 
-    # 缓存击穿防护：用互斥锁，只让一个请求查库，其他请求短暂轮询等待
-    lock_key = "explore:lock:v2:" + (str(user.id) if user else "anon") + ":" + str(limit) + ":" + str(offset)
+    lock_key = f"explore:lock:v3:{cache_suffix}"
     lock_token = await cache.acquire_lock(lock_key, ttl=10)
-
     if lock_token is None:
-        # 没抢到锁：等其他 worker 写入缓存（最多 250ms）
         waited = await cache.wait_for_cache(cache_key, retries=5, interval=0.05)
         if waited is not None:
             return ExploreResponse(**waited)
-        # 等不到就降级直接查库（极少数情况，比如持锁 worker 挂了）
-        # 走下面的查库分支，避免请求被无限阻塞
 
     try:
-        # 二次检查缓存（持锁期间可能已被写过）
         cached = await cache.get(cache_key)
         if cached:
             return ExploreResponse(**cached)
 
-        # 10% 热门（近30天 fork 数 Top）+ 90% 随机
-        hot_count = max(1, math.ceil(limit * 0.1))
-        random_count = limit - hot_count
-
-        # 热门：近30天 fork_count Top（严格按 DB_SCHEMA.md 10.1）
-        now = datetime.now(timezone.utc)
-        thirty_days_ago = now - timedelta(days=30)
-        hot_result = await db.execute(
-            select(Idea)
-            .where(
-                Idea.status == "active",
-                Idea.publication_status == "published",
-                Idea.visibility == "public",
-                Idea.last_fork_at != None,
-                Idea.last_fork_at >= thirty_days_ago,
+        if sort == "latest":
+            result = await db.execute(
+                select(Idea).where(*filters)
+                .order_by(Idea.created_at.desc(), Idea.id.desc())
+                .offset(offset).limit(limit + 1)
             )
-            .order_by(Idea.fork_count.desc())
-            .limit(hot_count)
-        )
-        hot_ideas = hot_result.scalars().all()
-
-        hot_ids = [i.id for i in hot_ideas]
-
-        # 随机：SQLite 用 RANDOM()，PG 用 RANDOM()
-        random_result = await db.execute(
-            select(Idea)
-            .where(
-                Idea.status == "active",
-                Idea.publication_status == "published",
-                Idea.visibility == "public",
-                ~Idea.id.in_(hot_ids) if hot_ids else True,
+            page_ideas = result.scalars().all()
+            has_more = len(page_ideas) > limit
+            all_ideas = page_ideas[:limit]
+        elif sort == "forked":
+            result = await db.execute(
+                select(Idea).where(*filters)
+                .order_by(Idea.fork_count.desc(), Idea.created_at.desc(), Idea.id.desc())
+                .offset(offset).limit(limit + 1)
             )
-            .order_by(func.random())
-            .limit(random_count)
-        )
-        random_ideas = random_result.scalars().all()
+            page_ideas = result.scalars().all()
+            has_more = len(page_ideas) > limit
+            all_ideas = page_ideas[:limit]
+        else:
+            # Stable daily shuffle: 10% recent hot Ideas are interleaved with
+            # 90% deterministic random Ideas, so pagination does not repeat.
+            pool_result = await db.execute(
+                select(Idea).where(*filters)
+                .order_by(Idea.created_at.desc())
+                .limit(5000)
+            )
+            pool = pool_result.scalars().all()
+            now = datetime.now(timezone.utc)
+            thirty_days_ago = now - timedelta(days=30)
+            hot = sorted(
+                [idea for idea in pool if idea.last_fork_at and idea.last_fork_at >= thirty_days_ago],
+                key=lambda idea: (idea.fork_count or 0, idea.last_fork_at),
+                reverse=True,
+            )
+            hot_ids = {idea.id for idea in hot}
+            day_seed = now.date().isoformat()
+            random_pool = [idea for idea in pool if idea.id not in hot_ids]
+            random_pool.sort(
+                key=lambda idea: hashlib.sha256(f"{day_seed}:{idea.id}".encode("utf-8")).digest()
+            )
+            ordered = []
+            hot_index = 0
+            random_index = 0
+            while hot_index < len(hot) or random_index < len(random_pool):
+                if hot_index < len(hot) and (len(ordered) % 10 == 0 or random_index >= len(random_pool)):
+                    ordered.append(hot[hot_index])
+                    hot_index += 1
+                elif random_index < len(random_pool):
+                    ordered.append(random_pool[random_index])
+                    random_index += 1
+                else:
+                    break
+            all_ideas = ordered[offset:offset + limit]
+            has_more = offset + limit < len(ordered)
 
-        # 合并 + 打乱
-        all_ideas = list(hot_ideas) + list(random_ideas)
-
-        # 转换为 CircleData
         user_vault_ids: set[str] = set()
         if user:
             vault_result = await db.execute(
@@ -139,12 +177,10 @@ async def explore(
             )
             for idea in all_ideas
         ]
-
-        response = ExploreResponse(circles=circles, has_more=len(all_ideas) >= limit)
+        response = ExploreResponse(circles=circles, has_more=has_more)
         await cache.set(cache_key, response.model_dump(mode="json"), ttl=300)
         return response
     finally:
-        # 持锁 worker 必须释放锁，让其他请求能正常进入
         if lock_token is not None:
             await cache.release_lock(lock_key, lock_token)
 
@@ -590,7 +626,7 @@ async def publish_idea(
         idea.legacy_license_review_status = "confirmed"
         idea.legacy_license_reviewed_at = now
     await db.commit()
-    await cache.delete_pattern("explore:v2:*")
+    await cache.delete_pattern("explore:v3:*")
     await cache.delete(key_idea_detail(str(idea.id)))
     await db.refresh(idea)
     return IdeaResponse(
@@ -619,7 +655,7 @@ async def unpublish_idea(
     idea.allow_fork = False
     idea.is_forkable = False
     await db.commit()
-    await cache.delete_pattern("explore:v2:*")
+    await cache.delete_pattern("explore:v3:*")
     await cache.delete(key_idea_detail(str(idea.id)))
     return {"unpublished": True, "idea_id": str(idea.id)}
 
