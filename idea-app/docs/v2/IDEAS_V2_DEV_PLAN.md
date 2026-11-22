@@ -442,3 +442,13 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] PostgreSQL 16 新增 fork-vs-unpublish 独立会话竞争测试，验证 Fork 先取得来源锁时撤回必须等待；最终关系携带完整授权/署名快照。
 - [x] CI run [45018288819](https://github.com/nihcya/ideas/actions/runs/45018288819)：Backend **57 passed, 9 skipped**；PostgreSQL version/concurrency **7 passed**；PostgreSQL migrations passed；Flutter test/analyze passed；APK build 当时仍在执行。
 - [ ] 生产数据库未连接；migrations 001/002/003 未执行。物理删除源 Idea 的数据保留行为仍不在本轮范围；当前产品撤回通过 unpublish 转为 private/draft，不做物理删除。
+
+
+### 13.27 DAG 与撤回修复后的 exact-head CI 完成记录（2026-11-22）
+
+- [x] 最新 PR head 对应 CI run [45018438622](https://github.com/nihcya/ideas/actions/runs/45018438622) 四个 job 全部完成并通过。
+- [x] Backend pytest：57 passed, 9 skipped, 1 warning。
+- [x] PostgreSQL 16 version/concurrency：7 passed, 1 warning（包含 fork-vs-unpublish 锁竞争测试）。
+- [x] PostgreSQL migrations：通过。
+- [x] Flutter test、analyze、Android Debug APK build：全部通过。
+- [ ] 生产环境仍未连接，迁移 001/002/003 未执行；本次 CI 仅为 disposable CI 数据库验证。
