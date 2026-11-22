@@ -580,3 +580,13 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [ ] Inspired 关联的前端创建/删除管理入口仍待实现；当前图谱只读展示已存在关联。
 - [ ] Sprint 2 协作页面专属 widget tests、邀请用户搜索/选择、成员主动离开和空间归档仍待完成。
 
+### 15.2 Sprint 3 — Inspired 关联创建与 ACL 安全（2026-11-22）
+
+- [x] 新增 GET /api/ideas/search，按关键词检索当前用户可访问的 Idea；匿名用户仅可检索公开 Idea，登录用户可检索公开、本人私有及已接受邀请可访问的 Idea。
+- [x] 搜索响应只返回必要字段（Idea ID、标题片段、作者名、颜色），不返回私有授权快照或额外账户信息；关键词去空白后至少 2 个字符。
+- [x] 将 Universe router 注册到动态 GET /ideas/{idea_id} 详情路由之前，避免 /ideas/search 被 UUID 动态路由截获。
+- [x] UniverseService 增加搜索和 Inspired 创建/删除 API 调用。
+- [x] Universe 页面增加 target owner 专属的灵感关联管理：搜索可访问来源、添加说明、创建关联和删除已有关联。
+- [x] Graph API 显式返回当前 viewer 是否为 target owner；非 owner 不会获得管理 UI 能力，写入 API 仍独立执行 owner ACL。
+- [x] 新增后端搜索 ACL 测试：匿名、作者、受邀者和无关用户的结果集隔离；新增前端 widget test 覆盖搜索并创建 Inspired 关联。
+- [ ] 本轮代码 exact-head CI 待完成；所有 Backend、PostgreSQL migration/concurrency、Flutter test/analyze/build job 通过后再勾选验收。
