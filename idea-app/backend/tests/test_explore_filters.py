@@ -45,7 +45,7 @@ async def test_explore_filters_sort_and_recommended_pagination(db_session, monke
     )
     forked = _idea(
         owner.id, "公开创意乙", license_code="attribution_adaptation", allow_fork=True,
-        source="collide", created_at=now - timedelta(days=2), fork_count=20,
+        source="merge", created_at=now - timedelta(days=2), fork_count=20,
         last_fork_at=now - timedelta(days=2),
     )
     restricted = _idea(
