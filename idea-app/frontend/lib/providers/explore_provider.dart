@@ -7,6 +7,14 @@ import 'api_provider.dart';
 class ExploreNotifier extends AsyncNotifier<List<CircleData>> {
   int _offset = 0;
   bool _hasMore = true;
+  ExploreFilters _filters = const ExploreFilters();
+
+  ExploreFilters get filters => _filters;
+
+  Future<void> setFilters(ExploreFilters filters) async {
+    _filters = filters;
+    await refresh();
+  }
 
   @override
   Future<List<CircleData>> build() async {
@@ -17,7 +25,14 @@ class ExploreNotifier extends AsyncNotifier<List<CircleData>> {
 
   Future<List<CircleData>> _fetch({required int offset}) async {
     final ideaService = ref.read(ideaServiceProvider);
-    final res = await ideaService.getExplore(offset: offset);
+    final res = await ideaService.getExplore(
+      offset: offset,
+      query: _filters.query,
+      sort: _filters.sort,
+      licenseCode: _filters.licenseCode,
+      allowFork: _filters.allowFork,
+      source: _filters.source,
+    );
     _offset = offset + res.circles.length;
     _hasMore = res.hasMore;
     return res.circles;
@@ -40,7 +55,14 @@ class ExploreNotifier extends AsyncNotifier<List<CircleData>> {
 
     final ideaService = ref.read(ideaServiceProvider);
     try {
-      final res = await ideaService.getExplore(offset: _offset);
+      final res = await ideaService.getExplore(
+        offset: _offset,
+        query: _filters.query,
+        sort: _filters.sort,
+        licenseCode: _filters.licenseCode,
+        allowFork: _filters.allowFork,
+        source: _filters.source,
+      );
       _offset += res.circles.length;
       _hasMore = res.hasMore;
       state = AsyncData([...current, ...res.circles]);
