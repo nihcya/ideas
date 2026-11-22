@@ -199,6 +199,15 @@ class _CollaborationDetailScreenState extends ConsumerState<CollaborationDetailS
     }
   }
 
+  Future<void> _revoke(String userId) async {
+    try {
+      await ref.read(collaborationServiceProvider).revoke(widget.collaborationId, userId);
+      if (mounted) setState(_reload);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('撤销成员失败：$e')));
+    }
+  }
+
   Future<void> _submit() async {
     final content = await _ask('提交异步贡献', '描述你的建议、修改或研究');
     if (content == null || content.isEmpty) return;
@@ -248,7 +257,14 @@ class _CollaborationDetailScreenState extends ConsumerState<CollaborationDetailS
                 dense: true,
                 leading: const Icon(Icons.person_outline),
                 title: Text(m['username'] as String? ?? '成员'),
-                subtitle: Text(m['role'] as String? ?? ''),
+                subtitle: Text('${m['role']} · ${m['status']}'),
+                trailing: isOwner && m['user_id'] != data['owner_id']
+                    ? IconButton(
+                        tooltip: '撤销成员',
+                        icon: const Icon(Icons.person_remove_outlined),
+                        onPressed: () => _revoke(m['user_id'] as String),
+                      )
+                    : null,
               )),
               const Divider(),
               Text('来源创意', style: Theme.of(context).textTheme.titleMedium),
