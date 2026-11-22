@@ -34,19 +34,33 @@ WHERE table_schema = 'public'
   AND table_name IN ('users', 'ideas', 'fork_relations')
 ORDER BY table_name;
 
--- Confirm the columns used by the migration exist before the backfill.
+-- Required legacy columns: these must already exist before Migration 001.
+-- V2 columns such as publication_status / visibility / published_at are ADDED by 001;
+-- they are not prerequisites for the migration.
 SELECT table_name, column_name, data_type, is_nullable
 FROM information_schema.columns
 WHERE table_schema = 'public'
   AND (
     (table_name = 'ideas' AND column_name IN
-      ('id','status','created_at','author_id','is_forkable','published_at',
-       'publication_status','visibility','license_code','allow_fork',
-       'legacy_license_review_status'))
+      ('id','status','created_at','author_id','is_forkable'))
     OR (table_name = 'fork_relations' AND column_name = 'id')
     OR (table_name = 'users' AND column_name = 'id')
   )
 ORDER BY table_name, ordinal_position;
+
+-- Detect any V2 columns that may have been partially added by an earlier/manual rollout.
+-- Their presence is not a prerequisite; reconcile any partial rollout before proceeding.
+SELECT table_name, column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'ideas'
+  AND column_name IN (
+    'publication_status','visibility','license_code','license_text_snapshot',
+    'license_version','allow_fork','published_at','archived_at',
+    'legacy_license_review_status','legacy_license_review_notified_at',
+    'legacy_license_reviewed_at'
+  )
+ORDER BY ordinal_position;
 
 -- Baseline lifecycle distribution
 SELECT status, COUNT(*) AS row_count
