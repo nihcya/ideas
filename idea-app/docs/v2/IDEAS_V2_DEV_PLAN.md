@@ -521,7 +521,7 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [ ] PostgreSQL 查询性能、递归环路、节点上限和私有节点不泄露测试。
 
 ### Sprint 4 — 社区体验、治理与发布
-- [ ] Explore 分类/授权/关系筛选与排序，公开创作者发现。
+- [x] Explore 关键词、授权、衍生许可、来源筛选与推荐/最新/衍生数排序已接入前后端；稳定分页、筛选状态和错误恢复测试已补。\n- [ ] 公开创作者搜索与发现入口。
 - [ ] 通知类型、通知偏好和通知深链 ACL。
 - [ ] 举报、审核状态机、管理员处置与审计记录。
 - [ ] 安全审计、限流、缓存隔离、结构化日志、监控和告警。
@@ -550,7 +550,7 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 ### 14.2 Sprint 2 验证结论（2026-11-22）
 
 - [x] GitHub Actions exact-head CI 全绿：backend 68 passed / 11 skipped；PostgreSQL migrations 001–005 success；PostgreSQL version + collaboration concurrency success；Flutter test/analyze、Android Debug APK、Web Release success。
-- [x] Sprint 2 邀请用户搜索/选择、成员主动离开、空间归档后端 API 和 Flutter 操作已实现；协作专属 widget tests 已新增，等待 exact-head CI。\n- [ ] Sprint 2 PostgreSQL 双会话并发：accept-vs-revoke、review-vs-edit、leave/archive-vs-write 专项覆盖及 Flutter widget tests CI 通过后关闭 Sprint 2。
+- [x] Sprint 2 邀请用户搜索/选择、成员主动离开、空间归档后端 API 和 Flutter 操作已实现；协作专属 widget tests 已新增，等待 exact-head CI。\n- [x] PostgreSQL 双会话并发覆盖 accept-vs-revoke、review-vs-edit、leave-vs-write、archive-vs-write 已新增，等待 exact-head CI 验证。\n- [ ] Sprint 2 以 Migration 008、Flutter widget tests 和全部 PostgreSQL 并发 job exact-head 全绿作为关闭条件。
 - [ ] 生产迁移和部署仍未执行；PR #2 保持 Open，不合并 main。
 
 
@@ -612,3 +612,18 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 新增 Flutter widget tests 覆盖邀请搜索/选择和归档状态 UI。
 - [ ] Migration 008 的 PostgreSQL 16 exact-head 验证和 Flutter widget test/analyze/build exact-head CI 待完成。
 - [ ] 补充 accept-vs-revoke、review-vs-edit、leave/archive-vs-write 的 PostgreSQL 双会话竞争测试；通过后关闭 Sprint 2。
+
+
+### 16. Sprint 4 — Explore 与通知基础能力（2026-11-22）
+
+- [x] Explore API 支持关键词、授权类型、allow_fork、来源类型筛选，以及 recommended/latest/forked 三种排序。
+- [x] Explore 推荐排序使用稳定日级混排与确定性分页；筛选条件纳入缓存键，协作发布后失效 Explore v3 缓存。
+- [x] Flutter Explore 筛选面板、激活状态提示、加载更多、失败保留已有结果、筛选条件持久化和重置交互已实现。
+- [x] 新增 Explore API 和 Flutter Widget 测试覆盖筛选、排序、分页、缓存隔离和失败恢复。
+- [x] 新增 NotificationPreference ORM、Migration 007、默认开启策略、用户偏好 API 和 SQL 层历史通知过滤。
+- [x] 通知写入通过统一 helper 执行偏好抑制；forked、collab_invited、collab_reviewed、collab_published 已接入。
+- [x] 通知 API 在列表、未读数和标记已读时同时执行资源 ACL 与用户偏好过滤。
+- [x] Migration 009 为 notifications 增加 collaboration_id；私有协作通知按 pending/accepted membership 做 ACL 过滤。
+- [x] Flutter 通知偏好页面、协作通知深链和 pending invite 导向协作收件箱已接入。
+- [x] 新增通知偏好 API/写入抑制测试、私有协作通知 ACL 测试和 PostgreSQL Migration 009 验证。
+- [ ] Exact-head CI（Backend、PostgreSQL migrations/concurrency、Flutter test/analyze/Android APK/Web Release）全部通过后勾选。
