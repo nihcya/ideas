@@ -474,3 +474,13 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 回归测试覆盖：custom 多代传递、未确认阻止 Fork、Collide/Evolve custom 明确确认、多父 Merge 任一父授权受限时拒绝、发布不得扩大祖先权利。
 - [ ] 最新 exact-head CI 以 run 45023866140 及后续文档提交对应 run 为准；Backend、PostgreSQL migrations、PostgreSQL 并发、Flutter test/analyze/APK 均需完成后才标记全绿。
 - [ ] PostgreSQL migrations 001/002/003 仍未在生产环境执行；本轮不触碰生产数据库。
+
+### 13.30 授权继承实现 exact-head CI 验证（2026-11-22）
+
+- [x] 修复本轮新增授权快照调用中误写入 Python 源码的字面量 `\\n`，恢复 ideas.py、evolve.py 与 test_derivation_lineage.py 的正常语法。
+- [x] Backend pytest：**63 passed, 9 skipped, 1 warning**。
+- [x] PostgreSQL 16 version/concurrency：**7 passed, 1 warning**。
+- [x] PostgreSQL migrations：success。
+- [x] Flutter test、analyze、Android Debug APK build：success。
+- [x] Exact-head CI run [45024074019](https://github.com/nihcya/ideas/actions/runs/45024074019) 四个 job 全部完成并通过。
+- [ ] 生产 PostgreSQL migrations 001/002/003 未执行；CI 通过不代表生产迁移、备份恢复演练或生产数据预检查已完成。
