@@ -341,3 +341,13 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 新增 SQLite API 回归测试验证撤回后的署名保留与重复 Collide 父节点拒绝；新增 PostgreSQL 16 独立会话测试验证 fork 与 unpublish 的行锁串行。
 - CI run [45018288819](https://github.com/nihcya/ideas/actions/runs/45018288819)：Backend **57 passed, 9 skipped**；PostgreSQL concurrency **7 passed**；migrations passed；Flutter test/analyze passed，APK build 尚在执行。
 - SQLite 测试不验证行锁语义；fork-vs-unpublish 锁竞争由 PostgreSQL 16 专项测试覆盖。以上均不代表生产数据库迁移已执行。
+
+
+## 32. DAG 来源撤回修复 exact-head CI 结果（2026-11-22）
+
+PR 最新文档/代码 head 的 CI run [45018438622](https://github.com/nihcya/ideas/actions/runs/45018438622) 全部通过：
+- Backend：57 passed, 9 skipped, 1 warning。
+- PostgreSQL 16 并发：7 passed, 1 warning。
+- PostgreSQL migrations：success。
+- Flutter tests、analyze、Android Debug APK build：success。
+- 该结果验证 CI head，不代表生产 schema/data/备份恢复演练已完成，生产迁移仍未执行。
