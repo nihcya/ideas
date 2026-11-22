@@ -6,6 +6,7 @@ from .idea_access_grant import IdeaAccessGrant
 from .idea_contribution import IdeaContribution
 from .idea_version import IdeaVersion, IdeaVersionContribution
 from .idea_association import IdeaAssociation
+from .notification_preference import NotificationPreference
 from .collaboration import (
     Collaboration, CollaborationMember, CollaborationSource,
     CollaborationContribution, CollaborationEvent,
@@ -19,7 +20,7 @@ from .security_event import SecurityEvent
 __all__ = [
     "Base", "TimestampMixin", "User", "Idea", "IdeaAccessGrant",
     "IdeaContribution", "IdeaVersion", "IdeaVersionContribution",
-    "IdeaAssociation", "Collaboration", "CollaborationMember", "CollaborationSource",
+    "IdeaAssociation", "NotificationPreference", "Collaboration", "CollaborationMember", "CollaborationSource",
     "CollaborationContribution", "CollaborationEvent",
     "VaultItem", "ForkRelation", "SparkQuestion", "SparkDraft",
     "SparkSubmission", "Notification", "AuditLog", "BannedWord",
