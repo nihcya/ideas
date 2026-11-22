@@ -27,6 +27,9 @@ class IdeaForkRequest(BaseModel):
     content: str = Field(
         ..., min_length=1, max_length=300, description="用户的联想内容，1-300字"
     )
+    confirm_custom_licenses: bool = Field(
+        False, description="确认已阅读并接受全部上游自定义授权条款"
+    )
 
 
 class CircleData(BaseModel):
@@ -182,6 +185,9 @@ class CollideConfirmRequest(BaseModel):
         ..., min_length=1, max_length=300, description="用户选定的方案（可编辑），1-300字"
     )
     ai_assisted: bool = Field(..., description="是否 AI 辅助生成")
+    confirm_custom_licenses: bool = Field(
+        False, description="确认已阅读并接受全部父来源及其祖先的自定义授权条款"
+    )
 
 
 class CollideConfirmResponse(BaseModel):
@@ -241,6 +247,9 @@ class EvolveConfirmRequest(BaseModel):
         ..., min_length=1, max_length=300, description="用户选定的变体，1-300字"
     )
     ai_assisted: bool = Field(..., description="是否 AI 辅助生成")
+    confirm_custom_licenses: bool = Field(
+        False, description="确认已阅读并接受全部上游自定义授权条款"
+    )
 
 
 class EvolveConfirmResponse(BaseModel):
