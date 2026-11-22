@@ -175,7 +175,8 @@ class _NotificationTile extends StatelessWidget {
       case 'collab_published':
       case 'collab_invited':
       case 'collab_reviewed':
-        icon = Icons.groups_outlined;
+      case 'legacy_license_reminder':
+        icon = Icons.policy_outlined;
         color = colors.gold;
         break;
       default:
@@ -281,6 +282,8 @@ class _NotificationPreferencesScreenState
         return '协作贡献审核';
       case 'collab_published':
         return '协作成果发布';
+      case 'legacy_license_reminder':
+        return '历史授权期限提醒';
       default:
         return type;
     }
@@ -300,6 +303,8 @@ class _NotificationPreferencesScreenState
         return '你提交的协作贡献已被审核';
       case 'collab_published':
         return '协作空间已发布最终成果';
+      case 'legacy_license_reminder':
+        return '历史公开创意的 90 天授权补充期限即将结束，请检查并确认授权';
       default:
         return '';
     }
