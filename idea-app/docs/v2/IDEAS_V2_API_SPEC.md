@@ -296,3 +296,10 @@ See IDEAS_V2_SPRINT3_UNIVERSE_SPEC.md for traversal, privacy and edge contracts.
 - Collaboration invite, contribution review, and publication notifications carry collaboration_id. Private collaboration notifications are visible only while the recipient has a pending invitation or accepted membership; public Idea-linked notifications continue to follow the Idea ACL.
 - Flutter deep links route pending collaboration invitations to the collaboration inbox, public published results to the Idea detail, and private collaboration updates to the workspace.
 - Migration 007 stores notification preferences; Migration 009 adds the collaboration notification foreign key. Migration 008 is the explicit member-left lifecycle state.
+
+
+## Public creator discovery (Sprint 4)
+
+- GET /users/search?q=&limit=&offset= — search usernames with a minimum two-character query; returns public profile fields and counts derived only from active published public Ideas and published public-version attributions.
+- Search results exclude accounts with no public Ideas and no public credited contributions. Ranking prioritizes public contribution count, then public Idea count, then username for stable ordering.
+- Selecting a result opens the existing public creator profile, which paginates frozen public contribution attributions and links back to public Ideas.
