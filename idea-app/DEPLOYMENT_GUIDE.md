@@ -1110,3 +1110,12 @@ docker exec dianzi-postgres pg_dump -U dianzi dianzi_app | gzip > /opt/dianzi/ba
 > 后端服务已于 2026-07-09 正式上线运行。
 > 后续如有重大架构调整需更新版本。
 
+
+
+## V2.0 社区治理管理员配置补充
+
+- 管理端举报队列使用后端环境变量 `ADMIN_USER_IDS` 白名单授权，值为逗号分隔的用户 UUID。
+- 不得使用用户名作为管理员凭据，不得向客户端暴露管理员白名单。
+- 未配置或配置无效时默认拒绝所有管理端请求；管理员身份由登录后的账户 UUID 与服务器配置比对。
+- 新增举报/审核 API：`POST /api/reports`、`GET /api/reports/admin`、`POST /api/reports/admin/{report_id}/review`。
+- 下架动作会将创意转为私有草稿、关闭衍生许可并清理探索缓存；操作记录写入安全事件日志。
