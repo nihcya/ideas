@@ -219,6 +219,153 @@ class _CollaborationDetailScreenState extends ConsumerState<CollaborationDetailS
     }
   }
 
+  Future<void> _publish(List<dynamic> contributions) async {
+    final contentController = TextEditingController();
+    final customTextController = TextEditingController();
+    var visibility = 'private';
+    var licenseCode = 'attribution_adaptation';
+    var allowFork = false;
+    var confirmTerms = false;
+    var confirmCustom = false;
+    final selected = <String>{
+      for (final raw in contributions)
+        if ((raw as Map)['status'] == 'accepted') raw['id'] as String,
+    };
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('发布协作成果'),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                TextField(
+                  controller: contentController,
+                  maxLength: 300,
+                  maxLines: 4,
+                  decoration: const InputDecoration(labelText: '最终创意内容'),
+                ),
+                DropdownButtonFormField<String>(
+                  value: visibility,
+                  decoration: const InputDecoration(labelText: '发布范围'),
+                  items: const [
+                    DropdownMenuItem(value: 'private', child: Text('私有草稿')),
+                    DropdownMenuItem(value: 'public', child: Text('公开发布')),
+                  ],
+                  onChanged: (value) => setDialogState(() {
+                    visibility = value ?? 'private';
+                    if (visibility != 'public') {
+                      allowFork = false;
+                      confirmTerms = false;
+                    }
+                  }),
+                ),
+                DropdownButtonFormField<String>(
+                  value: licenseCode,
+                  decoration: const InputDecoration(labelText: '授权方式'),
+                  items: const [
+                    DropdownMenuItem(value: 'all_rights_reserved', child: Text('保留所有权利')),
+                    DropdownMenuItem(value: 'attribution', child: Text('署名')),
+                    DropdownMenuItem(value: 'attribution_adaptation', child: Text('署名-允许改编')),
+                    DropdownMenuItem(value: 'custom', child: Text('自定义授权')),
+                  ],
+                  onChanged: (value) => setDialogState(() => licenseCode = value ?? licenseCode),
+                ),
+                if (licenseCode == 'custom')
+                  TextField(
+                    controller: customTextController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(labelText: '自定义授权条款'),
+                  ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('允许后续衍生'),
+                  value: allowFork,
+                  onChanged: visibility == 'public'
+                      ? (value) => setDialogState(() => allowFork = value)
+                      : null,
+                ),
+                if (visibility == 'public')
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('我已阅读并确认本次公开授权条款'),
+                    value: confirmTerms,
+                    onChanged: (value) => setDialogState(() => confirmTerms = value ?? false),
+                  ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('我已阅读并接受来源及祖先中的自定义授权条款（如有）'),
+                  value: confirmCustom,
+                  onChanged: (value) => setDialogState(() => confirmCustom = value ?? false),
+                ),
+                const Divider(),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('纳入已采纳贡献（${selected.length}）'),
+                ),
+                ...contributions.map((raw) {
+                  final item = Map<String, dynamic>.from(raw as Map);
+                  if (item['status'] != 'accepted') return const SizedBox.shrink();
+                  final id = item['id'] as String;
+                  return CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(item['content'] as String? ?? ''),
+                    value: selected.contains(id),
+                    onChanged: (value) => setDialogState(() {
+                      if (value == true) {
+                        selected.add(id);
+                      } else {
+                        selected.remove(id);
+                      }
+                    }),
+                  );
+                }),
+              ]),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('取消')),
+            FilledButton(
+              onPressed: () {
+                if (contentController.text.trim().isEmpty) return;
+                Navigator.pop(dialogContext, {
+                  'content': contentController.text.trim(),
+                  'visibility': visibility,
+                  'license_code': licenseCode,
+                  'license_custom_text': customTextController.text.trim(),
+                  'allow_fork': allowFork,
+                  'confirm_terms': confirmTerms,
+                  'confirm_custom_licenses': confirmCustom,
+                  'accepted_contribution_ids': selected.toList(),
+                });
+              },
+              child: const Text('确认发布'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null) return;
+    try {
+      final published = await ref.read(collaborationServiceProvider).publish(
+        id: widget.collaborationId,
+        content: result['content'] as String,
+        visibility: result['visibility'] as String,
+        licenseCode: result['license_code'] as String,
+        licenseCustomText: (result['license_custom_text'] as String).isEmpty
+            ? null : result['license_custom_text'] as String,
+        allowFork: result['allow_fork'] as bool,
+        confirmTerms: result['confirm_terms'] as bool,
+        confirmCustomLicenses: result['confirm_custom_licenses'] as bool,
+        acceptedContributionIds: (result['accepted_contribution_ids'] as List).cast<String>(),
+      );
+      if (mounted) context.pushReplacement('/idea/${published['idea_id']}');
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('发布失败：$e')));
+    }
+  }
+
   Future<void> _review(String id, String decision) async {
     try {
       await ref.read(collaborationServiceProvider).review(widget.collaborationId, id, decision);
@@ -292,6 +439,15 @@ class _CollaborationDetailScreenState extends ConsumerState<CollaborationDetailS
                   ]) : null,
                 ));
               }),
+              if (isOwner && data['status'] == 'draft')
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: FilledButton.icon(
+                    onPressed: () => _publish(contributions),
+                    icon: const Icon(Icons.publish),
+                    label: const Text('发布协作成果'),
+                  ),
+                ),
               const Divider(),
               Text('协作动态', style: Theme.of(context).textTheme.titleMedium),
               ...(data['events'] as List<dynamic>? ?? []).map((raw) {
