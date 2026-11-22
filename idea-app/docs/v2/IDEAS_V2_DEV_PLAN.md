@@ -565,3 +565,18 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [ ] PostgreSQL migration 006 / Universe API exact-head CI 待执行。
 - [ ] Flutter Universe graph screen、按需展开、深度/方向控制、图例与节点跳转待实现。
 - [ ] 图谱查询性能、递归环路/节点上限及公开缓存隔离测试待补充。
+
+### 15.1 Sprint 3 — Universe 图谱前端与查询优化（2026-11-22）
+
+- [x] 新增独立 Idea Universe 页面，并接入创意详情页入口。
+- [x] 前端接入既有 UniverseService，支持 1–3 层深度、上游/下游/上下游方向切换，以及 Inspired 关联显隐。
+- [x] 图谱按 BFS depth 分层展示，支持缩放/拖动、Fork/Collide/Evolve/Inspired 边类型标识、受限来源占位节点和可导航节点跳转。
+- [x] 图谱加载加入请求 generation，避免快速切换参数后旧响应覆盖新结果；增加加载、错误、重试和截断提示。
+- [x] 新增 Universe 页面 widget tests，覆盖图谱节点渲染、受限来源展示和 Inspired 开关触发重载。
+- [x] Universe API 将每层节点 ACL 校验从逐节点查询改为单次批量 SQL，避免最多 100 个节点产生 N+1 ACL 查询；仍对每个节点执行服务端权限过滤。
+- [x] 新增 API 测试覆盖 ancestors / descendants 方向语义。
+- [ ] 当前代码提交后的 exact-head CI（Backend、PostgreSQL migrations、PostgreSQL concurrency、Flutter test/analyze/Android APK/Web Release）待全部完成；未通过前不标记验收通过。
+- [ ] 补充图谱查询 SQL/性能基准、最大节点/边截断测试、复杂网络布局与小屏适配测试。
+- [ ] Inspired 关联的前端创建/删除管理入口仍待实现；当前图谱只读展示已存在关联。
+- [ ] Sprint 2 协作页面专属 widget tests、邀请用户搜索/选择、成员主动离开和空间归档仍待完成。
+
