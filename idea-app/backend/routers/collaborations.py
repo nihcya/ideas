@@ -208,6 +208,73 @@ async def accept_invitation(
     return {"accepted": True, "role": member.role}
 
 
+@router.get("/invitations/inbox")
+async def collaboration_invitation_inbox(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(CollaborationMember, Collaboration.title, Collaboration.description)
+        .join(Collaboration, Collaboration.id == CollaborationMember.collaboration_id)
+        .where(CollaborationMember.user_id == user.id, CollaborationMember.status == "pending")
+        .order_by(CollaborationMember.invited_at.desc())
+        .limit(100)
+    )
+    return {"items": [
+        {"collaboration_id": str(row.CollaborationMember.collaboration_id),
+         "invite_id": str(row.CollaborationMember.id), "title": row.title,
+         "description": row.description, "role": row.CollaborationMember.role,
+         "invited_at": row.CollaborationMember.invited_at}
+        for row in result.all()
+    ]}
+
+
+@router.post("/{collaboration_id}/decline")
+async def decline_invitation(
+    collaboration_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    member = await db.scalar(select(CollaborationMember).where(
+        CollaborationMember.collaboration_id == collaboration_id,
+        CollaborationMember.user_id == user.id,
+    ).with_for_update())
+    if member is None or member.status != "pending":
+        raise _error(404, "INVITATION_NOT_FOUND", "待处理邀请不存在")
+    member.status = "declined"
+    member.responded_at = datetime.now(timezone.utc)
+    await _event(db, collaboration_id, user.id, "member_declined", {"role": member.role})
+    await db.commit()
+    return {"declined": True}
+
+
+@router.delete("/{collaboration_id}/members/{member_user_id}")
+async def revoke_member(
+    collaboration_id: uuid.UUID,
+    member_user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    workspace = await db.scalar(select(Collaboration).where(
+        Collaboration.id == collaboration_id
+    ).with_for_update())
+    if workspace is None or workspace.owner_id != user.id:
+        raise _error(404, "COLLABORATION_NOT_FOUND", "协作空间不存在或无权管理成员")
+    if member_user_id == workspace.owner_id:
+        raise _error(422, "CANNOT_REVOKE_OWNER", "不能撤销空间所有者")
+    member = await db.scalar(select(CollaborationMember).where(
+        CollaborationMember.collaboration_id == collaboration_id,
+        CollaborationMember.user_id == member_user_id,
+    ).with_for_update())
+    if member is None or member.status not in ("pending", "accepted"):
+        raise _error(404, "MEMBER_NOT_FOUND", "成员或邀请不存在")
+    member.status = "revoked"
+    member.revoked_at = datetime.now(timezone.utc)
+    await _event(db, collaboration_id, user.id, "member_revoked", {"user_id": str(member_user_id)})
+    await db.commit()
+    return {"revoked": True}
+
+
 @router.get("/{collaboration_id}")
 async def get_collaboration(
     collaboration_id: uuid.UUID,
