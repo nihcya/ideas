@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user, get_optional_user
-from models import Idea, User, ForkRelation, IdeaAssociation, IdeaAccessGrant, IdeaAccessGrant
+from models import Idea, User, ForkRelation, IdeaAssociation, IdeaAccessGrant
 from schemas.idea_association import IdeaAssociationCreate
 from services.idea_access import can_view_idea, is_public_idea
 
@@ -39,46 +39,6 @@ def _not_found():
         status_code=404,
         detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}},
     )
-
-
-async def _visible_idea_ids(
-    db: AsyncSession,
-    idea_ids: set[uuid.UUID],
-    viewer_id: uuid.UUID | None,
-) -> set[uuid.UUID]:
-    """Batch-check graph node visibility to avoid one ACL query per node."""
-    if not idea_ids:
-        return set()
-    visible_predicates = [
-        and_(
-            Idea.publication_status == "published",
-            Idea.visibility == "public",
-            Idea.status == "active",
-        )
-    ]
-    grant_join = False
-    if viewer_id is not None:
-        visible_predicates.extend([
-            Idea.author_id == viewer_id,
-            IdeaAccessGrant.id.is_not(None),
-        ])
-        grant_join = True
-    query = select(Idea.id).where(
-        Idea.id.in_(idea_ids),
-        Idea.status != "rejected",
-        or_(*visible_predicates),
-    )
-    if grant_join:
-        query = query.outerjoin(
-            IdeaAccessGrant,
-            and_(
-                IdeaAccessGrant.idea_id == Idea.id,
-                IdeaAccessGrant.user_id == viewer_id,
-                IdeaAccessGrant.status == "accepted",
-            ),
-        )
-    result = await db.execute(query.distinct())
-    return set(result.scalars().all())
 
 
 def _node(idea: Idea, author: str, depth: int):
