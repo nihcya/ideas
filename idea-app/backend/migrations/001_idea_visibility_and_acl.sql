@@ -21,7 +21,8 @@ BEGIN
   IF EXISTS (SELECT 1 FROM app_schema_migrations WHERE version = '001_idea_visibility_and_acl') THEN
     RAISE EXCEPTION 'Migration 001_idea_visibility_and_acl has already been applied';
   END IF;
-END $;
+END;
+$;
 
 ALTER TABLE fork_relations ADD COLUMN IF NOT EXISTS metadata JSONB;
 
