@@ -108,6 +108,42 @@ async def test_unaccepted_contribution_cannot_be_added_to_version(db_session):
 
 
 @pytest.mark.asyncio
+async def test_duplicate_contribution_ids_are_rejected_before_draft_is_committed(db_session):
+    owner = await _user(db_session, "version_duplicate_owner")
+    contributor = await _user(db_session, "version_duplicate_author")
+    idea = await _idea(db_session, owner)
+    contribution = IdeaContribution(
+        idea_id=idea.id, author_id=contributor.id,
+        content="不能在同一草稿中重复归属的贡献", status="accepted",
+    )
+    db_session.add(contribution)
+    await db_session.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        await versions_router.create_version_draft(
+            idea.id,
+            VersionDraftCreate(
+                content="重复关联测试",
+                contribution_ids=[contribution.id, contribution.id],
+            ),
+            db_session,
+            owner,
+        )
+    assert exc.value.status_code == 422
+
+    # The request transaction boundary rolls back the flushed draft when the
+    # endpoint raises. Mirror that boundary explicitly in this direct router test.
+    await db_session.rollback()
+    drafts = await db_session.execute(
+        select(IdeaVersion).where(
+            IdeaVersion.idea_id == idea.id,
+            IdeaVersion.status == "draft",
+        )
+    )
+    assert drafts.scalars().all() == []
+
+
+@pytest.mark.asyncio
 async def test_published_version_is_locked_and_contribution_cannot_be_reused(db_session):
     owner = await _user(db_session, "version_lock_owner")
     contributor = await _user(db_session, "version_lock_author")
