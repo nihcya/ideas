@@ -24,7 +24,7 @@ def test_migration_001_has_valid_dollar_quoted_guard_and_acl_schema():
     _assert_transaction_wrapped(sql)
 
     assert re.search(
-        r"(?is)DO \$\$\s*BEGIN.*?END;\s*\$\$;",
+        r"(?is)DO \$migration\$\s*BEGIN.*?END;\s*\$migration\$;",
         sql,
     ), "Migration 001 must use a syntactically complete DO $$ ... END; $$; block"
     assert "DO $\n" not in sql
