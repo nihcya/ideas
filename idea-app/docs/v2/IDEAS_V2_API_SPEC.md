@@ -303,3 +303,12 @@ See IDEAS_V2_SPRINT3_UNIVERSE_SPEC.md for traversal, privacy and edge contracts.
 - GET /users/search?q=&limit=&offset= — search usernames with a minimum two-character query; returns public profile fields and counts derived only from active published public Ideas and published public-version attributions.
 - Search results exclude accounts with no public Ideas and no public credited contributions. Ranking prioritizes public contribution count, then public Idea count, then username for stable ordering.
 - Selecting a result opens the existing public creator profile, which paginates frozen public contribution attributions and links back to public Ideas.
+
+
+## Community reports and moderation (Sprint 4)
+
+- POST /reports — authenticated user submits a report for an Idea they can currently access; duplicate open reports by the same reporter/Idea are rejected.
+- GET /reports/admin?status=&limit=&offset= — allowlisted moderators only; paginated queue includes the reported public content and reporter identity.
+- POST /reports/admin/{report_id}/review — allowlisted moderators only; status transitions to in_review/resolved/dismissed; terminal reports cannot be processed again.
+- A resolved report may set hide_idea=true. This changes the Idea to a private draft, disables further derivation, invalidates Explore and detail caches, and records the action in SecurityEvent.
+- Admin authorization is controlled by server-only IDEAS_ADMIN_USER_IDS (comma-separated UUIDs). Empty/invalid allowlists deny all moderation access. No client endpoint can grant admin status.
