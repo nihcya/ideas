@@ -23,6 +23,7 @@ from services.audit_service import audit_content, write_audit_log
 from services.cache import cache, key_idea_detail, key_user_vault
 from services.rate_limit import limiter, CREATE_LIMIT
 from services.idea_access import (can_view_idea, can_derive_from_idea, build_derivation_snapshot, requires_custom_license_confirmation, get_inherited_rights_chain)
+from services.notification_preferences import add_notification_if_enabled
 
 router = APIRouter(prefix="/ideas", tags=["ideas"])
 
@@ -558,14 +559,14 @@ async def fork_idea(
 
     # 通知原作者
     if parent.author_id and parent.author_id != user.id:
-        notif = Notification(
+        await add_notification_if_enabled(
+            db,
             user_id=parent.author_id,
-            type="forked",
+            notification_type="forked",
             content=f"{user.username} fork 了你的『{parent.content[:20]}...』",
             idea_id=parent.id,
             actor_id=user.id,
         )
-        db.add(notif)
 
     await db.commit()
     await db.refresh(new_idea)
