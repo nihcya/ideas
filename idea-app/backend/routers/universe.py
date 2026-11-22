@@ -18,7 +18,7 @@ router = APIRouter(prefix="/ideas", tags=["universe"])
 
 _PRIVATE_SNAPSHOT_KEYS = {
     "idea_id", "source_idea_id", "source_author_id", "author_id",
-    "parent_idea_id", "child_idea_id",
+    "parent_idea_id", "child_idea_id", "parent_id", "child_id", "user_id",
 }
 
 
