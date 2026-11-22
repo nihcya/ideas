@@ -254,3 +254,23 @@ The GET /api/ideas/{id} response returns lineage parent/child nodes with relatio
 - When publishing a derivative with allow_fork=true, the server checks every inherited source obligation. If any ancestor blocks derivation or has an incompatible license, return HTTP 422 / INHERITED_LICENSE_BLOCKS_DERIVATION.
 - A derivative author's selected license cannot broaden, replace, or waive upstream source terms.
 - These rules use the existing ForkRelation JSON metadata; no additional migration is introduced by this contract.
+
+
+## Collaboration workspace APIs (Sprint 2)
+
+First-class asynchronous workspaces are independent of per-Idea invitations. See IDEAS_V2_SPRINT2_COLLABORATION_SPEC.md for full access matrix and atomic publication contract.
+
+- GET /collaborations — list accepted workspaces for current user.
+- POST /collaborations — create private workspace from 1–10 Ideas the owner can currently view; capture immutable source rights snapshots.
+- GET /collaborations/invitations/inbox — list pending workspace invitations.
+- POST /collaborations/{id}/members — owner invites contributor/viewer.
+- POST /collaborations/{id}/accept — accept invitation; workspace access only, no private source Idea ACL grant.
+- POST /collaborations/{id}/decline — decline pending invitation.
+- DELETE /collaborations/{id}/members/{user_id} — owner revokes pending/accepted membership.
+- GET /collaborations/{id} — accepted member reads workspace; owner sees all contributions, contributor sees own; private source details are independently ACL-filtered.
+- POST /collaborations/{id}/contributions — owner/contributor submits attributed proposal.
+- PATCH /collaborations/{id}/contributions/{contribution_id} — author edits own submitted proposal.
+- DELETE /collaborations/{id}/contributions/{contribution_id} — author withdraws own submitted proposal.
+- POST /collaborations/{id}/contributions/{contribution_id}/review — owner accepts/rejects proposal.
+
+Pending members cannot read workspace. Viewer members cannot submit, edit, withdraw, or review contributions. Owner-only atomic publication into Idea/version/relations/attributions remains the next Sprint 2 implementation step.
