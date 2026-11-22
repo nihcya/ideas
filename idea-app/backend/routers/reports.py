@@ -1,6 +1,4 @@
 """User reports and admin moderation queue."""
-from __future__ import annotations
-
 import uuid
 from datetime import datetime, timezone
 from typing import Literal
