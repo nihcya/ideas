@@ -389,11 +389,31 @@ class _CollaborationDetailScreenState extends ConsumerState<CollaborationDetailS
           final members = (data['members'] as List<dynamic>? ?? []);
           final sources = (data['sources'] as List<dynamic>? ?? []);
           final contributions = (data['contributions'] as List<dynamic>? ?? []);
+          final publishedResult = data['published_result'] as Map<String, dynamic>?;
           return RefreshIndicator(
             onRefresh: () async => setState(_reload),
             child: ListView(padding: const EdgeInsets.all(16), children: [
               Text(data['title'] as String? ?? '', style: Theme.of(context).textTheme.headlineSmall),
               if ((data['description'] as String? ?? '').isNotEmpty) Text(data['description'] as String),
+              if (publishedResult != null) ...[
+                const SizedBox(height: 12),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.task_alt),
+                    title: const Text('协作成果已完成'),
+                    subtitle: Text(
+                      '${publishedResult['content']}\\n范围：${publishedResult['visibility']} · 授权：${publishedResult['license_code']}',
+                    ),
+                    isThreeLine: true,
+                    trailing: publishedResult['idea_id'] != null
+                        ? const Icon(Icons.open_in_new)
+                        : null,
+                    onTap: publishedResult['idea_id'] != null
+                        ? () => context.push('/idea/${publishedResult['idea_id']}')
+                        : null,
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               Row(children: [
                 Text('成员（${members.length}）', style: Theme.of(context).textTheme.titleMedium),
