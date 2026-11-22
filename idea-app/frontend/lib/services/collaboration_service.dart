@@ -76,7 +76,6 @@ class CollaborationService {
       });
     } on DioException catch (e) { throw toApiException(e); }
   }
-}
 
   Future<Map<String, dynamic>> publish({
     required String id,
@@ -107,3 +106,4 @@ class CollaborationService {
       return Map<String, dynamic>.from(res.data as Map);
     } on DioException catch (e) { throw toApiException(e); }
   }
+}
