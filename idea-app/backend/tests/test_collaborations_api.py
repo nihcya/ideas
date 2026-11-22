@@ -284,6 +284,11 @@ async def test_collaboration_publish_atomically_creates_idea_version_lineage_and
             workspace = await db_session.get(Collaboration, uuid.UUID(workspace_id))
             assert workspace.status == "published"
             assert workspace.published_idea_id == output.id
+
+            result_view = await client.get(f"/api/collaborations/{workspace_id}")
+            assert result_view.status_code == 200
+            assert result_view.json()["published_result"]["content"] == output.content
+            assert result_view.json()["published_result"]["idea_id"] == output_id
     finally:
         app.dependency_overrides.pop(get_db, None)
         app.dependency_overrides.pop(get_current_user, None)
