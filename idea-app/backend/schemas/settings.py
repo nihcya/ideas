@@ -29,6 +29,7 @@ class SettingsResponse(BaseModel):
     dark_mode: bool = Field(False, description="是否暗色模式")
     forkable: bool = Field(True, description="是否允许他人 fork 我的点子")
     username: str = Field(..., description="用户名")
+    is_admin: bool = Field(False, description="是否拥有管理员权限")
     bio: str = Field(..., max_length=50, description="一句话简介，0-50字符")
     # 大模型配置（脱敏回读）
     llm_api_url: str = Field("", description="大模型 API 地址（OpenAI 兼容）")
