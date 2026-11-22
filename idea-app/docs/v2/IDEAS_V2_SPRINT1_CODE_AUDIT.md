@@ -297,3 +297,9 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 现在先锁定目标 `IdeaContribution` 行（`FOR UPDATE`），再检查 `IdeaVersionContribution` 归属。竞争事务等待前一事务提交后，在 READ COMMITTED 下重新执行归属查询并返回 409；数据库唯一约束继续兜底。
 - 新增 PostgreSQL 16 集成测试，构造同一 Idea 下两个既有 draft 并发认领同一 accepted contribution，验证只有一个成功且数据库只保留一条 attribution。
 - 该新增测试尚待 CI 执行；不能仅凭静态审查宣称竞争场景已通过。
+
+## 27. 生产迁移 runbook 与未执行边界（2026-11-22）
+
+- 新增 `IDEAS_V2_PRODUCTION_MIGRATION_RUNBOOK.md`，将生产迁移的前置条件具体化：只读数据分布检查、历史 active 公开可见性假设确认、schema/object 冲突检查、备份恢复演练、按 001→002→003 执行、迁移后状态与约束校验、应用回滚与数据库恢复策略。
+- Migration 001 会将所有 `status='active'` 的 Idea 转为 public/published 并设为 legacy license review pending；这是一项数据政策决策。必须先证明该集合与生产旧版本公开读取规则一致，否则不得执行。
+- CI 使用一次性 PostgreSQL 16 数据库；没有访问生产 DB，没有执行生产 preflight，没有执行 001/002/003。真实生产 schema/data/backup/restore 风险仍未验证。
