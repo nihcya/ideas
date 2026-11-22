@@ -11,6 +11,8 @@ class UserProfile(BaseModel):
     id: str = Field(..., description="用户ID")
     username: str = Field(..., description="用户名")
     bio: str = Field(..., description="一句话简介")
+    is_self: bool = Field(False, description="当前登录用户是否为主页所有者")
+    is_following: bool = Field(False, description="当前登录用户是否已关注该创作者")
     stats: dict = Field(
         default_factory=dict,
         description="统计信息 {produced, collected, forked_by_others, forked_others}",
