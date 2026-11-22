@@ -12,6 +12,7 @@ from .settings import router as settings_router
 from .idea_versions import router as idea_versions_router
 from .collaborations import router as collaborations_router
 from .universe import router as universe_router
+from .reports import router as reports_router
 
 
 def get_all_routers() -> list[APIRouter]:
@@ -27,4 +28,5 @@ def get_all_routers() -> list[APIRouter]:
         settings_router,
         idea_versions_router,
         collaborations_router,
+        reports_router,
     ]
