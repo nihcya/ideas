@@ -321,3 +321,15 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 新增 ASGI HTTP 层契约测试，直接通过公开 API 验证时间线过滤、冻结署名、贡献流分页与私有内容隔离。
 - [ ] 对最新代码运行 Backend pytest、Flutter test/analyze 和 Android Debug APK CI。
 - [ ] PostgreSQL migrations 001/002/003 仍未执行。
+
+
+### 13.14 公开版本时间线深链可靠性（2026-11-22）
+
+- [x] 修复深链目标版本位于首屏之外时，懒加载列表可能尚未构建目标卡片、导致无法取得目标 BuildContext 的问题。
+- [x] 时间线改为在滚动视口内构建完整版本卡片集合，再通过 GlobalKey + Scrollable.ensureVisible 定位目标版本；适用于当前尚未分页的公开时间线数据集。
+- [x] 增加加载请求 generation，忽略刷新或路由参数变化前发出的过期响应。
+- [x] 路由复用时，ideaId 或 versionId 变化会重新加载时间线。
+- [x] 新增 Flutter widget tests：覆盖第 30 个版本的深链展开/滚动，以及路由切换后加载新 Idea。
+- [ ] 本次新增 Flutter widget tests、analyze 和 Android Debug APK build 尚待最新 head 的 GitHub Actions 验证。
+- [ ] 若公开版本数量增长到较大规模，应在保留任意版本深链能力的前提下引入可定位的分页/虚拟滚动方案；当前全量构建是为修复现阶段深链可靠性所作的范围内权衡。
+- [ ] PostgreSQL migrations 001/002/003 仍未执行。
