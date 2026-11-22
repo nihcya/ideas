@@ -360,3 +360,14 @@ PR 最新文档/代码 head 的 CI run [45018438622](https://github.com/nihcya/i
 - LineageNode 返回 relation_type 与 license_snapshot；Flutter 模型已解析，LineageTree 禁止跳转不可导航来源，Idea 详情页展示来源授权快照。
 - CI run [45019528171](https://github.com/nihcya/ideas/actions/runs/45019528171)：Backend 57 passed, 9 skipped；PostgreSQL concurrency 7 passed；migrations、Flutter tests/analyze 通过；APK build 仍在运行。
 - 仍待实现：来源授权对后代节点的传递性限制。尤其多父 Merge 的有效授权应取所有父来源约束交集；custom 授权需明确人工审核/确认，不得默认继承为开放授权。
+
+## 34. 授权继承与多父授权交集实现审查（2026-11-22）
+
+- 授权判断集中在 services/idea_access.py：get_inherited_rights_chain() 汇总所有父关系快照中的完整 rights_chain，并按 source_idea_id 去重；get_effective_rights_chain() 在祖先链后追加当前 Idea 自身授权。
+- can_derive_from_idea() 对直接来源和每一个上游来源执行 allow_fork 与 license_code 检查。所有来源均满足才允许继续衍生，等价于多父 Merge 的权利交集；不能以某一父来源的宽松授权抵消另一父来源的限制。
+- Fork、Collide confirm、Evolve confirm 均在创建关系前检查 custom 授权确认；确认信息冻结在每条 ForkRelation.license_snapshot 中，包含 acknowledged、acknowledged_by、acknowledged_at。未确认时返回 HTTP 422 / CUSTOM_LICENSE_CONFIRMATION_REQUIRED。
+- publish_idea() 在作者设置 allow_fork=true 时重新核对完整祖先链；任何上游不允许衍生或授权类型不兼容时返回 HTTP 422 / INHERITED_LICENSE_BLOCKS_DERIVATION。
+- 当前 Idea 的自有 license 作为 rights_chain 的最后一项加入后续计算；它不能覆盖更早祖先的许可限制。授权快照和关系记录不因来源撤回而删除。
+- 回归测试覆盖多代 custom 快照传播、custom 未确认拒绝、Collide/Evolve 显式确认、多父任一来源受限拒绝，以及发布不能扩大祖先授权。
+- 该实现不新增数据库列或 migration；授权链保存在既有 ForkRelation JSON metadata 中。
+- exact-head CI 运行 [45023866140](https://github.com/nihcya/ideas/actions/runs/45023866140) 包含新增回归测试；在四个 job 全部完成前不记录全绿。生产 migrations 001/002/003 未执行。
