@@ -9,7 +9,7 @@ from sqlalchemy import select
 from models import User, Idea, ForkRelation
 from routers import ideas as ideas_router
 from routers import evolve as evolve_router
-from schemas.idea import IdeaForkRequest, CollideConfirmRequest, IdeaPublishRequest
+from schemas.idea import IdeaForkRequest, CollideConfirmRequest, EvolveConfirmRequest, IdeaPublishRequest
 from services.idea_access import get_effective_rights_chain
 
 
@@ -315,3 +315,97 @@ async def test_publish_cannot_expand_derivative_rights_beyond_ancestors(
         )
     assert exc.value.status_code == 422
     assert exc.value.detail["error"]["code"] == "INHERITED_LICENSE_BLOCKS_DERIVATION"
+
+
+@pytest.mark.asyncio
+async def test_collide_requires_custom_ack_for_all_parent_chains(db_session, monkeypatch):
+    owner_a, custom_source = await _public_source(
+        db_session, "collide_custom_source_owner"
+    )
+    owner_b, ordinary_source = await _public_source(
+        db_session, "collide_ordinary_source_owner"
+    )
+    custom_source.license_code = "custom"
+    custom_source.license_text_snapshot = "保留本来源署名，不得移除授权声明。"
+    child_author = User(
+        username="collide_custom_child_author", password_hash="test-hash", bio=""
+    )
+    db_session.add(child_author)
+    await db_session.commit()
+
+    async def allow_audit(*args, **kwargs):
+        return True, ""
+
+    monkeypatch.setattr(evolve_router, "audit_content", allow_audit)
+
+    request = CollideConfirmRequest(
+        idea_a_id=str(custom_source.id),
+        idea_b_id=str(ordinary_source.id),
+        content="两个来源交集授权下的碰撞创意",
+        ai_assisted=False,
+    )
+    with pytest.raises(HTTPException) as exc:
+        await evolve_router.collide_confirm(request, db_session, child_author)
+    assert exc.value.status_code == 422
+    assert exc.value.detail["error"]["code"] == "CUSTOM_LICENSE_CONFIRMATION_REQUIRED"
+
+    request.confirm_custom_licenses = True
+    merged = await evolve_router.collide_confirm(request, db_session, child_author)
+    relations = (
+        await db_session.execute(
+            select(ForkRelation).where(
+                ForkRelation.child_id == uuid.UUID(merged.id)
+            )
+        )
+    ).scalars().all()
+    assert len(relations) == 2
+    custom_relation = next(
+        relation for relation in relations
+        if relation.license_snapshot["license_code"] == "custom"
+    )
+    assert custom_relation.license_snapshot[
+        "custom_license_acknowledgement"
+    ]["acknowledged"] is True
+
+
+@pytest.mark.asyncio
+async def test_evolve_requires_custom_ancestor_ack_before_creation(db_session, monkeypatch):
+    owner, source = await _public_source(db_session, "evolve_custom_owner")
+    source.license_code = "custom"
+    source.license_text_snapshot = "衍生作品必须保留来源署名。"
+    child_author = User(
+        username="evolve_custom_child_author", password_hash="test-hash", bio=""
+    )
+    db_session.add(child_author)
+    await db_session.commit()
+
+    async def allow_audit(*args, **kwargs):
+        return True, ""
+
+    monkeypatch.setattr(evolve_router, "audit_content", allow_audit)
+
+    request = EvolveConfirmRequest(
+        parent_id=str(source.id),
+        angle="adapt",
+        content="明确继承上游授权的演化创意",
+        ai_assisted=False,
+    )
+    with pytest.raises(HTTPException) as exc:
+        await evolve_router.evolve_confirm(request, db_session, child_author)
+    assert exc.value.status_code == 422
+    assert exc.value.detail["error"]["code"] == "CUSTOM_LICENSE_CONFIRMATION_REQUIRED"
+
+    request.confirm_custom_licenses = True
+    evolved = await evolve_router.evolve_confirm(request, db_session, child_author)
+    relation = await db_session.scalar(
+        select(ForkRelation).where(
+            ForkRelation.child_id == uuid.UUID(evolved.id)
+        )
+    )
+    assert relation.license_snapshot["license_code"] == "custom"
+    assert relation.license_snapshot[
+        "custom_license_acknowledgement"
+    ]["acknowledged"] is True
+    assert relation.license_snapshot[
+        "custom_license_acknowledgement"
+    ]["acknowledged_by"] == str(child_author.id)
