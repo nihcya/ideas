@@ -9,6 +9,27 @@ class UserService {
 
   UserService(this._dio);
 
+  /// 搜索公开创作者；排序和贡献统计仅基于当前公开内容。
+  Future<List<Map<String, dynamic>>> searchPublicCreators(
+    String query, {
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    try {
+      final res = await _dio.get('/users/search', queryParameters: {
+        'q': query,
+        'limit': limit,
+        'offset': offset,
+      });
+      final data = Map<String, dynamic>.from(res.data as Map);
+      return ((data['items'] as List<dynamic>?) ?? [])
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
   /// 获取用户公开主页
   Future<UserProfile> getUserProfile(String id) async {
     try {
