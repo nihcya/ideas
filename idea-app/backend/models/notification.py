@@ -23,6 +23,9 @@ class Notification(Base, TimestampMixin):
     actor_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    collaboration_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid, ForeignKey("collaborations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     read: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
 
