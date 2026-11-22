@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import Idea, IdeaAccessGrant
+from models import Idea, IdeaAccessGrant, User
 
 
 def is_public_idea(idea: Idea) -> bool:
@@ -64,3 +65,23 @@ async def can_derive_from_idea(
 
 async def can_manage_idea(idea: Idea, user_id: uuid.UUID | None) -> bool:
     return user_id is not None and idea.author_id == user_id
+
+
+
+async def build_derivation_snapshot(db: AsyncSession, idea: Idea) -> dict:
+    """Freeze source identity and license terms when a derivative edge is created."""
+    author_name = None
+    if idea.author_id is not None:
+        author_name = await db.scalar(
+            select(User.username).where(User.id == idea.author_id)
+        )
+    return {
+        "source_idea_id": str(idea.id),
+        "source_author_id": str(idea.author_id) if idea.author_id else None,
+        "source_author_name": author_name or "匿名",
+        "license_code": idea.license_code,
+        "license_text_snapshot": idea.license_text_snapshot,
+        "license_version": idea.license_version,
+        "captured_at": datetime.now(timezone.utc).isoformat(),
+        "allow_fork": idea.allow_fork,
+    }
