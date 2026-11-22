@@ -190,8 +190,9 @@ async def test_private_collaboration_to_published_public_attribution_http_flow(
             )
             assert revoked_withdraw.status_code == 403
 
-            # The accepted contribution remains visible in the private collaboration
-            # feed before publication.
+            # The owner can still inspect the private collaboration feed after
+            # revoking the contributor's access.
+            active_user["value"] = owner
             contribution_feed = await client.get(
                 f"/api/ideas/{idea.id}/contributions"
             )
