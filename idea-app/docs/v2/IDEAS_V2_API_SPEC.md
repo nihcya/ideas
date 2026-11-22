@@ -204,3 +204,23 @@ Persist direct invites independently from collaboration membership. Suggested ta
 - 点击贡献记录时，前端携带 `version_id` 导航至 `/idea/{idea_id}/timeline?version={version_id}`。
 - 时间线页面仍调用公开只读接口，不以 query 参数绕过服务端可见性检查；`version` 参数只用于定位/展开目标版本。
 - 深链目标若不在当前公开时间线结果中（例如创意已撤回或版本不属于公开阶段），页面不得显示私有快照。
+
+## 8. Implemented private collaboration and version-publication contract (2026-11-22)
+
+### Contribution withdrawal and review
+- DELETE /api/ideas/{idea_id}/contributions/{contribution_id} is available only to the contribution author while the record is submitted and the user still has an accepted contributor grant for the private Idea.
+- A revoked contributor receives HTTP 403; a contribution that is accepted, rejected, or already withdrawn is locked and cannot be withdrawn again.
+- PATCH is likewise limited to the contribution author, submitted state, and current accepted contributor access.
+- Only the Idea owner may review a submitted contribution. Accepted/rejected records are immutable through contributor edit/withdraw endpoints.
+
+### Version publication failure behavior
+- Publishing a version rechecks that every associated contribution still belongs to the same Idea and remains accepted.
+- If a contribution state changed after draft creation, publication returns HTTP 409; the Idea content and draft publication state remain unchanged.
+- The Idea content update, version status transition, published metadata, and frozen attribution associations are committed in one database transaction. A failed commit must be rolled back by the request transaction boundary.
+- A contribution can be consumed by at most one version (database unique constraint on contribution_id); duplicate contribution IDs within one draft request are rejected with HTTP 422.
+- Separate submissions remain separate proposals; identical text is not automatically deduplicated.
+
+### Verification boundary
+- ASGI HTTP tests cover the invite/contribution/publication flow and the permission/failure cases above.
+- Current CI for code head b784036c5166e3cdc3ea2aec94cdbc9ffb2efdd0: Backend 51 passed; Flutter test/analyze passed; Android Debug APK build was still running at documentation time.
+- PostgreSQL migrations 001/002/003 have not been executed. SQLite tests and simulated rollback do not replace PostgreSQL migration, concurrency, or production integration tests.
