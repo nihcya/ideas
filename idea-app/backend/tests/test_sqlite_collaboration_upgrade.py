@@ -11,29 +11,15 @@ async def test_existing_sqlite_schema_adds_collaboration_attribution_column_and_
     test_engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     try:
         async with test_engine.begin() as conn:
-            await conn.execute(text("""
-                CREATE TABLE users (
-                    id CHAR(32) PRIMARY KEY,
-                    username VARCHAR(20) NOT NULL
-                );
-                CREATE TABLE ideas (
-                    id CHAR(32) PRIMARY KEY,
-                    status VARCHAR(16) NOT NULL,
-                    created_at DATETIME NOT NULL,
-                    is_forkable BOOLEAN NOT NULL DEFAULT 0
-                );
-                CREATE TABLE fork_relations (
-                    id CHAR(32) PRIMARY KEY
-                );
-                CREATE TABLE idea_contributions (
-                    id CHAR(32) PRIMARY KEY,
-                    idea_id CHAR(32) NOT NULL,
-                    author_id CHAR(32) NOT NULL,
-                    content TEXT NOT NULL
-                );
-                INSERT INTO ideas(id, status, created_at, is_forkable)
-                VALUES ('00000000000000000000000000000001', 'active', CURRENT_TIMESTAMP, 1);
-            """))
+            statements = [
+                "CREATE TABLE users (id CHAR(32) PRIMARY KEY, username VARCHAR(20) NOT NULL)",
+                "CREATE TABLE ideas (id CHAR(32) PRIMARY KEY, status VARCHAR(16) NOT NULL, created_at DATETIME NOT NULL, is_forkable BOOLEAN NOT NULL DEFAULT 0)",
+                "CREATE TABLE fork_relations (id CHAR(32) PRIMARY KEY)",
+                "CREATE TABLE idea_contributions (id CHAR(32) PRIMARY KEY, idea_id CHAR(32) NOT NULL, author_id CHAR(32) NOT NULL, content TEXT NOT NULL)",
+                "INSERT INTO ideas(id, status, created_at, is_forkable) VALUES ('00000000000000000000000000000001', 'active', CURRENT_TIMESTAMP, 1)",
+            ]
+            for statement in statements:
+                await conn.execute(text(statement))
 
         await _migrate_sqlite_columns(test_engine)
 
