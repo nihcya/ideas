@@ -452,3 +452,12 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] PostgreSQL migrations：通过。
 - [x] Flutter test、analyze、Android Debug APK build：全部通过。
 - [ ] 生产环境仍未连接，迁移 001/002/003 未执行；本次 CI 仅为 disposable CI 数据库验证。
+
+
+### 13.28 撤回来源谱系隐私与前端授权展示（2026-11-22）
+
+- [x] LineageNode 增加 relation_type、license_snapshot、is_navigable。
+- [x] 对已撤回且当前用户无权访问的来源，不再返回源 Idea ID/正文/标题；返回 opaque withdrawn:<relation-id> 谱系键、通用撤回占位、冻结署名与授权快照。
+- [x] Flutter LineageNode 模型解析新字段；LineageTree 不允许点击进入已撤回来源；Idea 详情页展示来源作者、关系类型、授权代码、allow_fork 和自定义授权文本快照。
+- [x] CI run [45019528171](https://github.com/nihcya/ideas/actions/runs/45019528171)：Backend **57 passed, 9 skipped**；PostgreSQL 16 concurrency **7 passed**；PostgreSQL migrations passed；Flutter test/analyze passed，APK build 当时仍在执行。
+- [ ] 上游授权快照对衍生节点后续公开和再衍生的传递/兼容规则尚未完整执行；需明确多父 Merge 的权利交集、custom 授权的人工确认边界，不能仅凭快照已存储就宣称完成授权继承。
