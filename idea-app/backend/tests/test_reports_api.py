@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
@@ -97,7 +99,7 @@ async def test_report_submission_admin_review_and_hide_public_idea(db_session, m
             assert reviewed.json()["idea_hidden"] is True
 
             row = await db_session.get(Idea, idea.id)
-            report = await db_session.get(IdeaReport, report_id)
+            report = await db_session.get(IdeaReport, uuid.UUID(report_id))
             assert row.visibility == "private"
             assert row.publication_status == "draft"
             assert row.allow_fork is False
