@@ -835,7 +835,7 @@ async def publish_collaboration(
 
     await db.commit()
     if is_public:
-        await cache.delete_pattern("explore:v2:*")
+        await cache.delete_pattern("explore:v3:*")
     await cache.delete(key_idea_detail(str(idea.id)))
     return {
         "collaboration_id": str(workspace.id),
