@@ -510,9 +510,9 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 不可访问私有源的成员不会收到源 Idea ID、署名或授权快照；只返回受限占位引用。
 - [x] 新增协作列表和详情 Flutter 页面、API client、Provider、路由及个人主页入口。
 - [x] 新增 HTTP API 回归测试，覆盖待接受拒绝访问、接受后访问、viewer 不可提交、私有来源隔离、贡献/事件隔离和成员撤权。
-- [x] owner-only 原子协作发布 API：输出 Idea + 初始版本 + 多父关系 + 冻结署名 + 通知 + 事件；公开发布校验来源当前状态与完整授权继承链。\n- [x] 协作贡献通过 IdeaContribution 桥接到既有版本署名链，公开创作者贡献页和版本时间线可复用既有隐私过滤。\n- [x] custom 来源授权必须在协作发布时显式确认，确认人/时间冻结到来源关系快照。\n- [ ] 发布失败/commit failure 整体回滚测试、publish-vs-source-unpublish PostgreSQL 并发测试。
+- [x] owner-only 原子协作发布 API：输出 Idea + 初始版本 + 多父关系 + 冻结署名 + 通知 + 事件；公开发布校验来源当前状态与完整授权继承链。\n- [x] 协作贡献通过 IdeaContribution 桥接到既有版本署名链，公开创作者贡献页和版本时间线可复用既有隐私过滤。\n- [x] custom 来源授权必须在协作发布时显式确认，确认人/时间冻结到来源关系快照。\n- [x] 发布失败/commit failure 整体回滚测试。\n- [x] PostgreSQL 并发测试：publish-vs-source-unpublish、contribution-write-vs-member-revoke。\n- [ ] PostgreSQL 并发测试：accept-vs-revoke、review-vs-edit。
 - [ ] PostgreSQL 16 并发覆盖：accept-vs-revoke、contribution-write-vs-revoke、review-vs-edit、publish-vs-source-unpublish。
-- [x] Flutter 协作发布表单、贡献选择、授权确认、成员撤权 UI 已接入。\n- [ ] Flutter 协作页面 widget tests、错误态/空态/分页和最新 exact-head CI。
+- [x] Flutter 协作发布表单、贡献选择、授权确认、成员撤权 UI 已接入。\n- [ ] Flutter 协作页面专属 widget tests、错误态/空态/分页及成员离开/归档交互。\n- [x] exact-head CI（commit bc937df8）：backend 68 passed / 11 skipped；PostgreSQL migrations 001–005、并发测试、Flutter test/analyze、Android APK、Web Release 全部通过。
 
 ### Sprint 3 — 创意宇宙
 - [ ] 设计并实现 bounded recursive graph API：默认上下游 2 层，最大 3 层，节点数上限和截断标记。
@@ -542,6 +542,13 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 贡献提交/编辑接入现有审核服务；贡献者视图隐藏其他人的贡献 ID 和活动事件。
 - [x] Flutter 增加协作成果发布表单，允许选择已采纳贡献、范围、授权、后续衍生开关及 custom 条款确认。
 - [x] 新增 HTTP 测试覆盖 custom 授权未确认时拒绝、确认后发布成功、版本/多父关系/贡献署名快照。
-- [ ] Migration 005、全量后端测试、Flutter test/analyze/build 的 exact-head CI 仍待完成；不得提前标记通过。
+- [x] Migration 005、全量后端测试、Flutter test/analyze/build exact-head CI 已通过（commit bc937df8；workflow run 45032631392）。
 - [ ] PostgreSQL 双会话并发：协作发布 vs 来源撤回、协作成员撤权 vs 贡献写入、协作审核 vs 提案编辑。
 - [ ] 生产 migrations 001–005 未执行；生产 DB 未连接。
+
+
+### 14.2 Sprint 2 验证结论（2026-11-22）
+
+- [x] GitHub Actions exact-head CI 全绿：backend 68 passed / 11 skipped；PostgreSQL migrations 001–005 success；PostgreSQL version + collaboration concurrency success；Flutter test/analyze、Android Debug APK、Web Release success。
+- [ ] Sprint 2 剩余：协作专属 widget tests、邀请用户搜索/选择体验、成员主动离开与空间归档操作。完成后再关闭 Sprint 2。
+- [ ] 生产迁移和部署仍未执行；PR #2 保持 Open，不合并 main。
