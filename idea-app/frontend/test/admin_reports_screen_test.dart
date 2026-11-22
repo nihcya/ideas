@@ -59,7 +59,7 @@ void main() {
     await tester.tap(find.text('处理'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.tap(find.byType(DropdownButtonFormField<String>).last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('已处理').last);
     await tester.pumpAndSettle();
