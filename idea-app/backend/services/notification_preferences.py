@@ -8,7 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models import Notification, NotificationPreference
 
 NOTIFICATION_TYPES = {
-    "fork_received": "有人基于你的创意进行了衍生",
+    "forked": "有人基于你的创意进行了衍生",
+    "collected": "有人收藏了你的创意",
+    "spark_updated": "灵感状态已更新",
     "collab_published": "协作空间发布了最终成果",
 }
 
