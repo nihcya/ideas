@@ -253,7 +253,8 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
             "004_collaborations",
             "005_collaboration_attribution",
             "006_idea_associations",
-            "007_collaboration_member_leave",
+            "007_notification_preferences",
+            "008_collaboration_member_leave",
         }
         collab_id = uuid.uuid4()
         await conn.execute(
