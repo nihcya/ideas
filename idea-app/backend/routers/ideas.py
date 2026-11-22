@@ -598,7 +598,7 @@ async def decline_private_idea_invite(
             IdeaAccessGrant.idea_id == idea_id,
             IdeaAccessGrant.user_id == user.id,
             IdeaAccessGrant.status == "pending",
-        )
+        ).with_for_update()
     )
     grant = result.scalar_one_or_none()
     if grant is None:
@@ -616,7 +616,7 @@ async def invite_to_private_idea(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Idea).where(Idea.id == idea_id))
+    result = await db.execute(select(Idea).where(Idea.id == idea_id).with_for_update())
     idea = result.scalar_one_or_none()
     if idea is None or idea.author_id != user.id:
         raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "点子不存在"}})
@@ -636,7 +636,7 @@ async def invite_to_private_idea(
         select(IdeaAccessGrant).where(
             IdeaAccessGrant.idea_id == idea.id,
             IdeaAccessGrant.user_id == invitee_id,
-        )
+        ).with_for_update()
     )
     grant = grant_result.scalar_one_or_none()
     if grant and grant.status in ("pending", "accepted"):
