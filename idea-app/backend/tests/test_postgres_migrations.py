@@ -221,6 +221,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
             "001_idea_visibility_and_acl",
             "002_idea_contributions",
             "003_idea_versions_and_attribution",
+            "004_collaborations",
         }
     finally:
         # Ensure cleanup can run even if an unexpected SQL assertion left the
