@@ -71,6 +71,30 @@ def _contribution_payload(item: CollaborationContribution):
     }
 
 
+@router.get("")
+async def list_my_collaborations(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Collaboration, CollaborationMember.role)
+        .join(CollaborationMember, CollaborationMember.collaboration_id == Collaboration.id)
+        .where(
+            CollaborationMember.user_id == user.id,
+            CollaborationMember.status == "accepted",
+        )
+        .order_by(Collaboration.created_at.desc())
+        .limit(100)
+    )
+    return {"items": [
+        {"id": str(row.Collaboration.id), "title": row.Collaboration.title,
+         "description": row.Collaboration.description, "status": row.Collaboration.status,
+         "visibility": row.Collaboration.visibility, "owner_id": str(row.Collaboration.owner_id),
+         "member_role": row.role}
+        for row in result.all()
+    ]}
+
+
 @router.post("", status_code=201)
 async def create_collaboration(
     payload: CollaborationCreate,
