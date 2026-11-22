@@ -280,7 +280,7 @@ Pending members cannot read workspace. Viewer members cannot submit, edit, withd
 
 ## Idea Universe APIs (Sprint 3)
 
-- GET /ideas/{idea_id}/graph — bounded BFS traversal of strict parent→child lineage plus optional Inspired edges; default depth 2, max depth 3, max 100 nodes and 300 edges. ACL is checked server-side for every node. Restricted upstream ancestors use opaque non-navigable placeholders with sanitized frozen attribution; private descendants/associations are omitted.
+- GET /ideas/search?q=&limit= — ACL-safe text search for public or currently accessible Ideas; max 50 results.\n- GET /ideas/{idea_id}/graph — bounded BFS traversal of strict parent→child lineage plus optional Inspired edges; default depth 2, max depth 3, max 100 nodes and 300 edges. ACL is checked server-side for every node. Restricted upstream ancestors use opaque non-navigable placeholders with sanitized frozen attribution; private descendants/associations are omitted.
 - POST /ideas/{target_idea_id}/associations — target owner records an Inspired association from a viewable source Idea. Self-links are rejected, duplicate pair returns 409. Inspired is not ForkRelation and grants no derivative rights.
 - DELETE /ideas/{target_idea_id}/associations/{association_id} — target-owner deletion.
 
