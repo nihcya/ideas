@@ -364,3 +364,10 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 新增重复 contribution_id 的版本草稿测试，确认请求返回 422，且请求事务回滚后不残留草稿。
 - [ ] 静态契约测试不等于 PostgreSQL 真实执行；仍需在隔离 PostgreSQL 16 测试库验证 001→002→003、重复执行保护、回滚与约束行为。
 - [ ] 当前没有连接生产数据库；migrations 001/002/003 未执行。
+### 13.18 PostgreSQL 16 迁移集成测试（2026-11-22）
+
+- [x] 新增 `test_postgres_migrations.py`：在隔离数据库中创建最小旧版基础表，按 001→002→003 顺序真实执行 SQL。
+- [x] 验证 active Idea 的历史公开回填、draft Idea 保持 private、三个 migration marker、版本号唯一约束和贡献署名单次归属约束。
+- [x] GitHub Actions 新增 `postgres-migrations` job，使用一次性 PostgreSQL 16 service container；不连接生产数据库。
+- [ ] 新增 PostgreSQL job 的首次 CI 结果待确认。该 job 成功后可证明迁移在该测试基线可执行，但仍不替代生产备份、数据预检查和发布审批。
+- [ ] 生产 migrations 001/002/003 仍未执行。
