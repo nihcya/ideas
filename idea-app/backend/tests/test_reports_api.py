@@ -8,6 +8,7 @@ from config import settings
 from deps import get_current_user, get_db
 from main import app
 from models import User, Idea, IdeaReport
+from services.cache import cache
 
 
 async def _user(db, username):
@@ -57,6 +58,10 @@ async def test_report_submission_admin_review_and_hide_public_idea(db_session, m
     app.dependency_overrides[get_db] = override_db
     app.dependency_overrides[get_current_user] = override_user
     monkeypatch.setattr(settings, "admin_user_ids", "")
+    async def noop(*args, **kwargs):
+        return None
+    monkeypatch.setattr(cache, "delete_pattern", noop)
+    monkeypatch.setattr(cache, "delete", noop)
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as client:
             submitted = await client.post(
