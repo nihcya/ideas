@@ -162,7 +162,8 @@ async def test_collaboration_publish_atomically_creates_idea_version_lineage_and
         border_style="gold-thin",
         publication_status="published",
         visibility="public",
-        license_code="attribution_adaptation",
+        license_code="custom",
+        license_text_snapshot="允许署名改编，需保留本授权说明",
         license_version="v1",
         allow_fork=True,
         is_forkable=True,
@@ -223,7 +224,7 @@ async def test_collaboration_publish_atomically_creates_idea_version_lineage_and
             )
             assert reviewed.status_code == 200
 
-            published = await client.post(f"/api/collaborations/{workspace_id}/publish", json={
+            publish_payload = {
                 "content": "面向社区的多人创意共创方案",
                 "change_summary": "整合协作者研究建议",
                 "visibility": "public",
@@ -232,7 +233,15 @@ async def test_collaboration_publish_atomically_creates_idea_version_lineage_and
                 "allow_fork": True,
                 "confirm_terms": True,
                 "accepted_contribution_ids": [contribution_id],
-            })
+            }
+            missing_custom_ack = await client.post(
+                f"/api/collaborations/{workspace_id}/publish", json=publish_payload
+            )
+            assert missing_custom_ack.status_code == 422
+            assert missing_custom_ack.json()["detail"]["error"]["code"] == "CUSTOM_LICENSE_CONFIRMATION_REQUIRED"
+
+            publish_payload["confirm_custom_licenses"] = True
+            published = await client.post(f"/api/collaborations/{workspace_id}/publish", json=publish_payload)
             assert published.status_code == 201
             payload = published.json()
             output_id = payload["idea_id"]
@@ -251,7 +260,8 @@ async def test_collaboration_publish_atomically_creates_idea_version_lineage_and
                 select(ForkRelation).where(ForkRelation.child_id == output.id)
             )).scalar_one()
             assert relation.parent_id == source.id
-            assert relation.license_snapshot["rights_chain"][0]["license_code"] == "attribution_adaptation"
+            assert relation.license_snapshot["rights_chain"][0]["license_code"] == "custom"
+            assert relation.license_snapshot["custom_license_acknowledgement"]["acknowledged"] is True
 
             bridge = (await db_session.execute(
                 select(IdeaContribution).where(
