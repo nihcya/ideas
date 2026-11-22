@@ -550,7 +550,7 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 ### 14.2 Sprint 2 验证结论（2026-11-22）
 
 - [x] GitHub Actions exact-head CI 全绿：backend 68 passed / 11 skipped；PostgreSQL migrations 001–005 success；PostgreSQL version + collaboration concurrency success；Flutter test/analyze、Android Debug APK、Web Release success。
-- [ ] Sprint 2 剩余：协作专属 widget tests、邀请用户搜索/选择体验、成员主动离开与空间归档操作。完成后再关闭 Sprint 2。
+- [x] Sprint 2 邀请用户搜索/选择、成员主动离开、空间归档后端 API 和 Flutter 操作已实现；协作专属 widget tests 已新增，等待 exact-head CI。\n- [ ] Sprint 2 PostgreSQL 双会话并发：accept-vs-revoke、review-vs-edit、leave/archive-vs-write 专项覆盖及 Flutter widget tests CI 通过后关闭 Sprint 2。
 - [ ] 生产迁移和部署仍未执行；PR #2 保持 Open，不合并 main。
 
 
@@ -600,3 +600,15 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] Flutter test、analyze、Android Debug APK、Web Release build 全部通过。
 - [x] Idea Universe 递归图谱、Inspired 独立关系、ACL 隐私、节点按需展开、搜索和 Inspired picker 测试通过。
 - [ ] 后续 Sprint 4 继续完成 Explore 筛选排序、通知偏好、治理与安全发布工作。
+
+### 14.3 Sprint 2 — 成员管理闭环补齐（2026-11-22）
+
+- [x] 新增 owner-only GET /api/collaborations/{id}/members/search：按用户名模糊搜索，排除空间 owner、已邀请和已加入成员，仅返回 user_id/username；非 owner 不可枚举用户候选。
+- [x] Flutter 邀请成员从手动输入用户 ID 改为搜索并选择用户名；pending invite 在接受前仍不授予访问权。
+- [x] 新增成员主动离开 API；使用独立 left 状态和 member_left 事件，workspace 行锁与写操作统一锁顺序，离开后访问立即返回 404。
+- [x] 新增 owner-only 空间归档 API；归档后 workspace 只读，历史贡献和事件保留，归档操作幂等。
+- [x] 新增 Migration 007 007_collaboration_member_leave.sql，将 left 纳入 PostgreSQL member status 约束；SQLite ORM metadata 同步更新。
+- [x] 新增后端 API 测试覆盖候选搜索权限、已邀请成员排除、成员离开撤权、owner 不可离开、归档幂等及归档后写入拒绝。
+- [x] 新增 Flutter widget tests 覆盖邀请搜索/选择和归档状态 UI。
+- [ ] Migration 007 的 PostgreSQL 16 exact-head 验证和 Flutter widget test/analyze/build exact-head CI 待完成。
+- [ ] 补充 accept-vs-revoke、review-vs-edit、leave/archive-vs-write 的 PostgreSQL 双会话竞争测试；通过后关闭 Sprint 2。
