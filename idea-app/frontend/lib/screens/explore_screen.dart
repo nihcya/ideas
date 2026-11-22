@@ -69,6 +69,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         title: const Text('点子'),
         actions: [
           IconButton(
+            tooltip: '发现创作者',
+            icon: const Icon(Icons.people_alt_outlined),
+            onPressed: () => context.push('/creators'),
+          ),
+          IconButton(
             tooltip: '筛选和排序',
             icon: Icon(
               Icons.filter_list,
