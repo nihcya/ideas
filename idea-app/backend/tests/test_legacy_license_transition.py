@@ -76,7 +76,7 @@ async def test_daily_transition_sends_one_reminder_and_expires_overdue_ideas(db_
     )).scalars().all()
     assert len(reminders) == 1
     assert reminders[0].idea_id == due_soon.id
-    assert await can_derive_from_idea(db_session, overdue) is False
+    assert await can_derive_from_idea(db_session, overdue, author.id) is False
 
     second_run = await process_legacy_license_deadlines(
         db_session, now=now + timedelta(days=1)
