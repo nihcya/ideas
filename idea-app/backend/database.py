@@ -229,7 +229,7 @@ async def _seed_initial_data() -> None:
         await session.commit()
 
 
-async def _migrate_sqlite_columns() -> None:
+async def _migrate_sqlite_columns(target_engine=None) -> None:
     """SQLite 轻量迁移：检测并补充新列。
 
     SQLAlchemy create_all 只对不存在的表生效，已存在的表不会 ALTER。
@@ -255,7 +255,7 @@ async def _migrate_sqlite_columns() -> None:
         # and a unique index preserves single-use attribution semantics.
         ("idea_contributions", "source_collaboration_contribution_id", "CHAR(32)"),
     ]
-    async with engine.begin() as conn:
+    async with (target_engine or engine).begin() as conn:
         for table, column, ddl in migrations:
             # 检查列是否存在
             res = await conn.execute(text(f"PRAGMA table_info({table})"))
