@@ -908,6 +908,7 @@ async def withdraw_idea_contribution(
     user: User = Depends(get_current_user),
 ):
     await _get_private_collaboration_idea(db, idea_id)
+    await _require_accepted_contributor(db, idea_id, user.id)
     result = await db.execute(
         select(IdeaContribution).where(
             IdeaContribution.id == contribution_id,
