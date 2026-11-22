@@ -21,6 +21,7 @@ import '../screens/idea_versions_screen.dart';
 import '../screens/fork_guide_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../screens/settings_screen.dart';
+import '../screens/admin_reports_screen.dart';
 import '../screens/auth_screen.dart';
 import '../providers/auth_provider.dart';
 
@@ -196,6 +197,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/notifications',
         name: 'notifications',
         builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/reports',
+        name: 'adminReports',
+        builder: (context, state) => const AdminReportsScreen(),
       ),
       GoRoute(
         path: '/settings',
