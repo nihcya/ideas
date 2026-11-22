@@ -6,7 +6,6 @@ workspace invitation never grants access to a private source Idea.
 from __future__ import annotations
 
 import uuid
-from uuid import UUID
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -217,7 +216,7 @@ async def create_collaboration(
 @limiter.limit(DEFAULT_LIMIT)
 async def search_collaboration_members(
     request: Request,
-    collaboration_id: UUID,
+    collaboration_id: str,
     q: str = Query(..., min_length=2, max_length=80),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -226,12 +225,16 @@ async def search_collaboration_members(
     query = q.strip()
     if len(query) < 2:
         raise _error(422, "SEARCH_QUERY_TOO_SHORT", "搜索词至少需要 2 个字符")
-    workspace = await db.get(Collaboration, collaboration_id)
+    try:
+        collaboration_uuid = uuid.UUID(collaboration_id)
+    except ValueError:
+        raise _error(404, "COLLABORATION_NOT_FOUND", "协作空间不存在或无权邀请成员")
+    workspace = await db.get(Collaboration, collaboration_uuid)
     if workspace is None or workspace.owner_id != user.id or workspace.status != "draft":
         raise _error(404, "COLLABORATION_NOT_FOUND", "协作空间不存在或无权邀请成员")
 
     existing_members = select(CollaborationMember.user_id).where(
-        CollaborationMember.collaboration_id == collaboration_id,
+        CollaborationMember.collaboration_id == collaboration_uuid,
         CollaborationMember.status.in_(["pending", "accepted"]),
     )
     result = await db.execute(
