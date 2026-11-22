@@ -12,8 +12,10 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from models import Base, User, Idea, IdeaVersion, IdeaContribution, IdeaVersionContribution
+from models import Base, User, Idea, IdeaVersion, IdeaContribution, IdeaVersionContribution, IdeaAccessGrant
 from routers import idea_versions as versions_router
+from routers import ideas as ideas_router
+from schemas.idea import IdeaContributionUpdate, IdeaContributionReview
 from routers.idea_versions import VersionDraftCreate, VersionDraftUpdate
 
 
@@ -398,6 +400,234 @@ async def test_concurrent_update_and_publish_same_draft_are_serialized(monkeypat
                 )
             )
             assert draft_count == 0
+    finally:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_contribution_review_and_edit_are_serialized(monkeypatch):
+    """Review and contributor edit serialize on the contribution row."""
+    dsn = os.getenv("IDEAS_VERSION_CONCURRENCY_TEST_DSN")
+    if not dsn:
+        pytest.skip("IDEAS_VERSION_CONCURRENCY_TEST_DSN is not configured")
+    if dsn.startswith("postgresql://"):
+        dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    async def allow_audit(*args, **kwargs):
+        return True, ""
+
+    async def noop_audit_log(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(ideas_router, "audit_content", allow_audit)
+    monkeypatch.setattr(ideas_router, "write_audit_log", noop_audit_log)
+
+    engine = create_async_engine(dsn, pool_size=5, max_overflow=0)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+
+        owner_id, contributor_id = uuid.uuid4(), uuid.uuid4()
+        idea_id, contribution_id, grant_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+        async with sessions() as seed:
+            seed.add_all([
+                User(id=owner_id, username=f"pgo_{uuid.uuid4().hex[:10]}", password_hash="test-only"),
+                User(id=contributor_id, username=f"pgc_{uuid.uuid4().hex[:10]}", password_hash="test-only"),
+            ])
+            await seed.flush()
+            seed.add(Idea(
+                id=idea_id,
+                content="协作贡献并发测试",
+                color_hex="#123456",
+                source="ugc",
+                author_id=owner_id,
+                border_style="gold-thin",
+                publication_status="draft",
+                visibility="private",
+                status="active",
+            ))
+            await seed.flush()
+            seed.add(IdeaAccessGrant(
+                id=grant_id,
+                idea_id=idea_id,
+                user_id=contributor_id,
+                role="contributor",
+                status="accepted",
+                invited_by=owner_id,
+            ))
+            seed.add(IdeaContribution(
+                id=contribution_id,
+                idea_id=idea_id,
+                author_id=contributor_id,
+                content="审核前的原始贡献",
+                status="submitted",
+            ))
+            await seed.commit()
+
+        async def edit():
+            async with sessions() as session:
+                contributor = await session.get(User, contributor_id)
+                try:
+                    result = await ideas_router.update_idea_contribution(
+                        idea_id,
+                        contribution_id,
+                        IdeaContributionUpdate(content="并发编辑后的贡献"),
+                        session,
+                        contributor,
+                    )
+                    return ("updated", result["status"])
+                except HTTPException as exc:
+                    await session.rollback()
+                    return ("http_error", exc.status_code)
+
+        async def review():
+            async with sessions() as session:
+                owner = await session.get(User, owner_id)
+                try:
+                    result = await ideas_router.review_idea_contribution(
+                        idea_id,
+                        contribution_id,
+                        IdeaContributionReview(decision="accepted"),
+                        session,
+                        owner,
+                    )
+                    return ("reviewed", result["status"])
+                except HTTPException as exc:
+                    await session.rollback()
+                    return ("http_error", exc.status_code)
+
+        edit_outcome, review_outcome = await asyncio.gather(edit(), review())
+        assert review_outcome == ("reviewed", "accepted")
+        assert edit_outcome in (
+            ("updated", "submitted"),
+            ("http_error", 404),
+        )
+
+        async with sessions() as verify:
+            contribution = await verify.get(IdeaContribution, contribution_id)
+            assert contribution.status == "accepted"
+            assert contribution.reviewed_by == owner_id
+            assert contribution.reviewed_at is not None
+            if edit_outcome[0] == "updated":
+                assert contribution.content == "并发编辑后的贡献"
+            else:
+                assert contribution.content == "审核前的原始贡献"
+    finally:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_contribution_edit_and_invite_revocation_are_serialized(monkeypatch):
+    """An edit either commits before revocation or is denied after revocation."""
+    dsn = os.getenv("IDEAS_VERSION_CONCURRENCY_TEST_DSN")
+    if not dsn:
+        pytest.skip("IDEAS_VERSION_CONCURRENCY_TEST_DSN is not configured")
+    if dsn.startswith("postgresql://"):
+        dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    async def allow_audit(*args, **kwargs):
+        return True, ""
+
+    async def noop_audit_log(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(ideas_router, "audit_content", allow_audit)
+    monkeypatch.setattr(ideas_router, "write_audit_log", noop_audit_log)
+    monkeypatch.setattr(ideas_router.cache, "delete", noop_audit_log)
+
+    engine = create_async_engine(dsn, pool_size=5, max_overflow=0)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+
+        owner_id, contributor_id = uuid.uuid4(), uuid.uuid4()
+        idea_id, contribution_id, grant_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+        async with sessions() as seed:
+            seed.add_all([
+                User(id=owner_id, username=f"pgo_{uuid.uuid4().hex[:10]}", password_hash="test-only"),
+                User(id=contributor_id, username=f"pgc_{uuid.uuid4().hex[:10]}", password_hash="test-only"),
+            ])
+            await seed.flush()
+            seed.add(Idea(
+                id=idea_id,
+                content="撤销邀请并发测试",
+                color_hex="#123456",
+                source="ugc",
+                author_id=owner_id,
+                border_style="gold-thin",
+                publication_status="draft",
+                visibility="private",
+                status="active",
+            ))
+            await seed.flush()
+            seed.add(IdeaAccessGrant(
+                id=grant_id,
+                idea_id=idea_id,
+                user_id=contributor_id,
+                role="contributor",
+                status="accepted",
+                invited_by=owner_id,
+            ))
+            seed.add(IdeaContribution(
+                id=contribution_id,
+                idea_id=idea_id,
+                author_id=contributor_id,
+                content="撤权前的贡献",
+                status="submitted",
+            ))
+            await seed.commit()
+
+        async def edit():
+            async with sessions() as session:
+                contributor = await session.get(User, contributor_id)
+                try:
+                    result = await ideas_router.update_idea_contribution(
+                        idea_id,
+                        contribution_id,
+                        IdeaContributionUpdate(content="撤权竞争中的编辑"),
+                        session,
+                        contributor,
+                    )
+                    return ("updated", result["status"])
+                except HTTPException as exc:
+                    await session.rollback()
+                    return ("http_error", exc.status_code)
+
+        async def revoke():
+            async with sessions() as session:
+                owner = await session.get(User, owner_id)
+                try:
+                    result = await ideas_router.revoke_private_idea_invite(
+                        idea_id, grant_id, session, owner
+                    )
+                    return ("revoked", result["revoked"])
+                except HTTPException as exc:
+                    await session.rollback()
+                    return ("http_error", exc.status_code)
+
+        edit_outcome, revoke_outcome = await asyncio.gather(edit(), revoke())
+        assert revoke_outcome == ("revoked", True)
+        assert edit_outcome in (
+            ("updated", "submitted"),
+            ("http_error", 403),
+        )
+
+        async with sessions() as verify:
+            grant = await verify.get(IdeaAccessGrant, grant_id)
+            contribution = await verify.get(IdeaContribution, contribution_id)
+            assert grant.status == "revoked"
+            if edit_outcome[0] == "updated":
+                assert contribution.content == "撤权竞争中的编辑"
+            else:
+                assert contribution.content == "撤权前的贡献"
     finally:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
