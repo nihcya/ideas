@@ -129,6 +129,7 @@ async def get_notifications(
             content=n.content,
             idea_id=str(n.idea_id) if n.idea_id else None,
             actor_id=str(n.actor_id) if n.actor_id else None,
+            collaboration_id=str(n.collaboration_id) if n.collaboration_id else None,
             created_at=n.created_at,
             read=n.read,
         )
