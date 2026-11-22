@@ -2,6 +2,7 @@
 import uuid
 import pytest
 from sqlalchemy import select, func
+from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
 
 from deps import get_current_user, get_db
@@ -349,7 +350,7 @@ async def test_collaboration_publish_uses_intersection_of_all_parent_rights(db_s
         return True, ""
 
     monkeypatch.setattr(collaborations_router, "audit_content", allow_audit)
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(HTTPException) as exc:
         await collaborations_router.publish_collaboration(
             workspace.id,
             CollaborationPublish(
