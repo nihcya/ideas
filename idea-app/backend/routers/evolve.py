@@ -21,7 +21,7 @@ from services.deepseek_client import (
     call_collide_ai, call_evolve_ai, SAMPER_ANGLES,
 )
 from services.rate_limit import limiter, AI_LIMIT
-from services.idea_access import can_view_idea, can_derive_from_idea
+from services.idea_access import can_view_idea, can_derive_from_idea, build_derivation_snapshot
 
 router = APIRouter(prefix="/ideas", tags=["evolve"])
 
@@ -89,12 +89,22 @@ async def collide_confirm(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    # 确认阶段重新加载并校验两个来源，不能信任此前 AI 预览时的权限状态。
-    parents = []
-    for pid in [req.idea_a_id, req.idea_b_id]:
-        result = await db.execute(select(Idea).where(Idea.id == uuid.UUID(pid)))
+    # Lock both sources in deterministic order and re-check rights at confirmation.
+    parent_ids = [uuid.UUID(req.idea_a_id), uuid.UUID(req.idea_b_id)]
+    if parent_ids[0] == parent_ids[1]:
+        raise HTTPException(status_code=422, detail={"error": {"code": "DUPLICATE_SOURCE", "message": "碰撞需要选择两个不同的来源创意"}})
+    locked_parents = {}
+    for pid in sorted(parent_ids, key=str):
+        result = await db.execute(select(Idea).where(Idea.id == pid).with_for_update())
         parent = result.scalar_one_or_none()
-        if parent is None or not await can_view_idea(db, parent, user.id):
+        if parent is None:
+            raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "来源创意不存在"}})
+        locked_parents[pid] = parent
+
+    parents = []
+    for pid in parent_ids:
+        parent = locked_parents[pid]
+        if not await can_view_idea(db, parent, user.id):
             raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "来源创意不存在"}})
         if not await can_derive_from_idea(db, parent, user.id):
             raise HTTPException(status_code=403, detail={"error": {"code": "DERIVATIVE_NOT_ALLOWED", "message": "来源创意授权不允许碰撞衍生"}})
@@ -126,14 +136,7 @@ async def collide_confirm(
             child_id=new_idea.id,
             parent_id=parent.id,
             relation_type="merge",
-            license_snapshot={
-                "license_code": parent.license_code,
-                "license_text_snapshot": parent.license_text_snapshot,
-                "license_version": parent.license_version,
-                "source_author_id": str(parent.author_id) if parent.author_id else None,
-                "captured_at": datetime.now(timezone.utc).isoformat(),
-                "allow_fork": parent.allow_fork,
-            },
+            license_snapshot=await build_derivation_snapshot(db, parent),
         )
         db.add(relation)
 
@@ -204,7 +207,9 @@ async def evolve_confirm(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Idea).where(Idea.id == uuid.UUID(req.parent_id)))
+    result = await db.execute(
+        select(Idea).where(Idea.id == uuid.UUID(req.parent_id)).with_for_update()
+    )
     parent = result.scalar_one_or_none()
     if parent is None or not await can_view_idea(db, parent, user.id):
         raise HTTPException(status_code=404, detail={"error": {"code": "NOT_FOUND", "message": "原点子不存在"}})
@@ -237,14 +242,7 @@ async def evolve_confirm(
         parent_id=parent.id,
         relation_type="evolve",
         angle=req.angle,
-        license_snapshot={
-            "license_code": parent.license_code,
-            "license_text_snapshot": parent.license_text_snapshot,
-            "license_version": parent.license_version,
-            "source_author_id": str(parent.author_id) if parent.author_id else None,
-            "captured_at": datetime.now(timezone.utc).isoformat(),
-            "allow_fork": parent.allow_fork,
-        },
+        license_snapshot=await build_derivation_snapshot(db, parent),
     )
     db.add(relation)
 
