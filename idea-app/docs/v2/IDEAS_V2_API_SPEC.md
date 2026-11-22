@@ -312,3 +312,12 @@ See IDEAS_V2_SPRINT3_UNIVERSE_SPEC.md for traversal, privacy and edge contracts.
 - POST /reports/admin/{report_id}/review — allowlisted moderators only; status transitions to in_review/resolved/dismissed; terminal reports cannot be processed again.
 - A resolved report may set hide_idea=true. This changes the Idea to a private draft, disables further derivation, invalidates Explore and detail caches, and records the action in SecurityEvent.
 - Admin authorization is controlled by server-only IDEAS_ADMIN_USER_IDS (comma-separated UUIDs). Empty/invalid allowlists deny all moderation access. No client endpoint can grant admin status.
+
+
+## Creator follow graph (Sprint 4)
+
+- POST /users/{user_id}/follow — authenticated follow; self-follow is rejected and repeated follows are idempotent.
+- DELETE /users/{user_id}/follow — authenticated unfollow; repeated unfollows are idempotent.
+- GET /users/{user_id}/followers and GET /users/{user_id}/following — paginated public username/bio lists only.
+- GET /users/{user_id} now includes followers/following counts, is_following and is_self.
+- Migration 011 creates the unique follower/following pair and forbids self-follow at database level.
