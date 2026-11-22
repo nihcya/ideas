@@ -252,7 +252,7 @@ async def test_collaboration_publish_atomically_creates_idea_version_lineage_and
             assert output.visibility == "public"
             assert output.allow_fork is True
 
-            version = await db_session.get(IdeaVersion, payload["version_id"])
+            version = await db_session.get(IdeaVersion, uuid.UUID(payload["version_id"]))
             assert version is not None and version.status == "published"
             assert version.content_snapshot == output.content
 
