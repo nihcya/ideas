@@ -9,7 +9,8 @@ from sqlalchemy import select
 from models import User, Idea, ForkRelation
 from routers import ideas as ideas_router
 from routers import evolve as evolve_router
-from schemas.idea import IdeaForkRequest, CollideConfirmRequest, IdeaPublishRequest\nfrom services.idea_access import get_effective_rights_chain
+from schemas.idea import IdeaForkRequest, CollideConfirmRequest, IdeaPublishRequest
+from services.idea_access import get_effective_rights_chain
 
 
 async def _public_source(db, username="derivation_owner"):
