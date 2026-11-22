@@ -148,7 +148,11 @@ async def collide_confirm(
             child_id=new_idea.id,
             parent_id=parent.id,
             relation_type="merge",
-            license_snapshot=await build_derivation_snapshot(\n                db, parent,\n                custom_license_acknowledged=req.confirm_custom_licenses,\n                acknowledged_by=user.id,\n            ),
+            license_snapshot=await build_derivation_snapshot(
+                db, parent,
+                custom_license_acknowledged=req.confirm_custom_licenses,
+                acknowledged_by=user.id,
+            ),
         )
         db.add(relation)
 
@@ -265,7 +269,11 @@ async def evolve_confirm(
         parent_id=parent.id,
         relation_type="evolve",
         angle=req.angle,
-        license_snapshot=await build_derivation_snapshot(\n            db, parent,\n            custom_license_acknowledged=req.confirm_custom_licenses,\n            acknowledged_by=user.id,\n        ),
+        license_snapshot=await build_derivation_snapshot(
+            db, parent,
+            custom_license_acknowledged=req.confirm_custom_licenses,
+            acknowledged_by=user.id,
+        ),
     )
     db.add(relation)
 
