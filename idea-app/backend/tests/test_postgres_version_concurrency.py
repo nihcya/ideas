@@ -12,10 +12,10 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from models import Base, User, Idea, IdeaVersion, IdeaContribution, IdeaVersionContribution, IdeaAccessGrant
+from models import Base, User, Idea, IdeaVersion, IdeaContribution, IdeaVersionContribution, IdeaAccessGrant, ForkRelation
 from routers import idea_versions as versions_router
 from routers import ideas as ideas_router
-from schemas.idea import IdeaContributionUpdate, IdeaContributionReview
+from schemas.idea import IdeaContributionUpdate, IdeaContributionReview, IdeaForkRequest
 from routers.idea_versions import VersionDraftCreate, VersionDraftUpdate
 
 
@@ -629,6 +629,124 @@ async def test_concurrent_contribution_edit_and_invite_revocation_are_serialized
             else:
                 assert contribution.content == "撤权前的贡献"
     finally:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_fork_and_source_unpublish_are_serialized(monkeypatch):
+    """A fork must commit before unpublish, or fail after unpublish; never after rights expire."""
+    dsn = os.getenv("IDEAS_VERSION_CONCURRENCY_TEST_DSN")
+    if not dsn:
+        pytest.skip("IDEAS_VERSION_CONCURRENCY_TEST_DSN is not configured")
+    if dsn.startswith("postgresql://"):
+        dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+    audit_entered = asyncio.Event()
+    allow_fork_to_finish = asyncio.Event()
+    unpublish_started = asyncio.Event()
+
+    async def blocked_audit(*args, **kwargs):
+        audit_entered.set()
+        await allow_fork_to_finish.wait()
+        return True, ""
+
+    async def noop(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(ideas_router, "audit_content", blocked_audit)
+    monkeypatch.setattr(ideas_router.cache, "delete_pattern", noop)
+    monkeypatch.setattr(ideas_router.cache, "delete", noop)
+
+    engine = create_async_engine(dsn, pool_size=5, max_overflow=0)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+
+        owner_id, forker_id, source_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+        async with sessions() as seed:
+            seed.add_all([
+                User(id=owner_id, username=f"pgo_{uuid.uuid4().hex[:10]}", password_hash="test-only"),
+                User(id=forker_id, username=f"pgf_{uuid.uuid4().hex[:10]}", password_hash="test-only"),
+            ])
+            await seed.flush()
+            seed.add(Idea(
+                id=source_id,
+                content="并发撤回测试的公开来源",
+                color_hex="#123456",
+                source="ugc",
+                author_id=owner_id,
+                border_style="gold-thin",
+                publication_status="published",
+                visibility="public",
+                license_code="attribution_adaptation",
+                license_version="v1",
+                allow_fork=True,
+                is_forkable=True,
+                legacy_license_review_status="confirmed",
+                status="active",
+            ))
+            await seed.commit()
+
+        async def fork():
+            async with sessions() as session:
+                forker = await session.get(User, forker_id)
+                try:
+                    result = await ideas_router.fork_idea(
+                        IdeaForkRequest(
+                            parent_id=str(source_id),
+                            content="在来源撤回前已经开始的衍生创意",
+                        ),
+                        session,
+                        forker,
+                    )
+                    return ("forked", result.id)
+                except HTTPException as exc:
+                    await session.rollback()
+                    return ("http_error", exc.status_code)
+
+        async def unpublish():
+            async with sessions() as session:
+                owner = await session.get(User, owner_id)
+                unpublish_started.set()
+                try:
+                    await ideas_router.unpublish_idea(source_id, session, owner)
+                    return ("unpublished", True)
+                except HTTPException as exc:
+                    await session.rollback()
+                    return ("http_error", exc.status_code)
+
+        fork_task = asyncio.create_task(fork())
+        await asyncio.wait_for(audit_entered.wait(), timeout=10)
+        unpublish_task = asyncio.create_task(unpublish())
+        await asyncio.wait_for(unpublish_started.wait(), timeout=10)
+        await asyncio.sleep(0.05)
+        assert not unpublish_task.done(), "unpublish must wait for the in-flight derivation lock"
+
+        allow_fork_to_finish.set()
+        fork_outcome, unpublish_outcome = await asyncio.gather(fork_task, unpublish_task)
+        assert fork_outcome[0] == "forked"
+        assert unpublish_outcome == ("unpublished", True)
+
+        async with sessions() as verify:
+            source = await verify.get(Idea, source_id)
+            assert source.visibility == "private"
+            assert source.publication_status == "draft"
+            relation = await verify.scalar(
+                select(ForkRelation).where(
+                    ForkRelation.child_id == uuid.UUID(fork_outcome[1]),
+                    ForkRelation.parent_id == source_id,
+                )
+            )
+            assert relation is not None
+            assert relation.license_snapshot["source_author_name"] is not None
+            assert relation.license_snapshot["license_code"] == "attribution_adaptation"
+    finally:
+        if not allow_fork_to_finish.is_set():
+            allow_fork_to_finish.set()
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
         await engine.dispose()
