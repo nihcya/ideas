@@ -26,6 +26,7 @@ class _IdeaUniverseScreenState extends ConsumerState<IdeaUniverseScreen> {
   Map<String, dynamic>? _graph;
   int _requestGeneration = 0;
   final Set<String> _removingAssociations = <String>{};
+  final Set<String> _expandingNodes = <String>{};
 
   @override
   void initState() {
@@ -59,6 +60,83 @@ class _IdeaUniverseScreenState extends ConsumerState<IdeaUniverseScreen> {
       });
     }
   }
+
+  Future<void> _expandNode(Map<String, dynamic> node) async {
+    final nodeId = node['id'] as String?;
+    final baseDepth = (node['depth'] as num?)?.toInt() ?? 0;
+    if (nodeId == null ||
+        node['navigable'] != true ||
+        baseDepth >= 3 ||
+        _expandingNodes.contains(nodeId) ||
+        _graph == null) {
+      return;
+    }
+
+    setState(() => _expandingNodes.add(nodeId));
+    try {
+      final expanded = await ref.read(universeServiceProvider).getGraph(
+            nodeId,
+            depth: 1,
+            direction: _direction,
+            includeInspired: _includeInspired,
+          );
+      if (!mounted || _graph == null) return;
+
+      final mergedNodes = <String, Map<String, dynamic>>{
+        for (final raw in (_graph!['nodes'] as List<dynamic>? ?? []))
+          (raw as Map)['id'] as String: Map<String, dynamic>.from(raw),
+      };
+      final mergedEdges = <String, Map<String, dynamic>>{
+        for (final raw in (_graph!['edges'] as List<dynamic>? ?? []))
+          _edgeKey(Map<String, dynamic>.from(raw)): Map<String, dynamic>.from(raw),
+      };
+      var capped = _graph!['truncated'] == true;
+
+      for (final raw in (expanded['nodes'] as List<dynamic>? ?? [])) {
+        final item = Map<String, dynamic>.from(raw as Map);
+        final id = item['id'] as String;
+        if (id == nodeId || mergedNodes.containsKey(id)) continue;
+        if (mergedNodes.length >= 100) {
+          capped = true;
+          continue;
+        }
+        item['depth'] = baseDepth + ((item['depth'] as num?)?.toInt() ?? 1);
+        item['is_root'] = false;
+        mergedNodes[id] = item;
+      }
+
+      for (final raw in (expanded['edges'] as List<dynamic>? ?? [])) {
+        final item = Map<String, dynamic>.from(raw as Map);
+        final key = _edgeKey(item);
+        if (mergedEdges.containsKey(key)) continue;
+        if (mergedEdges.length >= 300) {
+          capped = true;
+          continue;
+        }
+        mergedEdges[key] = item;
+      }
+
+      setState(() {
+        _graph = {
+          ..._graph!,
+          'nodes': mergedNodes.values.toList(),
+          'edges': mergedEdges.values.toList(),
+          'truncated': capped || expanded['truncated'] == true,
+        };
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('展开失败：$error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _expandingNodes.remove(nodeId));
+    }
+  }
+
+  String _edgeKey(Map<String, dynamic> edge) =>
+      '${edge['type']}:${edge['id']}:${edge['source']}:${edge['target']}';
 
   @override
   void dispose() {
@@ -362,6 +440,12 @@ class _IdeaUniverseScreenState extends ConsumerState<IdeaUniverseScreen> {
                                   node['is_root'] != true
                               ? () => context.push('/idea/${node['id']}')
                               : null,
+                          onExpand: node['navigable'] == true &&
+                                  node['is_root'] != true &&
+                                  ((node['depth'] as num?)?.toInt() ?? 0) < 3
+                              ? () => _expandNode(node)
+                              : null,
+                          isExpanding: _expandingNodes.contains(node['id']),
                         ),
                       ),
                 ],
@@ -403,8 +487,15 @@ class _LegendDot extends StatelessWidget {
 class _UniverseNodeCard extends StatelessWidget {
   final Map<String, dynamic> node;
   final VoidCallback? onTap;
+  final VoidCallback? onExpand;
+  final bool isExpanding;
 
-  const _UniverseNodeCard({required this.node, required this.onTap});
+  const _UniverseNodeCard({
+    required this.node,
+    required this.onTap,
+    required this.onExpand,
+    required this.isExpanding,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -445,6 +536,20 @@ class _UniverseNodeCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (onExpand != null)
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: IconButton(
+                        tooltip: '展开此节点',
+                        padding: EdgeInsets.zero,
+                        iconSize: 16,
+                        onPressed: isExpanding ? null : onExpand,
+                        icon: isExpanding
+                            ? const CircularProgressIndicator(strokeWidth: 1.5)
+                            : const Icon(Icons.add_circle_outline),
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: 5),
