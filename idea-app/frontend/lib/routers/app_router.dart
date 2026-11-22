@@ -9,6 +9,7 @@ import '../screens/profile_screen.dart';
 import '../screens/public_user_profile_screen.dart';
 import '../screens/public_idea_timeline_screen.dart';
 import '../screens/idea_detail_screen.dart';
+import '../screens/collaboration_screen.dart';
 import '../screens/create_idea_screen.dart';
 import '../screens/publish_idea_screen.dart';
 import '../screens/idea_invites_screen.dart';
@@ -86,6 +87,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ProfileScreen(),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/collaborations',
+        name: 'collaborations',
+        builder: (context, state) => const CollaborationListScreen(),
+      ),
+      GoRoute(
+        path: '/collaborations/:id',
+        name: 'collaborationDetail',
+        builder: (context, state) => CollaborationDetailScreen(
+          collaborationId: state.pathParameters['id']!,
+        ),
       ),
       // 独立页面（push 跳转）
       GoRoute(
