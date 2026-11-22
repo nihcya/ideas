@@ -318,3 +318,14 @@ Collide/Evolve 的 AI 预览阶段和确认阶段都必须校验，避免用户�
 - 验收断言最终版本为 published、published_at 非空、Idea.content 与 content_snapshot 一致，且不存在残留 draft。
 - GitHub Actions run [45015839841](https://github.com/nihcya/ideas/actions/runs/45015839841) 的 PostgreSQL concurrency job 已通过，专项文件 **4 passed, 1 warning**；backend pytest 和 PostgreSQL migration job 也通过。Flutter pub get/test/analyze 通过，Android Debug APK build 在记录时仍运行中。
 - 新测试运行在独立 PostgreSQL 16 CI 数据库；不代表生产数据库已验证。migrations 001/002/003 未执行。
+
+
+## 30. 协作贡献审核与邀请撤权并发安全（2026-11-22）
+
+- 协作者写操作在检查 accepted contributor grant 时支持 SELECT FOR UPDATE；提交、编辑、撤回使用行锁保护授权检查与写入之间的事务窗口。
+- 作者审核对 IdeaContribution 行执行 SELECT FOR UPDATE，与协作者编辑/撤回串行，避免“审核已接受/拒绝后，旧请求仍覆盖贡献正文或状态”。
+- 接受、拒绝和撤销邀请锁定 IdeaAccessGrant 行；创建/重发邀请锁定 Idea 行及已有 grant，降低邀请状态竞争。
+- 锁顺序为：协作者写操作先 grant、再 contribution；作者审核只锁 contribution；作者撤权只锁 grant。审核路径不再反向申请 grant 锁，因此没有形成 grant/contribution 反向锁循环。
+- PostgreSQL 16 专项测试新增并发编辑 vs 审核、并发编辑 vs 撤权；run [45016633454](https://github.com/nihcya/ideas/actions/runs/45016633454) 的专项文件 **6 passed, 1 warning**。
+- 锁定邀请状态后的最新代码 head 由 run [45016696437](https://github.com/nihcya/ideas/actions/runs/45016696437) 验证中；Backend、PostgreSQL migration/concurrency 已通过，Flutter APK build 尚在运行。
+- 以上为 disposable PostgreSQL 16 CI 验证，不代表生产数据库已验证；migrations 001/002/003 未执行。
