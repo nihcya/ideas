@@ -24,6 +24,8 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
     try:
         # The CI service database is disposable and dedicated to this test.
         await conn.execute("""
+            DROP TABLE IF EXISTS notification_preferences CASCADE;
+            DROP TABLE IF EXISTS notification_preferences CASCADE;
             DROP TABLE IF EXISTS idea_associations CASCADE;
             DROP TABLE IF EXISTS collaboration_events CASCADE;
             DROP TABLE IF EXISTS collaboration_contributions CASCADE;
@@ -190,6 +192,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         migration_004 = (MIGRATIONS / "004_collaborations.sql").read_text(encoding="utf-8")
         migration_005 = (MIGRATIONS / "005_collaboration_attribution.sql").read_text(encoding="utf-8")
         migration_006 = (MIGRATIONS / "006_idea_associations.sql").read_text(encoding="utf-8")
+        migration_007 = (MIGRATIONS / "007_notification_preferences.sql").read_text(encoding="utf-8")
         migration_007 = (MIGRATIONS / "007_notification_preferences.sql").read_text(encoding="utf-8")
         migration_008 = (MIGRATIONS / "008_collaboration_member_leave.sql").read_text(encoding="utf-8")
 
