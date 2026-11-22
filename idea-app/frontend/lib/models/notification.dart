@@ -53,3 +53,30 @@ class NotificationList {
     );
   }
 }
+
+
+class NotificationPreferenceItem {
+  final String notificationType;
+  final bool enabled;
+
+  const NotificationPreferenceItem({
+    required this.notificationType,
+    required this.enabled,
+  });
+
+  NotificationPreferenceItem copyWith({bool? enabled}) => NotificationPreferenceItem(
+    notificationType: notificationType,
+    enabled: enabled ?? this.enabled,
+  );
+
+  factory NotificationPreferenceItem.fromJson(Map<String, dynamic> json) =>
+      NotificationPreferenceItem(
+        notificationType: json['notification_type'] as String,
+        enabled: json['enabled'] as bool? ?? true,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'notification_type': notificationType,
+    'enabled': enabled,
+  };
+}
