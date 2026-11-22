@@ -8,7 +8,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -210,6 +210,43 @@ async def create_collaboration(
     }
 
 
+@router.get("/{collaboration_id}/members/search")
+async def search_collaboration_members(
+    collaboration_id: uuid.UUID,
+    q: str = Query(..., min_length=2, max_length=80),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Owner-only username search; returns only invite candidates and minimal fields."""
+    query = q.strip()
+    if len(query) < 2:
+        raise _error(422, "SEARCH_QUERY_TOO_SHORT", "搜索词至少需要 2 个字符")
+    workspace = await db.get(Collaboration, collaboration_id)
+    if workspace is None or workspace.owner_id != user.id or workspace.status != "draft":
+        raise _error(404, "COLLABORATION_NOT_FOUND", "协作空间不存在或无权邀请成员")
+
+    existing_members = select(CollaborationMember.user_id).where(
+        CollaborationMember.collaboration_id == collaboration_id,
+        CollaborationMember.status.in_(["pending", "accepted"]),
+    )
+    result = await db.execute(
+        select(User.id, User.username)
+        .where(
+            User.id != user.id,
+            User.username.ilike(f"%{query}%"),
+            ~User.id.in_(existing_members),
+        )
+        .order_by(User.username.asc())
+        .limit(20)
+    )
+    return {
+        "items": [
+            {"user_id": str(row.id), "username": row.username}
+            for row in result.all()
+        ]
+    }
+
+
 @router.post("/{collaboration_id}/members", status_code=201)
 async def invite_member(
     collaboration_id: uuid.UUID,
@@ -353,6 +390,60 @@ async def revoke_member(
     await _event(db, collaboration_id, user.id, "member_revoked", {"user_id": str(member_user_id)})
     await db.commit()
     return {"revoked": True}
+
+
+@router.delete("/{collaboration_id}/leave")
+async def leave_collaboration(
+    collaboration_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Allow an accepted non-owner member to leave; serialize with workspace writes."""
+    workspace = await db.scalar(
+        select(Collaboration).where(
+            Collaboration.id == collaboration_id
+        ).with_for_update()
+    )
+    if workspace is None:
+        raise _error(404, "COLLABORATION_NOT_FOUND", "协作空间不存在或无权访问")
+    if workspace.owner_id == user.id:
+        raise _error(422, "OWNER_CANNOT_LEAVE", "空间所有者不能直接离开，请先归档空间")
+    member = await db.scalar(
+        select(CollaborationMember).where(
+            CollaborationMember.collaboration_id == collaboration_id,
+            CollaborationMember.user_id == user.id,
+        ).with_for_update()
+    )
+    if member is None or member.status != "accepted":
+        raise _error(404, "MEMBERSHIP_NOT_FOUND", "有效成员关系不存在")
+    member.status = "left"
+    member.responded_at = datetime.now(timezone.utc)
+    member.revoked_at = datetime.now(timezone.utc)
+    await _event(db, collaboration_id, user.id, "member_left", {"role": member.role})
+    await db.commit()
+    return {"left": True}
+
+
+@router.post("/{collaboration_id}/archive")
+async def archive_collaboration(
+    collaboration_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Owner archives a workspace; archived workspaces become read-only."""
+    workspace = await db.scalar(
+        select(Collaboration).where(
+            Collaboration.id == collaboration_id
+        ).with_for_update()
+    )
+    if workspace is None or workspace.owner_id != user.id:
+        raise _error(404, "COLLABORATION_NOT_FOUND", "协作空间不存在或无权归档")
+    if workspace.status == "archived":
+        return {"archived": True, "status": "archived"}
+    workspace.status = "archived"
+    await _event(db, collaboration_id, user.id, "collaboration_archived")
+    await db.commit()
+    return {"archived": True, "status": workspace.status}
 
 
 @router.get("/{collaboration_id}")
