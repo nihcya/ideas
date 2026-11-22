@@ -21,10 +21,13 @@ class NotificationsScreen extends ConsumerWidget {
         await ref.read(notificationsProvider.notifier).markRead([n.id]);
       } catch (_) {}
     }
-    if (context.mounted && n.collaborationId != null) {
-      context.push('/collaborations/${n.collaborationId}');
-    } else if (context.mounted && n.ideaId != null) {
+    if (!context.mounted) return;
+    if (n.type == 'collab_invited') {
+      context.push('/collaborations');
+    } else if (n.ideaId != null) {
       context.push('/idea/${n.ideaId}');
+    } else if (n.collaborationId != null) {
+      context.push('/collaborations/${n.collaborationId}');
     }
   }
 
