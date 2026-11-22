@@ -149,6 +149,7 @@ class _UniverseGraphViewState extends State<UniverseGraphView>
       child: InteractiveViewer(
         minScale: 0.35,
         maxScale: 2.5,
+        constrained: false,
         boundaryMargin: const EdgeInsets.all(240),
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
