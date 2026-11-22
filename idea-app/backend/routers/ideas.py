@@ -4,7 +4,7 @@ import math
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select, func, text, update
+from sqlalchemy import select, func, text, update, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user, get_optional_user
@@ -152,6 +152,62 @@ async def explore(
 # ============================================================
 # GET /ideas/{id} — 点子详情
 # ============================================================
+
+@router.get("/search")
+async def search_ideas(
+    q: str = Query(..., min_length=2, max_length=80),
+    db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_optional_user),
+):
+    """Search only Ideas the current viewer is allowed to read."""
+    query = q.strip()
+    if len(query) < 2:
+        raise HTTPException(status_code=422, detail="搜索词至少需要 2 个字符")
+    viewer_id = user.id if user else None
+    visible_conditions = [
+        and_(
+            Idea.status == "active",
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+        )
+    ]
+    if viewer_id is not None:
+        visible_conditions.append(Idea.author_id == viewer_id)
+        visible_conditions.append(
+            Idea.id.in_(
+                select(IdeaAccessGrant.idea_id).where(
+                    IdeaAccessGrant.user_id == viewer_id,
+                    IdeaAccessGrant.status == "accepted",
+                )
+            )
+        )
+    result = await db.execute(
+        select(Idea, User.username)
+        .outerjoin(User, User.id == Idea.author_id)
+        .where(
+            Idea.status != "rejected",
+            Idea.content.ilike(f"%{query}%"),
+            or_(*visible_conditions),
+        )
+        .order_by(Idea.created_at.desc())
+        .limit(50)
+    )
+    items = [
+        {
+            "id": str(idea.id),
+            "content": idea.content,
+            "color_hex": idea.color_hex,
+            "author": author or "匿名",
+            "visibility": idea.visibility,
+            "publication_status": idea.publication_status,
+            "source": idea.source,
+            "fork_count": idea.fork_count,
+            "created_at": idea.created_at,
+        }
+        for idea, author in result.all()
+    ]
+    return {"items": items, "count": len(items)}
+
 
 @router.get("/{idea_id}", response_model=IdeaDetail)
 async def get_idea_detail(
