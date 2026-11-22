@@ -35,6 +35,30 @@ class IdeaService {
     }
   }
 
+  /// 获取服务端执行 ACL 过滤后的局部创意宇宙图谱。
+  Future<Map<String, dynamic>> getIdeaGraph({
+    required String ideaId,
+    int depth = 2,
+    String direction = 'both',
+    bool includeInspired = true,
+    int maxNodes = 100,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/ideas/$ideaId/graph',
+        queryParameters: {
+          'depth': depth,
+          'direction': direction,
+          'include_inspired': includeInspired,
+          'max_nodes': maxNodes,
+        },
+      );
+      return Map<String, dynamic>.from(response.data as Map);
+    } on DioException catch (error) {
+      throw toApiException(error);
+    }
+  }
+
   /// 新建私有草稿（直接创建，非 fork/碰撞/演化）
   Future<IdeaResponse> createIdea(String content) async {
     try {
