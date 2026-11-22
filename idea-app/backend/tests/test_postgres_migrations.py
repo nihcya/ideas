@@ -155,6 +155,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
     conn = await asyncpg.connect(dsn)
     try:
         await conn.execute("""
+            DROP TABLE IF EXISTS idea_associations CASCADE;
             DROP TABLE IF EXISTS collaboration_events CASCADE;
             DROP TABLE IF EXISTS collaboration_contributions CASCADE;
             DROP TABLE IF EXISTS collaboration_sources CASCADE;
@@ -238,6 +239,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
             "003_idea_versions_and_attribution",
             "004_collaborations",
             "005_collaboration_attribution",
+            "006_idea_associations",
         }
     finally:
         # Ensure cleanup can run even if an unexpected SQL assertion left the
