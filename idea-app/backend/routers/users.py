@@ -2,11 +2,11 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from deps import get_db, get_current_user
-from models import User, Idea, VaultItem, ForkRelation, IdeaVersion, IdeaVersionContribution
+from deps import get_db, get_current_user, get_optional_user
+from models import User, Idea, VaultItem, ForkRelation, IdeaVersion, IdeaVersionContribution, UserFollow
 from schemas.user import UserProfile
 from services.rate_limit import limiter, DEFAULT_LIMIT
 from routers.ideas import _calc_size_score
@@ -101,6 +101,7 @@ async def get_user_profile(
     request: Request,
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    viewer: User | None = Depends(get_optional_user),
 ):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -182,18 +183,138 @@ async def get_user_profile(
             "border_style": "gold-thin" if vi.is_producer else "none",
         })
 
+    followers_count = await db.scalar(
+        select(func.count()).select_from(UserFollow).where(UserFollow.following_id == user.id)
+    ) or 0
+    following_count = await db.scalar(
+        select(func.count()).select_from(UserFollow).where(UserFollow.follower_id == user.id)
+    ) or 0
+    is_following = False
+    if viewer is not None and viewer.id != user.id:
+        is_following = await db.scalar(
+            select(UserFollow.id).where(
+                UserFollow.follower_id == viewer.id,
+                UserFollow.following_id == user.id,
+            )
+        ) is not None
+
     return UserProfile(
         id=str(user.id),
         username=user.username,
         bio=user.bio or "",
+        is_self=bool(viewer and viewer.id == user.id),
+        is_following=is_following,
         stats={
             "produced": produced,
             "collected": collected,
             "forked_by_others": forked_by_others,
             "forked_others": forked_others,
+            "followers": followers_count,
+            "following": following_count,
         },
         circles=circles,
     )
+
+
+@router.post("/{user_id}/follow")
+@limiter.limit(DEFAULT_LIMIT)
+async def follow_creator(
+    request: Request,
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    viewer: User = Depends(get_current_user),
+):
+    if user_id == viewer.id:
+        raise HTTPException(status_code=422, detail="不能关注自己")
+    target = await db.get(User, user_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    # Serialize writes by follower account; unique pair is the final DB guard.
+    await db.scalar(select(User.id).where(User.id == viewer.id).with_for_update())
+    existing = await db.scalar(
+        select(UserFollow.id).where(
+            UserFollow.follower_id == viewer.id,
+            UserFollow.following_id == user_id,
+        )
+    )
+    if existing is None:
+        db.add(UserFollow(follower_id=viewer.id, following_id=user_id))
+        await db.commit()
+    return {"following": True}
+
+
+@router.delete("/{user_id}/follow")
+@limiter.limit(DEFAULT_LIMIT)
+async def unfollow_creator(
+    request: Request,
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    viewer: User = Depends(get_current_user),
+):
+    if user_id == viewer.id:
+        raise HTTPException(status_code=422, detail="不能取消关注自己")
+    await db.execute(delete(UserFollow).where(
+        UserFollow.follower_id == viewer.id,
+        UserFollow.following_id == user_id,
+    ))
+    await db.commit()
+    return {"following": False}
+
+
+@router.get("/{user_id}/followers")
+async def list_creator_followers(
+    user_id: uuid.UUID,
+    limit: int = Query(30, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    if await db.get(User, user_id) is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    rows = (await db.execute(
+        select(User.id, User.username, User.bio, UserFollow.created_at)
+        .join(UserFollow, UserFollow.follower_id == User.id)
+        .where(UserFollow.following_id == user_id)
+        .order_by(UserFollow.created_at.desc(), User.username.asc())
+        .offset(offset)
+        .limit(limit + 1)
+    )).all()
+    return {
+        "items": [
+            {"id": str(row.id), "username": row.username, "bio": row.bio or ""}
+            for row in rows[:limit]
+        ],
+        "has_more": len(rows) > limit,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@router.get("/{user_id}/following")
+async def list_creator_following(
+    user_id: uuid.UUID,
+    limit: int = Query(30, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    if await db.get(User, user_id) is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    rows = (await db.execute(
+        select(User.id, User.username, User.bio, UserFollow.created_at)
+        .join(UserFollow, UserFollow.following_id == User.id)
+        .where(UserFollow.follower_id == user_id)
+        .order_by(UserFollow.created_at.desc(), User.username.asc())
+        .offset(offset)
+        .limit(limit + 1)
+    )).all()
+    return {
+        "items": [
+            {"id": str(row.id), "username": row.username, "bio": row.bio or ""}
+            for row in rows[:limit]
+        ],
+        "has_more": len(rows) > limit,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.get("/{user_id}/contributions")
