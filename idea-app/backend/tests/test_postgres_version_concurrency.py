@@ -50,6 +50,8 @@ async def test_concurrent_draft_creation_serializes_on_idea_row(monkeypatch):
                 username=f"pg_concurrency_{uuid.uuid4().hex[:10]}",
                 password_hash="test-only",
             ))
+            # Flush the referenced row explicitly before inserting the Idea.
+            await seed.flush()
             seed.add(Idea(
                 id=idea_id,
                 content="并发版本草稿测试",
