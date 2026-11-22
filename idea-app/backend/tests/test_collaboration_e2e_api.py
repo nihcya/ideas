@@ -169,8 +169,22 @@ async def test_private_collaboration_to_published_public_attribution_http_flow(
             )
             assert rejected_withdraw.status_code == 404
 
-            # A submitted contribution can be withdrawn while the contributor grant
-            # is still active, but not after the owner revokes that grant.
+            # A contributor can withdraw their own submitted contribution while
+            # the invitation is still active.
+            withdrawable_submission = await client.post(
+                f"/api/ideas/{idea.id}/contributions",
+                json={"content": "协作者主动撤回的建议"},
+            )
+            assert withdrawable_submission.status_code == 201
+            withdrawable_id = withdrawable_submission.json()["id"]
+            withdrawn = await client.delete(
+                f"/api/ideas/{idea.id}/contributions/{withdrawable_id}"
+            )
+            assert withdrawn.status_code == 200
+            assert withdrawn.json()["withdrawn"] is True
+
+            # A different submitted contribution becomes non-withdrawable once
+            # the owner revokes the contributor grant.
             post_review_submission = await client.post(
                 f"/api/ideas/{idea.id}/contributions",
                 json={"content": "权限撤销前提交的另一条建议"},
