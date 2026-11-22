@@ -70,6 +70,7 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
             "002_idea_contributions.sql",
             "003_idea_versions_and_attribution.sql",
             "004_collaborations.sql",
+            "005_collaboration_attribution.sql",
         ):
             sql = (MIGRATIONS / name).read_text(encoding="utf-8")
             await conn.execute(sql)
@@ -82,6 +83,7 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
             "002_idea_contributions",
             "003_idea_versions_and_attribution",
             "004_collaborations",
+            "005_collaboration_attribution",
         }
 
         active = await conn.fetchrow(
@@ -178,6 +180,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         migration_002 = (MIGRATIONS / "002_idea_contributions.sql").read_text(encoding="utf-8")
         migration_003 = (MIGRATIONS / "003_idea_versions_and_attribution.sql").read_text(encoding="utf-8")
         migration_004 = (MIGRATIONS / "004_collaborations.sql").read_text(encoding="utf-8")
+        migration_005 = (MIGRATIONS / "005_collaboration_attribution.sql").read_text(encoding="utf-8")
 
         async def expect_migration_failure(sql):
             with pytest.raises(asyncpg.PostgresError):
@@ -212,10 +215,15 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         await expect_migration_failure(migration_004)
         assert await conn.fetchval("SELECT to_regclass('public.collaborations')") is None
 
+        # Migration 005 must wait for the first-class workspace tables.
+        await expect_migration_failure(migration_005)
+        assert await conn.fetchval("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='idea_contributions' AND column_name='source_collaboration_contribution_id'") == 0
+
         # After the prerequisite is applied, the remaining migrations succeed.
         await conn.execute(migration_002)
         await conn.execute(migration_003)
         await conn.execute(migration_004)
+        await conn.execute(migration_005)
         markers = await conn.fetch("SELECT version FROM app_schema_migrations ORDER BY version")
         assert {row["version"] for row in markers} == {
             "001_idea_visibility_and_acl",
