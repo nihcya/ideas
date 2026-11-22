@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       api_base_url:
-        description: "Production API base URL, including /api"
+        description: "Production HTTPS API base URL, including /api"
         required: true
         type: string
 
@@ -29,6 +29,15 @@ jobs:
         with:
           channel: stable
           cache: true
+
+      - name: Validate production API URL
+        env:
+          API_BASE_URL: ${{ inputs.api_base_url }}
+        run: |
+          case "$API_BASE_URL" in
+            https://*) ;;
+            *) echo "::error::Production API_BASE_URL must use HTTPS"; exit 1 ;;
+          esac
 
       - name: Install Flutter dependencies
         working-directory: idea-app/frontend
