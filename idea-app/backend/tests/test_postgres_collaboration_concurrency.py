@@ -17,7 +17,7 @@ from models import (
     CollaborationSource, CollaborationContribution,
 )
 from routers import collaborations as collaborations_router
-from schemas.collaboration import CollaborationContributionCreate, CollaborationPublish
+from schemas.collaboration import (\n    CollaborationContributionCreate, CollaborationContributionUpdate,\n    CollaborationContributionReview, CollaborationPublish,\n)
 
 
 def _dsn():
