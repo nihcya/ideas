@@ -321,3 +321,11 @@ See IDEAS_V2_SPRINT3_UNIVERSE_SPEC.md for traversal, privacy and edge contracts.
 - GET /users/{user_id}/followers and GET /users/{user_id}/following — paginated public username/bio lists only.
 - GET /users/{user_id} now includes followers/following counts, is_following and is_self.
 - Migration 011 creates the unique follower/following pair and forbids self-follow at database level.
+
+
+## Legacy authorization transition (90 days)
+
+- Migration 012 persists `legacy_license_review_due_at` for every historical public Idea still in pending review, calculated from the V2.0 activation marker in Migration 001 plus 90 days.
+- Idea detail responses expose `legacy_license_review_status` and `legacy_license_review_due_at`.
+- A daily CLI job sends one reminder during the final 7 days and changes overdue pending records to expired; expiry disables new derivations without removing public content or changing already-created derivative authorization snapshots.
+- Publish API independently checks the stored deadline, so a delayed cron run cannot re-enable derivation after expiry.
