@@ -14,11 +14,14 @@ class NotificationsScreen extends ConsumerWidget {
     await ref.read(notificationsProvider.notifier).refresh();
   }
 
-  Future<void> _onTap(WidgetRef ref, NotificationItem n) async {
+  Future<void> _onTap(BuildContext context, WidgetRef ref, NotificationItem n) async {
     if (!n.read) {
       try {
         await ref.read(notificationsProvider.notifier).markRead([n.id]);
       } catch (_) {}
+    }
+    if (context.mounted && n.ideaId != null) {
+      context.push('/idea/${n.ideaId}');
     }
   }
 
@@ -61,7 +64,7 @@ class NotificationsScreen extends ConsumerWidget {
                 final n = data.notifications[i];
                 return _NotificationTile(
                   item: n,
-                  onTap: () => _onTap(ref, n),
+                  onTap: () => _onTap(context, ref, n),
                 );
               },
             );
@@ -157,6 +160,10 @@ class _NotificationTile extends StatelessWidget {
       case 'spark_updated':
         icon = Icons.bolt_outlined;
         color = colors.forkAccent;
+        break;
+      case 'collab_published':
+        icon = Icons.groups_outlined;
+        color = colors.gold;
         break;
       default:
         icon = Icons.notifications_outlined;
