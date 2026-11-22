@@ -26,6 +26,7 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
         await conn.execute("""
             DROP TABLE IF EXISTS notification_preferences CASCADE;
             DROP TABLE IF EXISTS idea_associations CASCADE;
+            DROP TABLE IF EXISTS notifications CASCADE;
             DROP TABLE IF EXISTS collaboration_events CASCADE;
             DROP TABLE IF EXISTS collaboration_contributions CASCADE;
             DROP TABLE IF EXISTS collaboration_sources CASCADE;
@@ -52,6 +53,16 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
             CREATE TABLE fork_relations (
                 id UUID PRIMARY KEY
             );
+            CREATE TABLE notifications (
+                id UUID PRIMARY KEY,
+                user_id UUID,
+                type VARCHAR(20) NOT NULL,
+                content VARCHAR(200) NOT NULL,
+                idea_id UUID,
+                actor_id UUID,
+                read BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
         """)
 
         owner_id = uuid.uuid4()
@@ -76,6 +87,7 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
             "006_idea_associations.sql",
             "007_notification_preferences.sql",
             "008_collaboration_member_leave.sql",
+            "009_collaboration_notification_links.sql",
         ):
             sql = (MIGRATIONS / name).read_text(encoding="utf-8")
             await conn.execute(sql)
@@ -92,6 +104,7 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
             "006_idea_associations",
             "007_notification_preferences",
             "008_collaboration_member_leave",
+            "009_collaboration_notification_links",
         }
 
         active = await conn.fetchrow(
@@ -161,6 +174,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
     try:
         await conn.execute("""
             DROP TABLE IF EXISTS idea_associations CASCADE;
+            DROP TABLE IF EXISTS notifications CASCADE;
             DROP TABLE IF EXISTS collaboration_events CASCADE;
             DROP TABLE IF EXISTS collaboration_contributions CASCADE;
             DROP TABLE IF EXISTS collaboration_sources CASCADE;
@@ -183,6 +197,12 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
                 is_forkable BOOLEAN NOT NULL DEFAULT FALSE
             );
             CREATE TABLE fork_relations (id UUID PRIMARY KEY);
+            CREATE TABLE notifications (
+                id UUID PRIMARY KEY, user_id UUID, type VARCHAR(20) NOT NULL,
+                content VARCHAR(200) NOT NULL, idea_id UUID, actor_id UUID,
+                read BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
         """)
 
         migration_001 = (MIGRATIONS / "001_idea_visibility_and_acl.sql").read_text(encoding="utf-8")
@@ -193,6 +213,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         migration_006 = (MIGRATIONS / "006_idea_associations.sql").read_text(encoding="utf-8")
         migration_007 = (MIGRATIONS / "007_notification_preferences.sql").read_text(encoding="utf-8")
         migration_008 = (MIGRATIONS / "008_collaboration_member_leave.sql").read_text(encoding="utf-8")
+        migration_009 = (MIGRATIONS / "009_collaboration_notification_links.sql").read_text(encoding="utf-8")
 
         async def expect_migration_failure(sql):
             with pytest.raises(asyncpg.PostgresError):
@@ -227,11 +248,12 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         await expect_migration_failure(migration_004)
         assert await conn.fetchval("SELECT to_regclass('public.collaborations')") is None
 
-        # Migrations 005–008 must wait for their prerequisite schema.
+        # Migrations 005–009 must wait for their prerequisite schema.
         await expect_migration_failure(migration_005)
         await expect_migration_failure(migration_006)
         await expect_migration_failure(migration_007)
         await expect_migration_failure(migration_008)
+        await expect_migration_failure(migration_009)
         assert await conn.fetchval("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='idea_contributions' AND column_name='source_collaboration_contribution_id'") == 0
         assert await conn.fetchval("SELECT to_regclass('public.idea_associations')") is None
         assert await conn.fetchval("SELECT to_regclass('public.notification_preferences')") is None
@@ -244,6 +266,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         await conn.execute(migration_006)
         await conn.execute(migration_007)
         await conn.execute(migration_008)
+        await conn.execute(migration_009)
         markers = await conn.fetch("SELECT version FROM app_schema_migrations ORDER BY version")
         assert {row["version"] for row in markers} == {
             "001_idea_visibility_and_acl",
@@ -254,6 +277,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
             "006_idea_associations",
             "007_notification_preferences",
             "008_collaboration_member_leave",
+            "009_collaboration_notification_links",
         }
         collab_id = uuid.uuid4()
         await conn.execute(
@@ -269,6 +293,15 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
             "SELECT status FROM collaboration_members WHERE collaboration_id=$1 AND user_id=$2",
             collab_id, contributor_id,
         ) == "left"
+        notification_id = uuid.uuid4()
+        await conn.execute(
+            "INSERT INTO notifications(id, user_id, type, content, collaboration_id) "
+            "VALUES($1, $2, 'collab_invited', 'workspace invite', $3)",
+            notification_id, contributor_id, collab_id,
+        )
+        assert await conn.fetchval(
+            "SELECT collaboration_id FROM notifications WHERE id=$1", notification_id
+        ) == collab_id
     finally:
         # Ensure cleanup can run even if an unexpected SQL assertion left the
         # connection inside an aborted transaction.
