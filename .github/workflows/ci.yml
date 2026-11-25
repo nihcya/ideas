@@ -110,7 +110,7 @@ jobs:
           cache: pip
           cache-dependency-path: idea-app/backend/requirements.txt
       - run: pip install -r requirements.txt pytest pytest-asyncio
-      - run: pytest -q tests/test_postgres_version_concurrency.py tests/test_postgres_collaboration_concurrency.py
+      - run: pytest -q tests/test_postgres_version_concurrency.py tests/test_postgres_collaboration_concurrency.py tests/test_postgres_reports_concurrency.py
 
   postgres-universe-performance:
     runs-on: ubuntu-latest
