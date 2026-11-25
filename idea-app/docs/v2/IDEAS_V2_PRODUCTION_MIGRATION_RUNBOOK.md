@@ -80,14 +80,6 @@ WHERE status = 'active'
 ORDER BY created_at DESC
 LIMIT 100;
 
--- Existing open duplicate reports must be zero before Migration 014.
--- Resolve duplicates manually; do not delete or auto-dismiss user reports.
-SELECT idea_id, reporter_id, COUNT(*) AS open_report_count
-FROM idea_reports
-WHERE status IN ('pending', 'in_review')
-GROUP BY idea_id, reporter_id
-HAVING COUNT(*) > 1;
-
 -- Existing objects that could conflict with new names
 SELECT to_regclass('public.app_schema_migrations') AS migration_registry,
        to_regclass('public.idea_access_grants') AS access_grants,
@@ -128,6 +120,15 @@ Actual backup commands, retention, encryption, storage destination, and RPO/RTO 
 - Put the application into the approved maintenance/read-only mode if required by the release plan.
 - Take and verify the final pre-migration backup.
 - Execute each migration file in order using the approved PostgreSQL client with stop-on-error enabled (for example, `psql -v ON_ERROR_STOP=1`). Each file manages its own transaction.
+
+- After applying Migration 010 and before applying Migration 014, run the following duplicate-open-report check. It must return zero rows. If duplicates exist, stop and manually reconcile them without deleting report history:
+  ```sql
+  SELECT idea_id, reporter_id, COUNT(*) AS open_report_count
+  FROM idea_reports
+  WHERE status IN ('pending', 'in_review')
+  GROUP BY idea_id, reporter_id
+  HAVING COUNT(*) > 1;
+  ```
 - Stop immediately on the first error. Do not manually insert migration markers or skip prerequisites.
 - Verify all fourteen registry entries and post-migration invariants before enabling V2 endpoints.
 - Keep the backup and logs according to the organization's retention policy.
@@ -213,7 +214,7 @@ ORDER BY table_name, conname;
 ```
 
 Both unexpected-row counts must be zero unless a separately approved data exception explains otherwise. Validate foreign keys and indexes against the migration files before enabling new endpoints.
-The duplicate-open-report preflight must return zero rows before Migration 014. If it does not, stop and have an operator reconcile each duplicate without deleting report history.
+The duplicate-open-report check in the execution sequence must return zero rows before Migration 014. If it does not, stop and have an operator reconcile each duplicate without deleting report history.
 
 ## 6. Rollback and recovery
 
