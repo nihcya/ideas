@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 import uuid
 
-from sqlalchemy import String, Text, DateTime, ForeignKey, CheckConstraint, Uuid, func, Index
+from sqlalchemy import String, Text, DateTime, ForeignKey, CheckConstraint, Uuid, func, Index, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base, TimestampMixin
@@ -23,6 +23,12 @@ class IdeaReport(Base, TimestampMixin):
         ),
         Index("idx_idea_reports_status_created", "status", "created_at"),
         Index("idx_idea_reports_idea_status", "idea_id", "status"),
+        Index(
+            "uq_idea_reports_open_per_reporter",
+            "idea_id", "reporter_id", unique=True,
+            postgresql_where=text("status IN ('pending', 'in_review')"),
+            sqlite_where=text("status IN ('pending', 'in_review')"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
