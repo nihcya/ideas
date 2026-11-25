@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-NotificationType = Literal["forked", "collected", "spark_updated"]
+NotificationType = Literal["forked", "collected", "spark_updated", "collab_published", "collab_invited", "collab_reviewed", "legacy_license_reminder"]
 
 
 class NotificationItem(BaseModel):
@@ -24,6 +24,9 @@ class NotificationItem(BaseModel):
     )
     actor_id: str | None = Field(
         None, description="触发者用户ID，无则为 None"
+    )
+    collaboration_id: str | None = Field(
+        None, description="关联协作空间 ID，用于通知深链"
     )
     created_at: datetime = Field(..., description="创建时间")
     read: bool = Field(False, description="是否已读")

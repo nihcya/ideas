@@ -27,6 +27,9 @@ class IdeaForkRequest(BaseModel):
     content: str = Field(
         ..., min_length=1, max_length=300, description="用户的联想内容，1-300字"
     )
+    confirm_custom_licenses: bool = Field(
+        False, description="确认已阅读并接受全部上游自定义授权条款"
+    )
 
 
 class CircleData(BaseModel):
@@ -61,14 +64,18 @@ class LineageNode(BaseModel):
     """谱系图节点"""
     model_config = ConfigDict(from_attributes=True)
 
-    id: str = Field(..., description="点子ID")
+    # For a withdrawn/private source, id is an opaque lineage key, not the private Idea ID.
+    id: str = Field(..., description="可访问节点为 Idea ID；不可访问的历史来源为不透明谱系键")
     color_hex: str = Field(
         ..., pattern=r"^#[0-9A-Fa-f]{6}$", description="圆圈颜色"
     )
-    author: str = Field(..., description="作者用户名")
+    author: str = Field(..., description="创作时冻结的作者署名")
     title: str = Field(
-        ..., max_length=30, description="点子内容前30字（前端展示用）"
+        ..., max_length=30, description="点子标题；不可访问来源仅显示撤回占位文案"
     )
+    is_navigable: bool = Field(True, description="是否允许打开该 Idea 详情")
+    relation_type: Literal["fork", "merge", "evolve"] | None = None
+    license_snapshot: dict | None = None
 
 
 class Lineage(BaseModel):
@@ -96,7 +103,14 @@ class IdeaDetail(BaseModel):
     )
     created_at: datetime = Field(..., description="创建时间")
     fork_count: int = Field(0, ge=0, description="被 fork 数")
-    is_forkable: bool = Field(True, description="是否允许 fork")
+    is_forkable: bool = Field(True, description="当前用户是否可从该创意衍生")
+    publication_status: Literal["draft", "published", "archived"] = "draft"
+    visibility: Literal["private", "public"] = "private"
+    license_code: str | None = None
+    license_version: str | None = None
+    legacy_license_review_status: Literal["not_required", "pending", "confirmed", "expired"] = "not_required"
+    legacy_license_review_due_at: datetime | None = None
+    access_role: Literal["owner", "contributor", "viewer"] | None = None
     is_in_vault: bool = Field(False, description="当前用户是否已收集")
     lineage: Lineage = Field(..., description="谱系图")
 
@@ -116,6 +130,10 @@ class IdeaResponse(BaseModel):
     border_style: BorderStyle = Field(
         ..., description="边框样式：gold-thin（自己产生）/ none（收集的）"
     )
+    publication_status: Literal["draft", "published", "archived"] = "draft"
+    visibility: Literal["private", "public"] = "private"
+    license_code: str | None = None
+    allow_fork: bool = False
 
 
 class ForkResponse(BaseModel):
@@ -169,6 +187,9 @@ class CollideConfirmRequest(BaseModel):
         ..., min_length=1, max_length=300, description="用户选定的方案（可编辑），1-300字"
     )
     ai_assisted: bool = Field(..., description="是否 AI 辅助生成")
+    confirm_custom_licenses: bool = Field(
+        False, description="确认已阅读并接受全部父来源及其祖先的自定义授权条款"
+    )
 
 
 class CollideConfirmResponse(BaseModel):
@@ -228,6 +249,9 @@ class EvolveConfirmRequest(BaseModel):
         ..., min_length=1, max_length=300, description="用户选定的变体，1-300字"
     )
     ai_assisted: bool = Field(..., description="是否 AI 辅助生成")
+    confirm_custom_licenses: bool = Field(
+        False, description="确认已阅读并接受全部上游自定义授权条款"
+    )
 
 
 class EvolveConfirmResponse(BaseModel):
@@ -243,3 +267,37 @@ class EvolveConfirmResponse(BaseModel):
     border_style: BorderStyle = Field(
         ..., description="边框样式：gold-thin（自己产生）/ none（收集的）"
     )
+
+
+
+class IdeaPublishRequest(BaseModel):
+    """Explicit author confirmation required before public publication."""
+    visibility: Literal["public", "private"] = "public"
+    license_code: Literal[
+        "all_rights_reserved", "attribution", "attribution_adaptation", "custom"
+    ]
+    license_custom_text: str | None = Field(None, max_length=5000)
+    license_version: str = Field("v1", min_length=1, max_length=32)
+    allow_fork: bool = False
+    confirm_terms: bool = True
+
+
+class IdeaInviteRequest(BaseModel):
+    user_id: str = Field(..., description="被邀请用户 UUID")
+    role: Literal["contributor", "viewer"] = "viewer"
+
+
+
+class IdeaContributionCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=3000)
+    note: str | None = Field(None, max_length=1000)
+
+
+class IdeaContributionUpdate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=3000)
+    note: str | None = Field(None, max_length=1000)
+
+
+class IdeaContributionReview(BaseModel):
+    decision: Literal["accepted", "rejected"]
+    review_note: str | None = Field(None, max_length=1000)

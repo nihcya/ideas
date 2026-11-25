@@ -72,16 +72,23 @@ class CircleData {
 
 /// 谱系图节点
 class LineageNode {
+  /// Navigable Idea ID, or an opaque lineage key for a withdrawn source.
   final String id;
   final String colorHex; // 格式：#RRGGBB
   final String author;
-  final String title; // 点子内容前 30 字
+  final String title;
+  final bool isNavigable;
+  final String? relationType;
+  final Map<String, dynamic>? licenseSnapshot;
 
   const LineageNode({
     required this.id,
     required this.colorHex,
     required this.author,
     required this.title,
+    this.isNavigable = true,
+    this.relationType,
+    this.licenseSnapshot,
   });
 
   Color get color => Color(int.parse('0xFF${colorHex.substring(1)}'));
@@ -92,6 +99,9 @@ class LineageNode {
       colorHex: json['color_hex'] as String,
       author: json['author'] as String? ?? '',
       title: json['title'] as String? ?? '',
+      isNavigable: json['is_navigable'] as bool? ?? true,
+      relationType: json['relation_type'] as String?,
+      licenseSnapshot: json['license_snapshot'] as Map<String, dynamic>?,
     );
   }
 }
@@ -153,6 +163,14 @@ class IdeaDetail {
   final int forkCount;
   final bool isInVault;
   final Lineage lineage;
+  final String publicationStatus;
+  final String visibility;
+  final String? licenseCode;
+  final String? licenseVersion;
+  final String legacyLicenseReviewStatus;
+  final DateTime? legacyLicenseReviewDueAt;
+  final String? accessRole;
+  final bool isForkable;
 
   const IdeaDetail({
     required this.id,
@@ -163,6 +181,14 @@ class IdeaDetail {
     required this.forkCount,
     required this.isInVault,
     required this.lineage,
+    this.publicationStatus = 'draft',
+    this.visibility = 'private',
+    this.licenseCode,
+    this.licenseVersion,
+    this.legacyLicenseReviewStatus = 'not_required',
+    this.legacyLicenseReviewDueAt,
+    this.accessRole,
+    this.isForkable = false,
   });
 
   Color get color => Color(int.parse('0xFF${colorHex.substring(1)}'));
@@ -181,6 +207,17 @@ class IdeaDetail {
       lineage: Lineage.fromJson(
         json['lineage'] as Map<String, dynamic>? ?? {},
       ),
+      publicationStatus: json['publication_status'] as String? ?? 'draft',
+      visibility: json['visibility'] as String? ?? 'private',
+      licenseCode: json['license_code'] as String?,
+      licenseVersion: json['license_version'] as String?,
+      legacyLicenseReviewStatus:
+          json['legacy_license_review_status'] as String? ?? 'not_required',
+      legacyLicenseReviewDueAt: json['legacy_license_review_due_at'] == null
+          ? null
+          : DateTime.parse(json['legacy_license_review_due_at'] as String),
+      accessRole: json['access_role'] as String?,
+      isForkable: json['is_forkable'] as bool? ?? false,
     );
   }
 }
@@ -197,6 +234,10 @@ class IdeaResponse {
   final String source;
   final String borderStyle;
   final DateTime createdAt;
+  final String publicationStatus;
+  final String visibility;
+  final String? licenseCode;
+  final bool allowFork;
 
   const IdeaResponse({
     required this.id,
@@ -205,6 +246,10 @@ class IdeaResponse {
     required this.source,
     required this.borderStyle,
     required this.createdAt,
+    this.publicationStatus = 'draft',
+    this.visibility = 'private',
+    this.licenseCode,
+    this.allowFork = false,
   });
 
   factory IdeaResponse.fromJson(Map<String, dynamic> json) {
@@ -215,6 +260,10 @@ class IdeaResponse {
       source: json['source'] as String? ?? 'original',
       borderStyle: json['border_style'] as String? ?? 'none',
       createdAt: DateTime.parse(json['created_at'] as String),
+      publicationStatus: json['publication_status'] as String? ?? 'draft',
+      visibility: json['visibility'] as String? ?? 'private',
+      licenseCode: json['license_code'] as String?,
+      allowFork: json['allow_fork'] as bool? ?? false,
     );
   }
 }

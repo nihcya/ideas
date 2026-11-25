@@ -98,6 +98,8 @@ async def _init_sqlite_schema() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     print("[database] SQLite schema created via SQLAlchemy create_all")
+    # create_all does not ALTER existing tables; apply additive column upgrades before queries.
+    await _migrate_sqlite_columns()
 
     # 插入初始数据（幂等）
     await _seed_initial_data()
@@ -227,7 +229,7 @@ async def _seed_initial_data() -> None:
         await session.commit()
 
 
-async def _migrate_sqlite_columns() -> None:
+async def _migrate_sqlite_columns(target_engine=None) -> None:
     """SQLite 轻量迁移：检测并补充新列。
 
     SQLAlchemy create_all 只对不存在的表生效，已存在的表不会 ALTER。
@@ -236,8 +238,24 @@ async def _migrate_sqlite_columns() -> None:
     migrations = [
         ("users", "llm_api_url", "VARCHAR(255) DEFAULT ''"),
         ("users", "llm_api_key", "VARCHAR(255) DEFAULT ''"),
+        ("ideas", "publication_status", "VARCHAR(16) NOT NULL DEFAULT 'draft'"),
+        ("ideas", "visibility", "VARCHAR(16) NOT NULL DEFAULT 'private'"),
+        ("ideas", "license_code", "VARCHAR(32)"),
+        ("ideas", "license_text_snapshot", "TEXT"),
+        ("ideas", "license_version", "VARCHAR(32)"),
+        ("ideas", "allow_fork", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("ideas", "published_at", "DATETIME"),
+        ("ideas", "archived_at", "DATETIME"),
+        ("ideas", "legacy_license_review_status", "VARCHAR(16) NOT NULL DEFAULT 'not_required'"),
+        ("ideas", "legacy_license_review_notified_at", "DATETIME"),
+        ("ideas", "legacy_license_reviewed_at", "DATETIME"),
+        ("fork_relations", "metadata", "JSON"),
+        # Added in Migration 005; SQLite ALTER TABLE cannot add this FK safely
+        # to an existing table, so the logical FK is enforced by the application
+        # and a unique index preserves single-use attribution semantics.
+        ("idea_contributions", "source_collaboration_contribution_id", "CHAR(32)"),
     ]
-    async with engine.begin() as conn:
+    async with (target_engine or engine).begin() as conn:
         for table, column, ddl in migrations:
             # 检查列是否存在
             res = await conn.execute(text(f"PRAGMA table_info({table})"))
@@ -245,6 +263,38 @@ async def _migrate_sqlite_columns() -> None:
             if column not in existing_cols:
                 await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
                 print(f"[database] Migrated: {table}.{column} added")
+
+        await conn.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_idea_contribution_collaboration_source "
+            "ON idea_contributions(source_collaboration_contribution_id) "
+            "WHERE source_collaboration_contribution_id IS NOT NULL"
+        ))
+
+        # One-time legacy backfill for existing SQLite databases. Fresh databases have no
+        # rows at this point; newly-created Ideas after this marker keep draft/private defaults.
+        await conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS app_schema_migrations "
+            "(version VARCHAR(120) PRIMARY KEY, applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+        ))
+        applied = await conn.execute(text(
+            "SELECT version FROM app_schema_migrations WHERE version = '001_idea_visibility_and_acl'"
+        ))
+        if applied.scalar_one_or_none() is None:
+            await conn.execute(text("""
+                UPDATE ideas
+                SET publication_status = 'published',
+                    visibility = 'public',
+                    license_code = 'legacy_unspecified',
+                    allow_fork = 0,
+                    is_forkable = 0,
+                    legacy_license_review_status = 'pending',
+                    published_at = COALESCE(published_at, created_at)
+                WHERE status = 'active'
+            """))
+            await conn.execute(text(
+                "INSERT INTO app_schema_migrations(version) VALUES ('001_idea_visibility_and_acl')"
+            ))
+            print("[database] SQLite legacy Idea visibility backfill applied")
 
 
 async def _ensure_today_spark_question() -> None:

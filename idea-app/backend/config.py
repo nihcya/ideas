@@ -1,5 +1,6 @@
 """应用配置 - 通过环境变量加载"""
 import re
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -32,6 +33,8 @@ class Settings(BaseSettings):
     app_env: str = "dev"
     app_host: str = "0.0.0.0"
     app_port: int = 8000
+    # Comma-separated UUID allowlist for moderation/admin endpoints.
+    admin_user_ids: str = ""
     # CORS:支持通配符 * 匹配任意端口(经 cors_origin_regex 转换为正则)。
     # dev: http://localhost:*,http://127.0.0.1:*
     # prod: https://example.com,https://app.example.com (精确域名,无通配符)
@@ -42,6 +45,18 @@ class Settings(BaseSettings):
     fade_fading_days: int = 7
     fade_faded_days: int = 8
     idea_max_length: int = 300
+    # Historical public Ideas receive a 90-day license confirmation window after V2 activation.
+    legacy_license_review_period_days: int = 90
+    legacy_license_review_started_at: datetime | None = None
+
+    @property
+    def legacy_license_review_deadline_at(self) -> datetime | None:
+        if self.legacy_license_review_started_at is None:
+            return None
+        started = self.legacy_license_review_started_at
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        return started + timedelta(days=self.legacy_license_review_period_days)
 
     @property
     def is_deepseek_configured(self) -> bool:

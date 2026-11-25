@@ -206,10 +206,16 @@ class _LineageTreeState extends State<LineageTree>
         height: _canvasSize,
         child: GestureDetector(
           onTapUp: (details) {
-            final ideaId = _hitTest(details.localPosition);
-            if (ideaId != null) {
-              HapticFeedback.selectionClick();
-              widget.onTap(ideaId);
+            final nodeKey = _hitTest(details.localPosition);
+            if (nodeKey != null) {
+              final node = _simulation.nodes.firstWhere(
+                (candidate) => candidate.key == nodeKey,
+              );
+              final lineageNode = node.data['node'] as LineageNode?;
+              if (lineageNode != null && lineageNode.isNavigable) {
+                HapticFeedback.selectionClick();
+                widget.onTap(lineageNode.id);
+              }
             }
           },
           onPanStart: (details) {

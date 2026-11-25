@@ -3,10 +3,41 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/idea.dart';
 import 'api_provider.dart';
 
+class ExploreFilters {
+  final String? query;
+  final String sort;
+  final String? licenseCode;
+  final bool? allowFork;
+  final String? source;
+
+  const ExploreFilters({
+    this.query,
+    this.sort = 'recommended',
+    this.licenseCode,
+    this.allowFork,
+    this.source,
+  });
+
+  bool get isActive =>
+      (query?.isNotEmpty ?? false) ||
+      sort != 'recommended' ||
+      licenseCode != null ||
+      allowFork != null ||
+      source != null;
+}
+
 /// 探索页 Notifier — 管理圆圈列表，支持刷新和加载更多
 class ExploreNotifier extends AsyncNotifier<List<CircleData>> {
   int _offset = 0;
   bool _hasMore = true;
+  ExploreFilters _filters = const ExploreFilters();
+
+  ExploreFilters get filters => _filters;
+
+  Future<void> setFilters(ExploreFilters filters) async {
+    _filters = filters;
+    await refresh();
+  }
 
   @override
   Future<List<CircleData>> build() async {
@@ -17,7 +48,14 @@ class ExploreNotifier extends AsyncNotifier<List<CircleData>> {
 
   Future<List<CircleData>> _fetch({required int offset}) async {
     final ideaService = ref.read(ideaServiceProvider);
-    final res = await ideaService.getExplore(offset: offset);
+    final res = await ideaService.getExplore(
+      offset: offset,
+      query: _filters.query,
+      sort: _filters.sort,
+      licenseCode: _filters.licenseCode,
+      allowFork: _filters.allowFork,
+      source: _filters.source,
+    );
     _offset = offset + res.circles.length;
     _hasMore = res.hasMore;
     return res.circles;
@@ -40,13 +78,21 @@ class ExploreNotifier extends AsyncNotifier<List<CircleData>> {
 
     final ideaService = ref.read(ideaServiceProvider);
     try {
-      final res = await ideaService.getExplore(offset: _offset);
+      final res = await ideaService.getExplore(
+        offset: _offset,
+        query: _filters.query,
+        sort: _filters.sort,
+        licenseCode: _filters.licenseCode,
+        allowFork: _filters.allowFork,
+        source: _filters.source,
+      );
       _offset += res.circles.length;
       _hasMore = res.hasMore;
       state = AsyncData([...current, ...res.circles]);
     } catch (e, st) {
-      // 加载更多失败时不清空已有数据，仅记录错误
-      state = AsyncError(e, st);
+      // Keep the visible page; the caller surfaces the error as a snackbar.
+      state = AsyncData(current);
+      Error.throwWithStackTrace(e, st);
     }
   }
 

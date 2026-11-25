@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import '../models/idea.dart';
 import '../providers/idea_detail_provider.dart';
+import '../providers/api_provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/vault_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/evolve_menu.dart';
@@ -24,12 +26,156 @@ class _IdeaDetailScreenState extends ConsumerState<IdeaDetailScreen> {
   bool _collecting = false;
   final GlobalKey _circleKey = GlobalKey();
 
+  Future<void> _reportIdea() async {
+    final descriptionController = TextEditingController();
+    var reason = 'spam';
+    final result = await showDialog<Map<String, String?>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('举报创意'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: reason,
+                decoration: const InputDecoration(labelText: '举报原因'),
+                items: const [
+                  DropdownMenuItem(value: 'spam', child: Text('垃圾或广告内容')),
+                  DropdownMenuItem(value: 'harassment', child: Text('骚扰或仇恨内容')),
+                  DropdownMenuItem(value: 'copyright', child: Text('疑似侵犯著作权')),
+                  DropdownMenuItem(value: 'privacy', child: Text('泄露隐私')),
+                  DropdownMenuItem(value: 'misinformation', child: Text('虚假或误导信息')),
+                  DropdownMenuItem(value: 'other', child: Text('其他')),
+                ],
+                onChanged: (value) => setDialogState(() => reason = value ?? 'other'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descriptionController,
+                maxLines: 3,
+                maxLength: 2000,
+                decoration: const InputDecoration(
+                  labelText: '补充说明（可选）',
+                  hintText: '请描述你认为存在的问题',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, {
+                'reason': reason,
+                'description': descriptionController.text.trim(),
+              }),
+              child: const Text('提交举报'),
+            ),
+          ],
+        ),
+      ),
+    );
+    descriptionController.dispose();
+    if (result == null) return;
+    try {
+      await ref.read(ideaServiceProvider).reportIdea(
+            ideaId: widget.ideaId,
+            reason: result['reason']!,
+            description: result['description'],
+          );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('举报已提交，感谢帮助维护社区')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('举报提交失败：$error')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final asyncDetail = ref.watch(ideaDetailProvider(widget.ideaId));
+    final authState = ref.watch(authStateProvider);
+    final currentUserId = authState.maybeWhen(
+      authenticated: (user) => user.id,
+      orElse: () => null,
+    );
+    final loadedDetail = asyncDetail.valueOrNull;
+    final isOwner = loadedDetail != null &&
+        loadedDetail.author.id == currentUserId;
+    final canPublish = isOwner && loadedDetail.publicationStatus == 'draft';
+    final canManageInvites = isOwner && loadedDetail.visibility == 'private';
+    final canManageVersions = isOwner &&
+        (loadedDetail.visibility == 'private' ||
+            (loadedDetail.visibility == 'public' &&
+                loadedDetail.publicationStatus == 'published'));
+    final canViewPublicTimeline = loadedDetail != null &&
+        loadedDetail.publicationStatus == 'published' &&
+        loadedDetail.visibility == 'public';
+    final canCollaborate = loadedDetail != null &&
+        loadedDetail.visibility == 'private' &&
+        (loadedDetail.accessRole == 'owner' ||
+            loadedDetail.accessRole == 'contributor');
     return Scaffold(
       appBar: AppBar(
         title: const Text('点子'),
+        actions: [
+          if (canPublish)
+            IconButton(
+              tooltip: '发布设置',
+              icon: const Icon(Icons.public),
+              onPressed: () => context.push('/idea/${widget.ideaId}/publish'),
+            ),
+          if (loadedDetail != null)
+            IconButton(
+              tooltip: '创意宇宙',
+              icon: const Icon(Icons.hub_outlined),
+              onPressed: () => context.push('/idea/${widget.ideaId}/universe'),
+            ),
+          if (loadedDetail != null &&
+              !isOwner &&
+              loadedDetail.visibility == 'public' &&
+              loadedDetail.publicationStatus == 'published')
+            IconButton(
+              tooltip: '举报创意',
+              icon: const Icon(Icons.flag_outlined),
+              onPressed: _reportIdea,
+            ),
+          if (canViewPublicTimeline)
+            IconButton(
+              tooltip: '版本时间线',
+              icon: const Icon(Icons.timeline),
+              onPressed: () => context.push('/idea/${widget.ideaId}/timeline'),
+            ),
+          if (canManageVersions)
+            IconButton(
+              tooltip: '版本管理',
+              icon: const Icon(Icons.history),
+              onPressed: () => context.push('/idea/${widget.ideaId}/versions'),
+            ),
+          if (canManageInvites)
+            IconButton(
+              tooltip: '管理协作者',
+              icon: const Icon(Icons.group_outlined),
+              onPressed: () => context.push('/idea/${widget.ideaId}/invites'),
+            ),
+          if (canCollaborate)
+            IconButton(
+              tooltip: '异步贡献',
+              icon: const Icon(Icons.rate_review_outlined),
+              onPressed: () => context.push(
+                '/idea/${widget.ideaId}/contributions?owner=${isOwner}',
+              ),
+            ),
+        ],
         // 当导航栈无可返回页面时（如从每日一题 pushReplacement 跳转来），
         // 手动提供返回按钮，回到探索页
         leading: Navigator.canPop(context)
@@ -588,15 +734,67 @@ class _DetailBody extends StatelessWidget {
               detail.content,
               style: const TextStyle(fontSize: 16, height: 1.7),
             ),
-            const SizedBox(height: 24),
-            // 作者信息
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
+            if (detail.legacyLicenseReviewStatus == 'pending' ||
+                detail.legacyLicenseReviewStatus == 'expired') ...[
+              const SizedBox(height: 12),
+              Card(
                 color: AppColors.of(context).surface,
-                borderRadius: BorderRadius.circular(12),
+                child: ListTile(
+                  leading: Icon(
+                    Icons.policy_outlined,
+                    color: detail.legacyLicenseReviewStatus == 'expired'
+                        ? Theme.of(context).colorScheme.error
+                        : AppColors.of(context).gold,
+                  ),
+                  title: Text(
+                    detail.legacyLicenseReviewStatus == 'expired'
+                        ? '历史授权补充期限已结束'
+                        : '历史公开创意授权确认期',
+                  ),
+                  subtitle: Text(
+                    detail.legacyLicenseReviewStatus == 'expired'
+                        ? '当前不能继续衍生；已产生的衍生创意及其授权快照不受影响。'
+                        : '请在 90 天过渡期内补充并确认授权。截止时间：${detail.legacyLicenseReviewDueAt?.toLocal().toString().split('.').first ?? '以系统记录为准'}',
+                  ),
+                ),
               ),
-              child: Row(
+            ],
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Chip(
+                  avatar: Icon(
+                    detail.visibility == 'public' ? Icons.public : Icons.lock_outline,
+                    size: 16,
+                  ),
+                  label: Text(
+                    detail.publicationStatus == 'published'
+                        ? (detail.visibility == 'public' ? '已公开' : '已发布·私有')
+                        : (detail.publicationStatus == 'archived' ? '已归档' : '私有草稿'),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+                if (detail.licenseCode != null)
+                  Chip(
+                    label: Text('授权：${detail.licenseCode}'),
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // 作者信息：点击进入公开主页
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => context.push('/user/${detail.author.id}'),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.of(context).surface,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
                 children: [
                   CircleAvatar(
                     radius: 18,
@@ -629,6 +827,7 @@ class _DetailBody extends StatelessWidget {
                     ),
                   ),
                 ],
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -680,6 +879,65 @@ class _DetailBody extends StatelessWidget {
                 ),
                 onTap: onCircleTap,
               ),
+              ...detail.lineage.parents
+                  .where((parent) => parent.licenseSnapshot != null)
+                  .map((parent) {
+                final snapshot = parent.licenseSnapshot!;
+                final licenseCode =
+                    snapshot['license_code'] as String? ?? 'unknown';
+                final customText =
+                    snapshot['license_text_snapshot'] as String?;
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.of(context).surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.of(context).divider),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        parent.title == '已撤回的来源创意'
+                            ? '历史来源授权快照'
+                            : '来源授权快照',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.of(context).textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '来源作者：${parent.author} · 关系：${parent.relationType ?? 'unknown'}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.of(context).textSecondary,
+                        ),
+                      ),
+                      Text(
+                        '授权代码：$licenseCode · 允许继续衍生：${snapshot['allow_fork'] == true ? '是' : '否'}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.of(context).textSecondary,
+                        ),
+                      ),
+                      if (customText != null && customText.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          customText,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.of(context).textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              }),
               const SizedBox(height: 24),
             ],
           ],
@@ -700,13 +958,14 @@ class _DetailBody extends StatelessWidget {
               top: false,
               child: Row(
                 children: [
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Icons.call_split,
-                      label: 'Fork',
-                      onTap: onFork,
+                  if (detail.isForkable)
+                    Expanded(
+                      child: _ActionButton(
+                        icon: Icons.call_split,
+                        label: 'Fork',
+                        onTap: onFork,
+                      ),
                     ),
-                  ),
                   Expanded(
                     child: _ActionButton(
                       icon: detail.isInVault
@@ -717,13 +976,14 @@ class _DetailBody extends StatelessWidget {
                       onTap: () => onToggleCollect(detail.isInVault),
                     ),
                   ),
-                  Expanded(
-                    child: _ActionButton(
-                      icon: Icons.auto_awesome_outlined,
-                      label: '演化',
-                      onTap: onEvolveMenu,
+                  if (detail.isForkable)
+                    Expanded(
+                      child: _ActionButton(
+                        icon: Icons.auto_awesome_outlined,
+                        label: '碰撞 / 演化',
+                        onTap: onEvolveMenu,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

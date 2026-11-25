@@ -25,6 +25,40 @@ class NotificationService {
     }
   }
 
+  /// 读取和更新通知偏好
+
+  Future<List<NotificationPreferenceItem>> getPreferences() async {
+    try {
+      final res = await _dio.get('/notifications/preferences');
+      final items = (res.data as Map<String, dynamic>)['items'] as List<dynamic>? ?? [];
+      return items
+          .map((item) => NotificationPreferenceItem.fromJson(
+                Map<String, dynamic>.from(item as Map),
+              ))
+          .toList();
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  Future<List<NotificationPreferenceItem>> updatePreferences(
+    List<NotificationPreferenceItem> items,
+  ) async {
+    try {
+      final res = await _dio.put('/notifications/preferences', data: {
+        'items': items.map((item) => item.toJson()).toList(),
+      });
+      final values = (res.data as Map<String, dynamic>)['items'] as List<dynamic>? ?? [];
+      return values
+          .map((item) => NotificationPreferenceItem.fromJson(
+                Map<String, dynamic>.from(item as Map),
+              ))
+          .toList();
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
   /// 标记通知为已读
   /// [notificationIds] 需要标记已读的通知 ID 列表
   Future<int> markRead(List<String> notificationIds) async {

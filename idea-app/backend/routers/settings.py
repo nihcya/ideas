@@ -8,6 +8,7 @@ from models import User
 from schemas.settings import SettingsResponse, SettingsUpdateRequest, _mask_api_key
 from services.crypto_service import encrypt, decrypt
 from services.rate_limit import limiter, DEFAULT_LIMIT
+from services.admin_access import is_admin_user
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -22,6 +23,7 @@ async def get_settings(
         dark_mode=user.dark_mode,
         forkable=user.forkable,
         username=user.username,
+        is_admin=is_admin_user(user),
         bio=user.bio or "",
         llm_api_url=user.llm_api_url or "",
         # 读取时先解密再脱敏；解密失败返回空字符串

@@ -43,6 +43,7 @@ class SettingsNotifier extends AsyncNotifier<UserSettings> {
         darkMode: darkMode,
         forkable: current.forkable,
         username: current.username,
+        isAdmin: current.isAdmin,
         bio: current.bio,
         llmApiUrl: current.llmApiUrl,
         llmApiKey: current.llmApiKey,

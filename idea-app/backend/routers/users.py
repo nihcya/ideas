@@ -1,17 +1,98 @@
 """用户路由"""
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select, func
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from sqlalchemy import select, func, or_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from deps import get_db, get_current_user
-from models import User, Idea, VaultItem, ForkRelation
+from deps import get_db, get_current_user, get_optional_user
+from models import User, Idea, VaultItem, ForkRelation, IdeaVersion, IdeaVersionContribution, UserFollow
 from schemas.user import UserProfile
 from services.rate_limit import limiter, DEFAULT_LIMIT
 from routers.ideas import _calc_size_score
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get("/search")
+@limiter.limit(DEFAULT_LIMIT)
+async def search_public_creators(
+    request: Request,
+    q: str = Query(..., min_length=2, max_length=80),
+    limit: int = Query(20, ge=1, le=50),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search public creator profiles; ranking uses only public Ideas and attributions."""
+    query = q.strip()
+    if len(query) < 2:
+        raise HTTPException(status_code=422, detail="搜索词至少需要 2 个字符")
+
+    public_idea_count = (
+        select(func.count())
+        .select_from(Idea)
+        .where(
+            Idea.author_id == User.id,
+            Idea.status == "active",
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+        )
+        .correlate(User)
+        .scalar_subquery()
+    )
+    public_contribution_count = (
+        select(func.count())
+        .select_from(IdeaVersionContribution)
+        .join(IdeaVersion, IdeaVersion.id == IdeaVersionContribution.version_id)
+        .join(Idea, Idea.id == IdeaVersion.idea_id)
+        .where(
+            IdeaVersionContribution.author_id_snapshot == User.id,
+            IdeaVersion.status == "published",
+            Idea.status == "active",
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+        )
+        .correlate(User)
+        .scalar_subquery()
+    )
+    result = await db.execute(
+        select(
+            User.id,
+            User.username,
+            User.bio,
+            public_idea_count.label("public_idea_count"),
+            public_contribution_count.label("public_contribution_count"),
+        )
+        .where(
+            User.username.ilike(f"%{query}%"),
+            or_(public_idea_count > 0, public_contribution_count > 0),
+        )
+        .order_by(
+            public_contribution_count.desc(),
+            public_idea_count.desc(),
+            User.username.asc(),
+        )
+        .offset(offset)
+        .limit(limit + 1)
+    )
+    rows = result.all()
+    has_more = len(rows) > limit
+    items = rows[:limit]
+    return {
+        "items": [
+            {
+                "id": str(row.id),
+                "username": row.username,
+                "bio": row.bio or "",
+                "public_idea_count": int(row.public_idea_count or 0),
+                "public_contribution_count": int(row.public_contribution_count or 0),
+            }
+            for row in items
+        ],
+        "limit": limit,
+        "offset": offset,
+        "has_more": has_more,
+    }
 
 
 @router.get("/{user_id}", response_model=UserProfile)
@@ -20,6 +101,7 @@ async def get_user_profile(
     request: Request,
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    viewer: User | None = Depends(get_optional_user),
 ):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -31,15 +113,27 @@ async def get_user_profile(
 
     # 统计
     produced_result = await db.execute(
-        select(func.count()).select_from(VaultItem).where(
-            VaultItem.user_id == user.id, VaultItem.is_producer == True
+        select(func.count()).select_from(VaultItem)
+        .join(Idea, Idea.id == VaultItem.idea_id)
+        .where(
+            VaultItem.user_id == user.id,
+            VaultItem.is_producer == True,
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
         )
     )
     produced = produced_result.scalar() or 0
 
     collected_result = await db.execute(
-        select(func.count()).select_from(VaultItem).where(
-            VaultItem.user_id == user.id, VaultItem.is_producer == False
+        select(func.count()).select_from(VaultItem)
+        .join(Idea, Idea.id == VaultItem.idea_id)
+        .where(
+            VaultItem.user_id == user.id,
+            VaultItem.is_producer == False,
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
         )
     )
     collected = collected_result.scalar() or 0
@@ -47,14 +141,24 @@ async def get_user_profile(
     forked_by_result = await db.execute(
         select(func.count()).select_from(ForkRelation)
         .join(Idea, Idea.id == ForkRelation.parent_id)
-        .where(Idea.author_id == user.id)
+        .where(
+            Idea.author_id == user.id,
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
+        )
     )
     forked_by_others = forked_by_result.scalar() or 0
 
     forked_others_result = await db.execute(
         select(func.count()).select_from(ForkRelation)
         .join(Idea, Idea.id == ForkRelation.child_id)
-        .where(Idea.author_id == user.id)
+        .where(
+            Idea.author_id == user.id,
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+            Idea.status == "active",
+        )
     )
     forked_others = forked_others_result.scalar() or 0
 
@@ -62,8 +166,13 @@ async def get_user_profile(
     circles_result = await db.execute(
         select(Idea, VaultItem)
         .join(VaultItem, VaultItem.idea_id == Idea.id)
-        .where(VaultItem.user_id == user.id, Idea.status != "faded")
-        .order_by(VaultItem.added_at.desc())
+        .where(
+            VaultItem.user_id == user.id,
+            Idea.status == "active",
+            Idea.publication_status == "published",
+            Idea.visibility == "public",
+        )
+        .order_by(VaultItem.created_at.desc())
     )
     circles = []
     for idea, vi in circles_result.all():
@@ -74,18 +183,204 @@ async def get_user_profile(
             "border_style": "gold-thin" if vi.is_producer else "none",
         })
 
+    followers_count = await db.scalar(
+        select(func.count()).select_from(UserFollow).where(UserFollow.following_id == user.id)
+    ) or 0
+    following_count = await db.scalar(
+        select(func.count()).select_from(UserFollow).where(UserFollow.follower_id == user.id)
+    ) or 0
+    is_following = False
+    if viewer is not None and viewer.id != user.id:
+        is_following = await db.scalar(
+            select(UserFollow.id).where(
+                UserFollow.follower_id == viewer.id,
+                UserFollow.following_id == user.id,
+            )
+        ) is not None
+
     return UserProfile(
         id=str(user.id),
         username=user.username,
         bio=user.bio or "",
+        is_self=bool(viewer and viewer.id == user.id),
+        is_following=is_following,
+        can_follow=bool(viewer and viewer.id != user.id),
         stats={
             "produced": produced,
             "collected": collected,
             "forked_by_others": forked_by_others,
             "forked_others": forked_others,
+            "followers": followers_count,
+            "following": following_count,
         },
         circles=circles,
     )
+
+
+@router.post("/{user_id}/follow")
+@limiter.limit(DEFAULT_LIMIT)
+async def follow_creator(
+    request: Request,
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    viewer: User = Depends(get_current_user),
+):
+    if user_id == viewer.id:
+        raise HTTPException(status_code=422, detail="不能关注自己")
+    target = await db.get(User, user_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    # Serialize writes by follower account; unique pair is the final DB guard.
+    await db.scalar(select(User.id).where(User.id == viewer.id).with_for_update())
+    existing = await db.scalar(
+        select(UserFollow.id).where(
+            UserFollow.follower_id == viewer.id,
+            UserFollow.following_id == user_id,
+        )
+    )
+    if existing is None:
+        db.add(UserFollow(follower_id=viewer.id, following_id=user_id))
+        await db.commit()
+    return {"following": True}
+
+
+@router.delete("/{user_id}/follow")
+@limiter.limit(DEFAULT_LIMIT)
+async def unfollow_creator(
+    request: Request,
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    viewer: User = Depends(get_current_user),
+):
+    if user_id == viewer.id:
+        raise HTTPException(status_code=422, detail="不能取消关注自己")
+    await db.execute(delete(UserFollow).where(
+        UserFollow.follower_id == viewer.id,
+        UserFollow.following_id == user_id,
+    ))
+    await db.commit()
+    return {"following": False}
+
+
+@router.get("/{user_id}/followers")
+async def list_creator_followers(
+    user_id: uuid.UUID,
+    limit: int = Query(30, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    if await db.get(User, user_id) is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    rows = (await db.execute(
+        select(User.id, User.username, User.bio, UserFollow.created_at)
+        .join(UserFollow, UserFollow.follower_id == User.id)
+        .where(UserFollow.following_id == user_id)
+        .order_by(UserFollow.created_at.desc(), User.username.asc())
+        .offset(offset)
+        .limit(limit + 1)
+    )).all()
+    return {
+        "items": [
+            {"id": str(row.id), "username": row.username, "bio": row.bio or ""}
+            for row in rows[:limit]
+        ],
+        "has_more": len(rows) > limit,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@router.get("/{user_id}/following")
+async def list_creator_following(
+    user_id: uuid.UUID,
+    limit: int = Query(30, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    if await db.get(User, user_id) is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    rows = (await db.execute(
+        select(User.id, User.username, User.bio, UserFollow.created_at)
+        .join(UserFollow, UserFollow.following_id == User.id)
+        .where(UserFollow.follower_id == user_id)
+        .order_by(UserFollow.created_at.desc(), User.username.asc())
+        .offset(offset)
+        .limit(limit + 1)
+    )).all()
+    return {
+        "items": [
+            {"id": str(row.id), "username": row.username, "bio": row.bio or ""}
+            for row in rows[:limit]
+        ],
+        "has_more": len(rows) > limit,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@router.get("/{user_id}/contributions")
+@limiter.limit(DEFAULT_LIMIT)
+async def get_user_contributions(
+    request: Request,
+    user_id: uuid.UUID,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+):
+    """公开展示用户已被正式发布版本采纳的贡献；私有创意与草稿一律不暴露。"""
+    user_result = await db.execute(select(User.id).where(User.id == user_id))
+    if user_result.scalar_one_or_none() is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": {"code": "NOT_FOUND", "message": "用户不存在"}},
+        )
+
+    public_filters = (
+        IdeaVersionContribution.author_id_snapshot == user_id,
+        IdeaVersion.status == "published",
+        Idea.publication_status == "published",
+        Idea.visibility == "public",
+        Idea.status == "active",
+    )
+    count_result = await db.execute(
+        select(func.count())
+        .select_from(IdeaVersionContribution)
+        .join(IdeaVersion, IdeaVersion.id == IdeaVersionContribution.version_id)
+        .join(Idea, Idea.id == IdeaVersion.idea_id)
+        .where(*public_filters)
+    )
+    total = count_result.scalar() or 0
+
+    result = await db.execute(
+        select(IdeaVersionContribution, IdeaVersion, Idea)
+        .join(IdeaVersion, IdeaVersion.id == IdeaVersionContribution.version_id)
+        .join(Idea, Idea.id == IdeaVersion.idea_id)
+        .where(*public_filters)
+        .order_by(IdeaVersion.published_at.desc(), IdeaVersion.version_number.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    items = []
+    for attribution, version, idea in result.all():
+        items.append({
+            "id": str(attribution.id),
+            "idea_id": str(idea.id),
+            "idea_content": version.content_snapshot,
+            "version_id": str(version.id),
+            "version_number": version.version_number,
+            "published_at": version.published_at.isoformat() if version.published_at else None,
+            "change_summary": version.change_summary,
+            "contribution_content": attribution.content_snapshot,
+            "author_name": attribution.author_name_snapshot,
+        })
+
+    return {
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": offset + len(items) < total,
+    }
 
 
 @router.get("/me/vault")

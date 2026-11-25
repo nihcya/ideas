@@ -1110,3 +1110,25 @@ docker exec dianzi-postgres pg_dump -U dianzi dianzi_app | gzip > /opt/dianzi/ba
 > 后端服务已于 2026-07-09 正式上线运行。
 > 后续如有重大架构调整需更新版本。
 
+
+
+## V2.0 社区治理管理员配置补充
+
+- 管理端举报队列使用后端环境变量 `ADMIN_USER_IDS` 白名单授权，值为逗号分隔的用户 UUID。
+- 不得使用用户名作为管理员凭据，不得向客户端暴露管理员白名单。
+- 未配置或配置无效时默认拒绝所有管理端请求；管理员身份由登录后的账户 UUID 与服务器配置比对。
+- 新增举报/审核 API：`POST /api/reports`、`GET /api/reports/admin`、`POST /api/reports/admin/{report_id}/review`。
+- 下架动作会将创意转为私有草稿、关闭衍生许可并清理探索缓存；操作记录写入安全事件日志。
+
+
+## 历史公开创意 90 天授权过渡期任务
+
+- Migration 012 从 Migration 001 的 `applied_at` 计算所有历史公开创意的截止时间：激活日 + 90 天。
+- 后端每日执行一次 `python -m jobs.expire_legacy_license_reviews`（工作目录为 `idea-app/backend`）。
+- 推荐使用系统 cron 或 systemd timer，使用与 API 相同的数据库连接配置；该任务幂等，可重复执行。
+- 截止前 7 天发送一次 `legacy_license_reminder` 通知；截止后将状态标记为 `expired` 并关闭新的衍生许可。
+- 过期不会删除或下架历史公开内容，也不会撤销已产生衍生创意的授权快照；创作者仍可查看原有内容。
+- 发布接口会再次校验截止时间，避免每日任务未及时运行时通过发布操作绕过 90 天期限。
+
+
+- Migration 013 must be applied after 012 to widen `notifications.type` to `VARCHAR(40)`, required by the legacy authorization reminder event identifier.

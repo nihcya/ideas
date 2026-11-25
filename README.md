@@ -10,6 +10,10 @@
 
 ---
 
+## IDEAS V2 阶段性 Demo
+
+本地浏览器演示（SQLite + Mock AI）请参阅 [IDEAS V2 Demo 快速启动指南](idea-app/docs/v2/IDEAS_V2_DEMO_QUICKSTART.md)。该指南说明演示范围、启动方式和与生产环境的边界。
+
 ## ✨ 核心功能
 
 | 功能 | 说明 |

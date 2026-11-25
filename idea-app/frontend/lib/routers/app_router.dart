@@ -6,11 +6,22 @@ import '../screens/explore_screen.dart';
 import '../screens/vault_screen.dart';
 import '../screens/spark_screen.dart';
 import '../screens/profile_screen.dart';
+import '../screens/public_user_profile_screen.dart';
+import '../screens/creators_screen.dart';
+import '../screens/public_idea_timeline_screen.dart';
 import '../screens/idea_detail_screen.dart';
+import '../screens/idea_universe_screen.dart';
+import '../screens/collaboration_screen.dart';
 import '../screens/create_idea_screen.dart';
+import '../screens/publish_idea_screen.dart';
+import '../screens/idea_invites_screen.dart';
+import '../screens/manage_idea_invites_screen.dart';
+import '../screens/idea_contributions_screen.dart';
+import '../screens/idea_versions_screen.dart';
 import '../screens/fork_guide_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../screens/settings_screen.dart';
+import '../screens/admin_reports_screen.dart';
 import '../screens/auth_screen.dart';
 import '../providers/auth_provider.dart';
 
@@ -39,8 +50,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (isLoading) return null;
 
       final path = state.uri.path;
-      final publicPaths = ['/auth', '/explore'];
-      final isPublic = publicPaths.any((p) => path.startsWith(p));
+      final publicPaths = ['/auth', '/explore', '/user/'];
+      final isPublic = publicPaths.any((p) => path.startsWith(p)) ||
+          (path.startsWith('/idea/') &&
+              (path.endsWith('/timeline') || path.endsWith('/universe')));
 
       // 未登录访问受保护页面 → 跳转登录
       if (!isLoggedIn && !isPublic) {
@@ -79,6 +92,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
+      GoRoute(
+        path: '/collaborations',
+        name: 'collaborations',
+        builder: (context, state) => const CollaborationListScreen(),
+      ),
+      GoRoute(
+        path: '/collaborations/:id',
+        name: 'collaborationDetail',
+        builder: (context, state) => CollaborationDetailScreen(
+          collaborationId: state.pathParameters['id']!,
+        ),
+      ),
       // 独立页面（push 跳转）
       GoRoute(
         path: '/auth',
@@ -86,9 +111,68 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AuthScreen(),
       ),
       GoRoute(
+        path: '/creators',
+        name: 'creators',
+        builder: (context, state) => const CreatorsScreen(),
+      ),
+      GoRoute(
+        path: '/user/:id',
+        name: 'publicUserProfile',
+        builder: (context, state) => PublicUserProfileScreen(
+          userId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/idea/:id/timeline',
+        name: 'publicIdeaTimeline',
+        builder: (context, state) => PublicIdeaTimelineScreen(
+          ideaId: state.pathParameters['id']!,
+          versionId: state.uri.queryParameters['version'],
+        ),
+      ),
+      GoRoute(
+        path: '/idea/:id/universe',
+        name: 'ideaUniverse',
+        builder: (context, state) => IdeaUniverseScreen(
+          ideaId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
         path: '/idea/:id',
         name: 'ideaDetail',
         builder: (context, state) => IdeaDetailScreen(
+          ideaId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/invites',
+        name: 'ideaInvites',
+        builder: (context, state) => const IdeaInvitesScreen(),
+      ),
+      GoRoute(
+        path: '/idea/:id/contributions',
+        name: 'ideaContributions',
+        builder: (context, state) => IdeaContributionsScreen(
+          ideaId: state.pathParameters['id']!,
+          isOwner: state.uri.queryParameters['owner'] == 'true',
+        ),
+      ),
+      GoRoute(
+        path: '/idea/:id/versions',
+        name: 'ideaVersions',
+        builder: (context, state) => IdeaVersionsScreen(ideaId: state.pathParameters['id']!, highlightVersionId: state.uri.queryParameters['version']),
+      ),
+      GoRoute(
+        path: '/idea/:id/invites',
+        name: 'manageIdeaInvites',
+        builder: (context, state) => ManageIdeaInvitesScreen(
+          ideaId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/idea/:id/publish',
+        name: 'publishIdea',
+        builder: (context, state) => PublishIdeaScreen(
           ideaId: state.pathParameters['id']!,
         ),
       ),
@@ -105,9 +189,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/notifications/preferences',
+        name: 'notificationPreferences',
+        builder: (context, state) => const NotificationPreferencesScreen(),
+      ),
+      GoRoute(
         path: '/notifications',
         name: 'notifications',
         builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/reports',
+        name: 'adminReports',
+        builder: (context, state) => const AdminReportsScreen(),
       ),
       GoRoute(
         path: '/settings',

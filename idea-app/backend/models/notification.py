@@ -15,13 +15,16 @@ class Notification(Base, TimestampMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    type: Mapped[str] = mapped_column(String(20), nullable=False)
+    type: Mapped[str] = mapped_column(String(40), nullable=False)
     content: Mapped[str] = mapped_column(String(200), nullable=False)
     idea_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid, ForeignKey("ideas.id", ondelete="SET NULL"), nullable=True
     )
     actor_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    collaboration_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid, ForeignKey("collaborations.id", ondelete="SET NULL"), nullable=True, index=True
     )
     read: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 

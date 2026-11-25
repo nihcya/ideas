@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/explore_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/circle_canvas.dart';
+import '../widgets/explore_filter_sheet.dart';
 
 /// 主页探索页：圆圈画布 + 强制随机激发
 class ExploreScreen extends ConsumerStatefulWidget {
@@ -37,6 +38,18 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     }
   }
 
+  Future<void> _openFilters() async {
+    final notifier = ref.read(exploreProvider.notifier);
+    final selected = await showModalBottomSheet<ExploreFilters>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => ExploreFilterSheet(initial: notifier.filters),
+    );
+    if (selected != null && mounted) {
+      await notifier.setFilters(selected);
+    }
+  }
+
   Future<void> _refresh() async {
     await ref.read(exploreProvider.notifier).refresh();
   }
@@ -49,11 +62,25 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   Widget build(BuildContext context) {
     final asyncCircles = ref.watch(exploreProvider);
     final hasMore = ref.watch(exploreProvider.notifier).hasMore;
+    final hasActiveFilters = ref.watch(exploreProvider.notifier).filters.isActive;
     final colors = AppColors.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('点子'),
         actions: [
+          IconButton(
+            tooltip: '发现创作者',
+            icon: const Icon(Icons.people_alt_outlined),
+            onPressed: () => context.push('/creators'),
+          ),
+          IconButton(
+            tooltip: '筛选和排序',
+            icon: Icon(
+              Icons.filter_list,
+              color: hasActiveFilters ? colors.gold : null,
+            ),
+            onPressed: _openFilters,
+          ),
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
             onPressed: () => context.push('/notifications'),

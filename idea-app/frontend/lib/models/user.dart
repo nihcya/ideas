@@ -52,12 +52,16 @@ class UserProfileStats {
   final int collected;
   final int forkedByOthers;
   final int forkedOthers;
+  final int followers;
+  final int following;
 
   const UserProfileStats({
     this.produced = 0,
     this.collected = 0,
     this.forkedByOthers = 0,
     this.forkedOthers = 0,
+    this.followers = 0,
+    this.following = 0,
   });
 
   factory UserProfileStats.fromJson(Map<String, dynamic> json) {
@@ -66,6 +70,8 @@ class UserProfileStats {
       collected: json['collected'] as int? ?? 0,
       forkedByOthers: json['forked_by_others'] as int? ?? 0,
       forkedOthers: json['forked_others'] as int? ?? 0,
+      followers: json['followers'] as int? ?? 0,
+      following: json['following'] as int? ?? 0,
     );
   }
 }
@@ -76,6 +82,9 @@ class UserProfile {
   final String username;
   final String bio;
   final UserProfileStats stats;
+  final bool isSelf;
+  final bool isFollowing;
+  final bool canFollow;
   final List<UserProfileCircle> circles;
 
   const UserProfile({
@@ -83,6 +92,9 @@ class UserProfile {
     required this.username,
     required this.bio,
     required this.stats,
+    this.isSelf = false,
+    this.isFollowing = false,
+    this.canFollow = false,
     required this.circles,
   });
 
@@ -94,6 +106,9 @@ class UserProfile {
       stats: UserProfileStats.fromJson(
         json['stats'] as Map<String, dynamic>? ?? {},
       ),
+      isSelf: json['is_self'] as bool? ?? false,
+      isFollowing: json['is_following'] as bool? ?? false,
+      canFollow: json['can_follow'] as bool? ?? false,
       circles: ((json['circles'] as List<dynamic>?) ?? [])
           .map((e) => UserProfileCircle.fromJson(e as Map<String, dynamic>))
           .toList(),

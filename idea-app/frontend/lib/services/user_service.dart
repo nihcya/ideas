@@ -9,6 +9,43 @@ class UserService {
 
   UserService(this._dio);
 
+  Future<void> followUser(String userId) async {
+    try {
+      await _dio.post('/users/$userId/follow');
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  Future<void> unfollowUser(String userId) async {
+    try {
+      await _dio.delete('/users/$userId/follow');
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  /// 搜索公开创作者；排序和贡献统计仅基于当前公开内容。
+  Future<List<Map<String, dynamic>>> searchPublicCreators(
+    String query, {
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    try {
+      final res = await _dio.get('/users/search', queryParameters: {
+        'q': query,
+        'limit': limit,
+        'offset': offset,
+      });
+      final data = Map<String, dynamic>.from(res.data as Map);
+      return ((data['items'] as List<dynamic>?) ?? [])
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
   /// 获取用户公开主页
   Future<UserProfile> getUserProfile(String id) async {
     try {
@@ -18,4 +55,37 @@ class UserService {
       throw toApiException(e);
     }
   }
+  /// 获取用户公开贡献记录分页（仅包含已发布公开创意中的正式署名）。
+  Future<Map<String, dynamic>> getUserContributionsPage(
+    String id, {
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    try {
+      final res = await _dio.get(
+        '/users/$id/contributions',
+        queryParameters: {'limit': limit, 'offset': offset},
+      );
+      final data = Map<String, dynamic>.from(res.data as Map);
+      data['items'] = ((data['items'] as List<dynamic>?) ?? [])
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+      return data;
+    } on DioException catch (e) {
+      throw toApiException(e);
+    }
+  }
+
+  /// 兼容旧调用方的列表形式。
+  Future<List<Map<String, dynamic>>> getUserContributions(
+    String id, {
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final page = await getUserContributionsPage(
+      id, limit: limit, offset: offset,
+    );
+    return List<Map<String, dynamic>>.from(page['items'] as List);
+  }
+
 }
