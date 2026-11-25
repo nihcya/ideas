@@ -211,6 +211,12 @@ WHERE conname IN (
   'ck_idea_association_type'
 )
 ORDER BY table_name, conname;
+
+-- Migration 014 must create the partial unique index used by report submission.
+SELECT indexname, indexdef
+FROM pg_indexes
+WHERE schemaname = 'public'
+  AND indexname = 'uq_idea_reports_open_per_reporter';
 ```
 
 Both unexpected-row counts must be zero unless a separately approved data exception explains otherwise. Validate foreign keys and indexes against the migration files before enabling new endpoints.
