@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from deps import get_current_user, get_db
@@ -107,7 +108,7 @@ async def test_simultaneous_report_submissions_return_one_created_and_one_confli
             assert sorted(response.status_code for response in responses) == [201, 409]
             async with sessions() as verify:
                 rows = (await verify.execute(
-                    __import__("sqlalchemy").select(IdeaReport).where(
+                    select(IdeaReport).where(
                         IdeaReport.idea_id == idea_id,
                         IdeaReport.reporter_id == reporter_id,
                         IdeaReport.status.in_(["pending", "in_review"]),
