@@ -353,6 +353,8 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         except asyncpg.PostgresError:
             pass
         await conn.execute("""
+            DROP TABLE IF EXISTS user_follows CASCADE;
+            DROP TABLE IF EXISTS idea_reports CASCADE;
             DROP TABLE IF EXISTS notification_preferences CASCADE;
             DROP TABLE IF EXISTS idea_associations CASCADE;
             DROP TABLE IF EXISTS collaboration_events CASCADE;
