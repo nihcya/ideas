@@ -2,7 +2,7 @@
 
 **Status:** Review checklist only. No production database has been accessed or migrated.  
 **Target:** PostgreSQL 16+  
-**Migrations:** `001_idea_visibility_and_acl.sql` → `002_idea_contributions.sql` → `003_idea_versions_and_attribution.sql` → `004_collaborations.sql` → `005_collaboration_attribution.sql` → `006_idea_associations.sql` → `007_notification_preferences.sql` → `008_collaboration_member_leave.sql` → `009_collaboration_notification_links.sql` → `010_idea_reports.sql` → `011_user_follows.sql` → `012_legacy_license_deadlines.sql`
+**Migrations:** `001_idea_visibility_and_acl.sql` → `002_idea_contributions.sql` → `003_idea_versions_and_attribution.sql` → `004_collaborations.sql` → `005_collaboration_attribution.sql` → `006_idea_associations.sql` → `007_notification_preferences.sql` → `008_collaboration_member_leave.sql` → `009_collaboration_notification_links.sql` → `010_idea_reports.sql` → `011_user_follows.sql` → `012_legacy_license_deadlines.sql` → `013_notification_type_length.sql`
 
 This runbook is not authorization to run migrations. Production execution requires an approved maintenance window, a named operator, a verified backup/restore rehearsal, and explicit approval of the legacy-public-data assumption below.
 
@@ -108,7 +108,7 @@ The final query must only be run if the registry exists; otherwise skip it. Revi
 3. Verify the dump can be listed (for a custom-format dump, `pg_restore --list`).
 4. Restore the backup into an isolated staging database using the same PostgreSQL major version.
 5. Run the read-only preflight SQL against the restored copy.
-6. Rehearse migrations 001 → 002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010 → 011 → 012 on that restored copy, then run the post-migration validation SQL below.
+6. Rehearse migrations 001 → 002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010 → 011 → 012 → 013 on that restored copy, then run the post-migration validation SQL below.
 7. Confirm application smoke tests against the restored/migrated staging copy.
 8. Do not proceed if restore or rehearsal fails. A backup that has not been restored is not a verified recovery point.
 
@@ -120,15 +120,15 @@ Actual backup commands, retention, encryption, storage destination, and RPO/RTO 
 - Take and verify the final pre-migration backup.
 - Execute each migration file in order using the approved PostgreSQL client with stop-on-error enabled (for example, `psql -v ON_ERROR_STOP=1`). Each file manages its own transaction.
 - Stop immediately on the first error. Do not manually insert migration markers or skip prerequisites.
-- Verify all twelve registry entries and post-migration invariants before enabling V2 endpoints.
+- Verify all thirteen registry entries and post-migration invariants before enabling V2 endpoints.
 - Keep the backup and logs according to the organization's retention policy.
 
-Migration 001 intentionally rejects a second execution once its marker exists. Migrations 002–012 also check prerequisites. Do not edit markers to force a rerun.
+Migration 001 intentionally rejects a second execution once its marker exists. Migrations 002–013 also check prerequisites. Do not edit markers to force a rerun.
 
 ## 5. Post-migration validation SQL
 
 ```sql
--- All twelve migrations must be recorded exactly once.
+-- All thirteen migrations must be recorded exactly once.
 SELECT version, applied_at
 FROM app_schema_migrations
 WHERE version IN (
@@ -143,7 +143,8 @@ WHERE version IN (
   '009_collaboration_notification_links',
   '010_idea_reports',
   '011_user_follows',
-  '012_legacy_license_deadlines'
+  '012_legacy_license_deadlines',
+  '013_notification_type_length'
 )
 ORDER BY version;
 
