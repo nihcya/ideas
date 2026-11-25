@@ -55,3 +55,13 @@ def test_migration_003_requires_001_and_002_and_enforces_single_attribution():
     assert "UNIQUE (version_id, contribution_id)" in sql
     assert "REFERENCES idea_contributions(id) ON DELETE RESTRICT" in sql
     assert "REFERENCES idea_versions(id) ON DELETE CASCADE" in sql
+
+def test_migration_014_enforces_one_open_report_per_reporter_and_idea():
+    sql = _read("014_idea_report_open_uniqueness.sql")
+    _assert_transaction_wrapped(sql)
+
+    assert "Migration 010_idea_reports must be applied before 014" in sql
+    assert "CREATE UNIQUE INDEX uq_idea_reports_open_per_reporter" in sql
+    assert "ON idea_reports(idea_id, reporter_id)" in sql
+    assert "WHERE status IN ('pending', 'in_review')" in sql
+    assert "014_idea_report_open_uniqueness" in sql
