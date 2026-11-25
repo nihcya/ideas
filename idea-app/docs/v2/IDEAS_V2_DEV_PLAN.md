@@ -685,3 +685,12 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 性能验证采用查询计划与边界断言，不设置脆弱的墙钟耗时阈值；实际生产容量仍需基于真实数据规模压测。
 - [ ] 最新 exact-head CI 的 PostgreSQL Universe job 与其余 Backend、Migration、Concurrency、Flutter jobs 全部通过。
 - [ ] 后续补充真实数据分布下的 EXPLAIN ANALYZE / BUFFERS 基准及小屏复杂布局验收。
+
+### 16.5 Sprint 4 — 举报并发完整性与管理员审核边界（2026-11-25）
+
+- [x] 安全复审发现“同一用户对同一创意仅保留一条 pending/in_review 举报”此前只有应用层先查后写，两个并发请求仍可能同时插入。
+- [x] 新增 Migration 014：对 `(idea_id, reporter_id)` 建立仅覆盖 pending/in_review 的部分唯一索引；终态举报保留历史且允许用户后续重新举报。
+- [x] ORM 同步声明 PostgreSQL/SQLite 部分唯一索引；提交冲突时 rollback 并复查，将并发竞争统一映射为 HTTP 409。
+- [x] PostgreSQL 迁移集成测试覆盖重复 open report 被拒绝、转为 resolved 后允许重新举报，以及 Migration 010 前置依赖。
+- [x] 生产迁移 Runbook 增加 Migration 014 前的重复数据检查和迁移后的索引验证；Release Checklist 更新至 001–014。
+- [ ] 最新 exact-head CI 全部通过后关闭本项；生产重复数据检查和 Migration 014 均未执行。
