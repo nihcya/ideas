@@ -668,3 +668,11 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] Added release checklist for GitHub secrets, production API URL, migrations 001–012, admin allowlist and daily legacy authorization job.
 - [ ] Actual signed release build remains gated on owner-provided Android keystore secrets and production HTTPS API URL.
 - [ ] Production migrations/deployment remain manual, approval-gated operations; CI does not access production.
+
+
+### 16.4 CI 失败修复 — 通知类型长度与迁移隔离（2026-11-25）
+
+- [x] PostgreSQL 集成测试清理 user_follows / idea_reports，避免测试间遗留对象。
+- [x] 新增 Migration 013，将 notifications.type 扩展为 VARCHAR(40)，匹配 legacy_license_reminder 等事件标识。
+- [x] SQLAlchemy Notification 模型同步扩展至 String(40)。
+- [ ] 重新运行 exact-head CI，确认 Flutter、Backend、PostgreSQL migration 四个 jobs 全部通过。
