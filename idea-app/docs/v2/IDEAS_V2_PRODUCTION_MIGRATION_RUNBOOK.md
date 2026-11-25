@@ -2,7 +2,7 @@
 
 **Status:** Review checklist only. No production database has been accessed or migrated.  
 **Target:** PostgreSQL 16+  
-**Migrations:** `001_idea_visibility_and_acl.sql` → `002_idea_contributions.sql` → `003_idea_versions_and_attribution.sql` → `004_collaborations.sql` → `005_collaboration_attribution.sql` → `006_idea_associations.sql` → `007_notification_preferences.sql` → `008_collaboration_member_leave.sql` → `009_collaboration_notification_links.sql` → `010_idea_reports.sql` → `011_user_follows.sql` → `012_legacy_license_deadlines.sql` → `013_notification_type_length.sql`
+**Migrations:** `001_idea_visibility_and_acl.sql` → `002_idea_contributions.sql` → `003_idea_versions_and_attribution.sql` → `004_collaborations.sql` → `005_collaboration_attribution.sql` → `006_idea_associations.sql` → `007_notification_preferences.sql` → `008_collaboration_member_leave.sql` → `009_collaboration_notification_links.sql` → `010_idea_reports.sql` → `011_user_follows.sql` → `012_legacy_license_deadlines.sql` → `013_notification_type_length.sql` → `014_idea_report_open_uniqueness.sql`
 
 This runbook is not authorization to run migrations. Production execution requires an approved maintenance window, a named operator, a verified backup/restore rehearsal, and explicit approval of the legacy-public-data assumption below.
 
@@ -80,6 +80,14 @@ WHERE status = 'active'
 ORDER BY created_at DESC
 LIMIT 100;
 
+-- Existing open duplicate reports must be zero before Migration 014.
+-- Resolve duplicates manually; do not delete or auto-dismiss user reports.
+SELECT idea_id, reporter_id, COUNT(*) AS open_report_count
+FROM idea_reports
+WHERE status IN ('pending', 'in_review')
+GROUP BY idea_id, reporter_id
+HAVING COUNT(*) > 1;
+
 -- Existing objects that could conflict with new names
 SELECT to_regclass('public.app_schema_migrations') AS migration_registry,
        to_regclass('public.idea_access_grants') AS access_grants,
@@ -91,7 +99,8 @@ SELECT to_regclass('public.app_schema_migrations') AS migration_registry,
        to_regclass('public.collaboration_sources') AS collaboration_sources,
        to_regclass('public.collaboration_contributions') AS collaboration_contributions,
        to_regclass('public.collaboration_events') AS collaboration_events,
-       to_regclass('public.idea_associations') AS idea_associations;
+       to_regclass('public.idea_associations') AS idea_associations,
+       to_regclass('public.idea_reports') AS idea_reports;
 
 -- If an app_schema_migrations table already exists, inspect it; do not overwrite it.
 SELECT version, applied_at
@@ -120,15 +129,15 @@ Actual backup commands, retention, encryption, storage destination, and RPO/RTO 
 - Take and verify the final pre-migration backup.
 - Execute each migration file in order using the approved PostgreSQL client with stop-on-error enabled (for example, `psql -v ON_ERROR_STOP=1`). Each file manages its own transaction.
 - Stop immediately on the first error. Do not manually insert migration markers or skip prerequisites.
-- Verify all thirteen registry entries and post-migration invariants before enabling V2 endpoints.
+- Verify all fourteen registry entries and post-migration invariants before enabling V2 endpoints.
 - Keep the backup and logs according to the organization's retention policy.
 
-Migration 001 intentionally rejects a second execution once its marker exists. Migrations 002–013 also check prerequisites. Do not edit markers to force a rerun.
+Migration 001 intentionally rejects a second execution once its marker exists. Migrations 002–014 also check prerequisites. Do not edit markers to force a rerun.
 
 ## 5. Post-migration validation SQL
 
 ```sql
--- All thirteen migrations must be recorded exactly once.
+-- All fourteen migrations must be recorded exactly once.
 SELECT version, applied_at
 FROM app_schema_migrations
 WHERE version IN (
@@ -144,7 +153,8 @@ WHERE version IN (
   '010_idea_reports',
   '011_user_follows',
   '012_legacy_license_deadlines',
-  '013_notification_type_length'
+  '013_notification_type_length',
+  '014_idea_report_open_uniqueness'
 )
 ORDER BY version;
 
@@ -203,6 +213,7 @@ ORDER BY table_name, conname;
 ```
 
 Both unexpected-row counts must be zero unless a separately approved data exception explains otherwise. Validate foreign keys and indexes against the migration files before enabling new endpoints.
+The duplicate-open-report preflight must return zero rows before Migration 014. If it does not, stop and have an operator reconcile each duplicate without deleting report history.
 
 ## 6. Rollback and recovery
 
