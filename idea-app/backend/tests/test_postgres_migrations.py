@@ -94,6 +94,7 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
             "011_user_follows.sql",
             "012_legacy_license_deadlines.sql",
             "013_notification_type_length.sql",
+            "014_idea_report_open_uniqueness.sql",
         ):
             sql = (MIGRATIONS / name).read_text(encoding="utf-8")
             await conn.execute(sql)
@@ -115,6 +116,7 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
             "011_user_follows",
             "012_legacy_license_deadlines",
             "013_notification_type_length",
+            "014_idea_report_open_uniqueness",
         }
 
         active = await conn.fetchrow(
@@ -177,6 +179,28 @@ async def test_postgres_16_migrations_apply_in_order_and_enforce_constraints():
                 version_two_id, contribution_id, contributor_id,
             )
 
+        # One open report per (Idea, reporter), including concurrent status races.
+        report_id = uuid.uuid4()
+        await conn.execute(
+            "INSERT INTO idea_reports(id, idea_id, reporter_id, reason, status) "
+            "VALUES($1, $2, $3, 'copyright', 'pending')",
+            report_id, active_idea_id, contributor_id,
+        )
+        with pytest.raises(asyncpg.UniqueViolationError):
+            await conn.execute(
+                "INSERT INTO idea_reports(id, idea_id, reporter_id, reason, status) "
+                "VALUES($1, $2, $3, 'spam', 'in_review')",
+                uuid.uuid4(), active_idea_id, contributor_id,
+            )
+        await conn.execute(
+            "UPDATE idea_reports SET status='resolved' WHERE id=$1", report_id
+        )
+        await conn.execute(
+            "INSERT INTO idea_reports(id, idea_id, reporter_id, reason, status) "
+            "VALUES($1, $2, $3, 'spam', 'pending')",
+            uuid.uuid4(), active_idea_id, contributor_id,
+        )
+
     finally:
         await conn.close()
 
@@ -238,6 +262,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         migration_011 = (MIGRATIONS / "011_user_follows.sql").read_text(encoding="utf-8")
         migration_012 = (MIGRATIONS / "012_legacy_license_deadlines.sql").read_text(encoding="utf-8")
         migration_013 = (MIGRATIONS / "013_notification_type_length.sql").read_text(encoding="utf-8")
+        migration_014 = (MIGRATIONS / "014_idea_report_open_uniqueness.sql").read_text(encoding="utf-8")
 
         async def expect_migration_failure(sql):
             with pytest.raises(asyncpg.PostgresError):
@@ -282,6 +307,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         await expect_migration_failure(migration_011)
         await expect_migration_failure(migration_012)
         await expect_migration_failure(migration_013)
+        await expect_migration_failure(migration_014)
         assert await conn.fetchval("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='idea_contributions' AND column_name='source_collaboration_contribution_id'") == 0
         assert await conn.fetchval("SELECT to_regclass('public.idea_associations')") is None
         assert await conn.fetchval("SELECT to_regclass('public.notification_preferences')") is None
@@ -299,6 +325,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
         await conn.execute(migration_011)
         await conn.execute(migration_012)
         await conn.execute(migration_013)
+        await conn.execute(migration_014)
         assert await conn.fetchval(
             "SELECT character_maximum_length FROM information_schema.columns "
             "WHERE table_schema='public' AND table_name='notifications' AND column_name='type'"
