@@ -676,3 +676,12 @@ ChatGPT 可通过 GitHub 连接器直接读写仓库；这不等于已在用户�
 - [x] 新增 Migration 013，将 notifications.type 扩展为 VARCHAR(40)，匹配 legacy_license_reminder 等事件标识。
 - [x] SQLAlchemy Notification 模型同步扩展至 String(40)。
 - [ ] 重新运行 exact-head CI，确认 Flutter、Backend、PostgreSQL migration 四个 jobs 全部通过。
+
+### 15.3 Sprint 3 — PostgreSQL 图谱索引与复杂网络回归（2026-11-25）
+
+- [x] 新增独立 PostgreSQL 16 图谱验证 job，使用一次性数据库，不连接生产环境。
+- [x] 增加历史异常环路回归：构造三节点闭环，验证 visited 集合可终止遍历、节点/边不重复且结果保持有界。
+- [x] 增加 700 节点级测试数据，执行 ANALYZE + EXPLAIN，分别验证 ForkRelation 上下游索引和 Inspired source/target 复合索引进入查询计划。
+- [x] 性能验证采用查询计划与边界断言，不设置脆弱的墙钟耗时阈值；实际生产容量仍需基于真实数据规模压测。
+- [ ] 最新 exact-head CI 的 PostgreSQL Universe job 与其余 Backend、Migration、Concurrency、Flutter jobs 全部通过。
+- [ ] 后续补充真实数据分布下的 EXPLAIN ANALYZE / BUFFERS 基准及小屏复杂布局验收。
