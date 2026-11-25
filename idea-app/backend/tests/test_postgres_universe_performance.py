@@ -116,7 +116,7 @@ async def test_graph_traversal_indexes_are_used_for_both_directions():
         async with sessions() as seed:
             seed.add(User(
                 id=owner_id,
-                username=f"universe_idx_{uuid.uuid4().hex[:10]}",
+                username=f"uix_{uuid.uuid4().hex[:10]}",
                 password_hash="test-only",
             ))
             await seed.flush()
