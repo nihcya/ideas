@@ -317,6 +317,7 @@ async def test_postgres_migration_order_guards_and_failed_transaction_rollback()
             "010_idea_reports",
             "011_user_follows",
             "012_legacy_license_deadlines",
+            "013_notification_type_length",
         }
         owner_id, contributor_id = uuid.uuid4(), uuid.uuid4()
         await conn.executemany(
