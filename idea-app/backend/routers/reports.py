@@ -5,6 +5,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_db, get_current_user
@@ -70,7 +71,25 @@ async def create_idea_report(
         result="success",
         reason=f"idea_id={idea_id}; reason={payload.reason}",
     ))
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        # The partial unique index serializes simultaneous submissions. Re-check
+        # after rollback so a concurrent winner becomes the same stable 409 contract.
+        existing = await db.scalar(
+            select(IdeaReport.id).where(
+                IdeaReport.idea_id == idea_id,
+                IdeaReport.reporter_id == user.id,
+                IdeaReport.status.in_(["pending", "in_review"]),
+            )
+        )
+        if existing is not None:
+            raise HTTPException(
+                status_code=409,
+                detail={"error": {"code": "REPORT_ALREADY_OPEN", "message": "你已经提交过该创意的待处理举报"}},
+            )
+        raise
     return {"id": str(report.id), "status": report.status}
 
 
