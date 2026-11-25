@@ -19,8 +19,8 @@ The debug APK produced by normal CI is a test artifact, not a store-ready packag
 
 ## Database and scheduled jobs
 
-- Follow `IDEAS_V2_PRODUCTION_MIGRATION_RUNBOOK.md` and apply migrations 001–012 in order during an approved maintenance window.
-- Migration 001 defines the V2.0 activation marker; Migration 012 derives the historical public-Idea authorization deadline as activation + 90 days.
+- Follow `IDEAS_V2_PRODUCTION_MIGRATION_RUNBOOK.md` and apply migrations 001–013 in order during an approved maintenance window.
+- Migration 001 defines the V2.0 activation marker; Migration 012 derives the historical public-Idea authorization deadline as activation + 90 days; Migration 013 widens notification event identifiers to VARCHAR(40).
 - Schedule `python -m jobs.expire_legacy_license_reviews` daily from the backend working directory.
 - Set `ADMIN_USER_IDS` to the comma-separated UUID allowlist for moderation administrators.
 - Configure the normal production API URL as the `api_base_url` workflow input; do not use the local CI default.
