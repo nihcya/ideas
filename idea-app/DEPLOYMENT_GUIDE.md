@@ -1129,3 +1129,6 @@ docker exec dianzi-postgres pg_dump -U dianzi dianzi_app | gzip > /opt/dianzi/ba
 - 截止前 7 天发送一次 `legacy_license_reminder` 通知；截止后将状态标记为 `expired` 并关闭新的衍生许可。
 - 过期不会删除或下架历史公开内容，也不会撤销已产生衍生创意的授权快照；创作者仍可查看原有内容。
 - 发布接口会再次校验截止时间，避免每日任务未及时运行时通过发布操作绕过 90 天期限。
+
+
+- Migration 013 must be applied after 012 to widen `notifications.type` to `VARCHAR(40)`, required by the legacy authorization reminder event identifier.
