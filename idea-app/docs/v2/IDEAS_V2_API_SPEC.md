@@ -329,3 +329,8 @@ See IDEAS_V2_SPRINT3_UNIVERSE_SPEC.md for traversal, privacy and edge contracts.
 - Idea detail responses expose `legacy_license_review_status` and `legacy_license_review_due_at`.
 - A daily CLI job sends one reminder during the final 7 days and changes overdue pending records to expired; expiry disables new derivations without removing public content or changing already-created derivative authorization snapshots.
 - Publish API independently checks the stored deadline, so a delayed cron run cannot re-enable derivation after expiry.
+
+
+## Notification event identifier compatibility
+
+- Migration 013 widens `notifications.type` to `VARCHAR(40)` so event identifiers such as `legacy_license_reminder` are not truncated or rejected by PostgreSQL.
